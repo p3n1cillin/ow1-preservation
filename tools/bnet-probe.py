@@ -105,9 +105,59 @@ def read_frame(conn):
     return hlen, fields, sizes[0]
 
 
-CONNECTION_SERVICE = 0x65446991   # public bgs ConnectionService hash
-AUTH_SERVER_SERVICE = 0x0DECFC01  # public bgs AuthenticationServer hash
+CONNECTION_SERVICE = 0x65446991   # FNV-1a of bnet.protocol.connection.ConnectionService
+AUTH_SERVER_SERVICE = 0x0DECFC01  # FNV-1a of bnet.protocol.authentication.AuthenticationServer
+AUTH_CLIENT_SERVICE = 0x71240E35  # FNV-1a of bnet.protocol.authentication.AuthenticationClient
+ON_LOGON_COMPLETE = 5             # AuthenticationClient method id (from client descriptors)
 RESPONSE_SERVICE = 0xFE           # bgs service_id marking a message as a response
+
+
+def enc_f64(field, val):
+    return enc_varint(field << 3 | 1) + struct.pack("<Q", val)
+
+
+def enc_fixed32(field, val):
+    return enc_varint(field << 3 | 5) + struct.pack("<I", val)
+
+
+def build_logon_result(battle_tag, account_id):
+    """LogonResult for AuthenticationClient.OnLogonComplete. This is our own
+    preservation server granting a local session; the battle_tag is the identity
+    the player appears as. error_code 0 = success. EntityId = {high, low}."""
+    entity = enc_f64(1, 0) + enc_f64(2, account_id)
+    body = enc_v(1, 0)                       # error_code = success
+    body += enc_b(2, entity)                 # account_id
+    body += enc_b(3, entity)                 # game_account_id (repeated; one entry)
+    body += enc_b(7, battle_tag.encode())    # battle_tag
+    body += enc_v(6, 1)                       # connected_region
+    body += enc_v(5, 1)                       # available_region (repeated; one entry)
+    return body
+
+
+def walk(buf, depth=0):
+    """Wire-type-aware recursive outline. fixed32 values are shown as hex (bgs
+    service hashes are fixed32). Only used on the bind block, which carries
+    service hashes/ids and a ProcessId, never account credentials."""
+    pos, parts = 0, []
+    try:
+        while pos < len(buf):
+            tag, pos = read_varint(buf, pos)
+            fn, wt = tag >> 3, tag & 7
+            if wt == 0:
+                v, pos = read_varint(buf, pos); parts.append(f"f{fn}={v}")
+            elif wt == 5:
+                v = struct.unpack_from("<I", buf, pos)[0]; pos += 4; parts.append(f"f{fn}=x{v:08x}")
+            elif wt == 1:
+                v = struct.unpack_from("<Q", buf, pos)[0]; pos += 8; parts.append(f"f{fn}=x{v:016x}")
+            elif wt == 2:
+                ln, pos = read_varint(buf, pos); sub = buf[pos:pos + ln]; pos += ln
+                inner = walk(sub, depth + 1) if depth < 4 and sub else ""
+                parts.append(f"f{fn}={{{inner}}}" if inner else f"f{fn}=bytes({ln})")
+            else:
+                break
+    except (ValueError, struct.error):
+        pass
+    return ", ".join(parts)
 
 
 def sketch(buf):
@@ -195,7 +245,7 @@ def describe(fields):
                      for k, values in sorted(fields.items()))
 
 
-def handle(conn, addr, log, serve=False):
+def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001"):
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
 
     def emit(line):
@@ -245,12 +295,27 @@ def handle(conn, addr, log, serve=False):
                 if service == CONNECTION_SERVICE and method == 1:
                     resp_body, imports, detail = build_connect_response(body)
                     emit(f"{now()}   ConnectRequest: {detail}")
+                    emit(f"{now()}   bind walk: {walk(decode_header(body).get(5, [b''])[0])}")
                     ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], resp_body))
                     emit(f"{now()}   -> ConnectResponse sent ({len(resp_body)} B, assigned {len(imports)} imported service id(s))")
-                elif service == AUTH_SERVER_SERVICE:
-                    emit(f"{now()}   AuthenticationServer method {method} body: {sketch(body)}"
-                         f"  (string/bytes values redacted)")
-                    emit(f"{now()}   (Logon responder not implemented yet; observing)")
+                elif service == AUTH_SERVER_SERVICE and method == 1:
+                    emit(f"{now()}   LogonRequest body: {sketch(body)}  (string/bytes values redacted)")
+                    # Acknowledge the Logon RPC (empty NoData response). The real
+                    # auth result is expected via a server->client listener call;
+                    # observe whether the client waits for that, opens a web login
+                    # connection, or sends another RPC.
+                    ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], b""))
+                    emit(f"{now()}   -> Logon acknowledged (empty NoData response)")
+                    # Grant the session by calling the client's AuthenticationClient
+                    # listener: OnLogonComplete(LogonResult{error_code=0, ...}). The
+                    # service is addressed by hash (fixed32, field 11), as the client
+                    # does; method 5 = OnLogonComplete.
+                    result = build_logon_result(battle_tag, 1001)
+                    header = (enc_v(1, 0) + enc_v(2, ON_LOGON_COMPLETE) + enc_v(3, 2)
+                              + enc_fixed32(11, AUTH_CLIENT_SERVICE))
+                    ws_send(conn, frame([header], result))
+                    emit(f"{now()}   -> OnLogonComplete sent (battle_tag={battle_tag!r}, "
+                         f"{len(result)} B); observing client's next move")
                 else:
                     emit(f"{now()}   service {hex(service)} method {method} body: {sketch(body)}")
             return
@@ -283,6 +348,8 @@ def main():
                     help="limit the observer's TLS version for native compatibility diagnostics")
     ap.add_argument("--serve", action="store_true",
                     help="answer ConnectionService.Connect and keep observing the follow-on RPC sequence")
+    ap.add_argument("--battle-tag", default="Preservation#1001",
+                    help="identity granted to the client on login (served to OnLogonComplete)")
     args = ap.parse_args()
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -308,7 +375,7 @@ def main():
                 line = f"{datetime.datetime.now().isoformat(timespec='seconds')} TLS handshake FAILED from {addr}: {e}"
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue
-            threading.Thread(target=handle, args=(tls, addr, log, args.serve), daemon=True).start()
+            threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag), daemon=True).start()
 
 
 if __name__ == "__main__":

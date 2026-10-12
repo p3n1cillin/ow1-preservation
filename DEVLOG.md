@@ -447,3 +447,23 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - Confirmed login entry sequence: TLS (mapped cert + socket CA) -> WebSocket
   v1.rpc.battle.net -> Connect -> Logon(web-auth). No login completed yet; the
   Logon responder and the web-auth endpoint are the next implementation step.
+
+## 2026-10-12 — full bgs login schema extracted; login grant attempted
+
+- The client embeds its protobuf descriptors. Extracted the authoritative schema
+  to docs/BGS_PROTOCOL.md: ConnectionService/AuthenticationService/Authentication
+  Listener method ids, and ConnectRequest/LogonRequest/LogonResult/EntityId fields.
+- Service hash = FNV-1a 32 of the legacy bnet.protocol.* name (verified:
+  AuthenticationServer -> 0x0DECFC01 matches the wire). Listener =
+  AuthenticationClient -> 0x71240E35. Method ids from (method_options).id:
+  Logon=1 (byte 08 01, matches wire), OnLogonComplete=5 (byte 08 05).
+- ConnectRequest.use_bindless_rpc=true (the observed f3=1): services are addressed
+  purely by hash, no id binding. ConnectRequest field 5 is client_sdk_info, not a
+  bind. Our minimal ConnectResponse is accepted and the client advances to Logon.
+- `--serve` now: acks Logon (empty NoData) and calls AuthenticationClient.
+  OnLogonComplete(LogonResult{error_code=0, battle_tag, EntityId account ids}).
+  The Logon ack alone is accepted (client waits); adding OnLogonComplete makes the
+  client cleanly close (native job error 0, not a TLS/connection failure). Routing
+  params (hash 0x71240E35, method 5) are byte-verified correct, so the client is
+  rejecting the LogonResult CONTENT. Next: real EntityId high-word type bits and/or
+  session_key; iterate LogonResult until the client stays connected and proceeds.
