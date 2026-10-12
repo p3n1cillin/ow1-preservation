@@ -1,15 +1,12 @@
 #pragma once
 // Private-server bgs TLS acceptance patch for the final retail client.
 //
-// The bgs login RPC uses a statically-linked OpenSSL ("cross_ssl") whose trust
-// is governed by an RSA-signed ServerInfo pin bundle baked into the client, so
-// our own CA cannot satisfy it. Empirically the client (as TLS client) rejects
-// our loopback server's certificate DURING the handshake: it sends its
-// ClientHello, receives our ServerHello+Certificate, then closes before its
-// own Finished. The rejection therefore happens in the in-handshake OpenSSL
-// cert-verify callbacks (chain + public-key pinning), which are invoked
-// indirectly through a stored function pointer and return a cross_ssl result
-// code (0 = verified, nonzero = failure).
+// Historical candidate patches; writes currently fail on MEM_MAPPED pages.
+// Original instruction tracing places the bgs chain/pin helpers under the
+// connection-state dispatcher, not proven OpenSSL certificate callbacks.
+// A native CA import plus a TLS-1.2 observer completes the server handshake;
+// the peer then closes before sending an RPC. Earlier claims that these sites
+// necessarily caused the in-handshake close are superseded. See FINAL_RETAIL.md.
 //
 // To let the UNMODIFIED-ON-DISK client trust OUR OWN loopback login server, we
 // patch, in memory only, the return value of those verify callbacks to report
@@ -42,9 +39,9 @@ struct Site {
 
 inline const std::vector<Site>& sites() {
     static const std::vector<Site> s = {
-        // In-handshake chain-verify callback return: mov eax,ebx; jmp +2; xor eax,eax.
+        // bgs chain-verdict helper return: mov eax,ebx; jmp +2; xor eax,eax.
         {"chain-verify", 0x217c3a9, {0x8b,0xc3,0xeb,0x02,0x33,0xc0}, 0, true},
-        // In-handshake public-key-pinning callback return: nop; mov eax,ebx; mov rcx,[rsp+0x180].
+        // bgs public-key-pinning helper return: nop; mov eax,ebx; mov rcx,[rsp+0x180].
         {"pin-verify", 0x217bb53, {0x90,0x8b,0xc3,0x48,0x8b,0x8c,0x24,0x80,0x01}, 1, true},
         // Post-handshake verdict aggregator return (reached only once the
         // handshake completes; best-effort, may stay encrypted until then).

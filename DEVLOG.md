@@ -1,5 +1,35 @@
 # Development log
 
+## 2026-10-12 — Cutscene skipping, native CA import and TLS 1.2
+
+- Private launches automatically apply the existing guarded native ShowIntro
+  dismissal. No user window input is required for these test runs.
+- Traced exact original TLS object/context/SSL/store identities and APIs. Verify
+  modes are already zero; transport +10 is the role. Added an opt-in bounded,
+  exact-loopback public-CA import through original PEM/store/free functions.
+  It retains the context, preserves original suspend counts and registers an
+  author callback unwind table. Original verifier code, TLS role/mode fields,
+  host trust and original client files are unchanged by this path.
+- Initial guards stopped before CA import on an incorrect parser prefix and
+  changing thread inventory. Corrected the exact instruction guard and bounded
+  thread stabilization; already-suspended threads keep their original counts.
+  Final native callbacks report parsed/inserted/unwind 1/1/1; measured completion
+  at 2,891 ms precedes a 30-second-delayed server certificate.
+- Added observer `--tls-max` / `--handshake-delay` and negotiated-version logs.
+  TLS 1.2 completes with our own server, then the client closes before the first
+  RPC header bytes. A no-CA/no-patch control repeats this result. CA import is
+  therefore not credited as the cause of handshake completion. Default TLS
+  negotiation's native failure remains unverified.
+- Traced a mapped-loopback certificate-CN case; neither a matching own CN nor a
+  bracketed mapped BNetServer produces RPC. Removed the experimental address
+  allowance from the shipped CA guard. Post-handshake verdict/state tracing is
+  the next frontier; no original authentication or gameplay is claimed.
+- Rebuilt native targets and passed all 13 CTest targets, including restricted
+  CA CLI safeguards and five synthetic observer framing cases. Local dumps,
+  generated certificates/keys and client bytes remain outside Git.
+- Completed owned runs restore the saved client-folder/launcher-file ACLs
+  exactly. Original client hash is unchanged and its signature remains Valid.
+
 ## 2026-10-11 — User-supplied ISO inspection
 
 - Inspected the supplied 5.18 GB ISO using read-only archive listing, then an experimental ISO9660/DD-v1 reader. No mounting, installer execution, game launch or patching.

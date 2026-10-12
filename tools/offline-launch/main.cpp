@@ -710,6 +710,7 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
     return 1;
 }
 #include "retail_world_probe.h"
+#include "retail_ca_probe.h"
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--child-probe") return network_probe();
@@ -719,11 +720,28 @@ int wmain(int argc, wchar_t** argv) {
     std::vector<loopback_bridge::Forward> forwards;
     std::wstring client_arguments;
     DWORD private_run_ms = INFINITE;
+    std::string trust_ca_pem;
     const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
     if (retail_private) {
         try {
             int n = 3;
             for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) == L"--trust-ca" && n + 1 < argc) {
+                    if (!trust_ca_pem.empty()) throw std::runtime_error("Specify one public CA certificate");
+                    const std::filesystem::path certificate = argv[++n];
+                    if (!std::filesystem::is_regular_file(certificate) || std::filesystem::file_size(certificate) > 16384)
+                        throw std::runtime_error("CA probe requires a bounded public PEM certificate");
+                    std::ifstream input(certificate, std::ios::binary);
+                    trust_ca_pem.assign(std::istreambuf_iterator<char>(input), {});
+                    const std::string begin = "-----BEGIN CERTIFICATE-----", end = "-----END CERTIFICATE-----";
+                    const auto first = trust_ca_pem.find(begin), last = trust_ca_pem.find(end);
+                    if (trust_ca_pem.size() > 16384 || first == std::string::npos || last == std::string::npos || last <= first
+                        || trust_ca_pem.find(begin, first + begin.size()) != std::string::npos
+                        || trust_ca_pem.find(end, last + end.size()) != std::string::npos
+                        || trust_ca_pem.find("PRIVATE KEY") != std::string::npos || trust_ca_pem.find('\0') != std::string::npos)
+                        throw std::runtime_error("CA probe accepts one public PEM certificate, without private keys");
+                    continue;
+                }
                 if (std::wstring(argv[n]) == L"--run-for" && n + 1 < argc) {
                     const std::wstring seconds = argv[++n];
                     if (seconds.empty() || seconds.size() > 4 || seconds.find_first_not_of(L"0123456789") != std::wstring::npos)
@@ -743,6 +761,10 @@ int wmain(int argc, wchar_t** argv) {
                 if (!client_arguments.empty()) client_arguments += L' ';
                 client_arguments += argument.find(L' ') == std::wstring::npos ? argument : L"\"" + argument + L"\"";
             }
+            if (!trust_ca_pem.empty() && (private_run_ms == INFINITE || private_run_ms > 180000
+                || forwards.size() != 1 || forwards[0].container_port != 1119
+                || client_arguments != L"--BNetServer=127.0.0.1:1119"))
+                throw std::runtime_error("CA probe requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
         } catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
         argc = 3;
     }
@@ -866,13 +888,22 @@ int wmain(int argc, wchar_t** argv) {
         }
         ResumeThread(child.hThread);
         std::cout << "Offline client PID=" << child.dwProcessId << std::endl;
+        if (retail_private) {
+            PROCESS_BASIC_INFORMATION basic{};
+            using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+            const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
+            checked(query && query(child.hProcess, ProcessBasicInformation, &basic, sizeof(basic), nullptr) >= 0, "Private intro image lookup");
+            const auto image = read_child<uint64_t>(child.hProcess, reinterpret_cast<uint64_t>(basic.PebBaseAddress) + 0x10);
+            retail_world_probe::skip_intro(child.hProcess, image);
+        }
         std::unique_ptr<std::jthread> tls_patch_thread;
-        if (retail_private && !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0)) {
-            // Apply the bgs TLS acceptance patch in the background so the
-            // interactive client keeps starting while we wait for the packed
-            // image to decrypt the verify site. In-memory only; disk unchanged.
+        if (retail_private && (!trust_ca_pem.empty() || !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0))) {
+            // Run the chosen exact-build TLS diagnostic while the client starts.
+            // The optional CA path calls the original certificate-store API;
+            // the legacy path still attempts the guarded in-memory code patch.
             const HANDLE patch_process = child.hProcess;
-            tls_patch_thread = std::make_unique<std::jthread>([patch_process](std::stop_token stop) {
+            const auto primary_tid = child.dwThreadId;
+            tls_patch_thread = std::make_unique<std::jthread>([patch_process, primary_tid, trust_ca_pem](std::stop_token stop) {
                 PROCESS_BASIC_INFORMATION basic{};
                 using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
                 const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
@@ -883,7 +914,9 @@ int wmain(int argc, wchar_t** argv) {
                 if (!ReadProcessMemory(patch_process, reinterpret_cast<char*>(basic.PebBaseAddress) + 0x10, &image, sizeof(image), nullptr) || !image) {
                     std::cout << "bgs TLS patch: image base unavailable; client left unpatched." << std::endl; return;
                 }
-                retail_tls_patch::apply(patch_process, image, stop);
+                if (trust_ca_pem.empty()) retail_tls_patch::apply(patch_process, image, stop);
+                else try { retail_ca_probe::run(patch_process, image, primary_tid, trust_ca_pem, stop); }
+                catch (const std::exception& error) { std::cout << "Native CA probe: " << error.what() << std::endl; }
             });
         }
         if (retail_map && !retail_debug) {

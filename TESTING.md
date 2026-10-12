@@ -85,4 +85,17 @@ See FINAL_RETAIL.md for the actual run and corrected scope.
 The isolation self-test also exercises host bridge teardown with a pending pipe
 listener, so bounded cleanup does not leave a detached thread using its owner.
 
+Latest continuation: the rebuilt native targets and **13/13 CTest targets pass**
+with the CA option's unknown-build, bounded-lifetime, non-loopback endpoint and
+private-key rejection checks. The five observer framing fixtures also verify
+that a completed TLS connection followed by immediate EOF is not reported as
+an RPC. These are guard/framing tests, not native login tests.
+
+Native CA callbacks return parsed/inserted/unwind results 1/1/1. Real TLS 1.2
+handshakes now complete; the peer closes before an RPC header. A no-CA/no-patch
+control also completes TLS 1.2, so the handshake improvement is not attributed
+to the CA import. Private-launch ShowIntro skipping is recorded by the guarded
+native launcher. See the latest FINAL_RETAIL continuation for evidence and
+reproduction; final login/gameplay remain unverified.
+
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.

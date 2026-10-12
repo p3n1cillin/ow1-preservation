@@ -75,6 +75,27 @@ foreach ($duration in @('0','3601','-1','NaN','99999')) {
         throw "Invalid private diagnostic duration accepted: $duration"
     }
 }
+$certificateFixture = Join-Path ([IO.Path]::GetTempPath()) ('ow1-public-cert-test-' + [guid]::NewGuid() + '.pem')
+try {
+    # Author-written framing fixture, not an actual certificate. No game call
+    # can occur: the unrelated launcher must reach the executable hash guard.
+    Set-Content -LiteralPath $certificateFixture -Value "-----BEGIN CERTIFICATE-----`nfixture`n-----END CERTIFICATE-----" -Encoding ascii
+    $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --trust-ca $certificateFixture -- --BNetServer=127.0.0.1:1119 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Retail launch only supports the fingerprinted final OW1 executable*') {
+        throw 'CA probe did not reject an unrelated executable before mutation'
+    }
+    $rejection = & $Launcher $Launcher --retail-private --trust-ca $certificateFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*CA probe requires a 1..180-second run*') { throw 'Unbounded CA probe accepted' }
+    foreach ($server in @('--BNetServer=example.invalid:1119', '--BNetServer=127.0.0.1:1120')) {
+        $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --trust-ca $certificateFixture -- $server 2>&1
+        if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*exact loopback BNetServer argument*') { throw 'CA probe accepted a different service endpoint' }
+    }
+    $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 181 --trust-ca $certificateFixture -- --BNetServer=127.0.0.1:1119 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*CA probe requires a 1..180-second run*') { throw 'CA lifetime bound exceeded' }
+    Set-Content -LiteralPath $certificateFixture -Value "-----BEGIN CERTIFICATE-----`nfixture PRIVATE KEY`n-----END CERTIFICATE-----" -Encoding ascii
+    $rejection = & $Launcher $Launcher --retail-private --trust-ca $certificateFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*without private keys*') { throw 'Private-key-containing CA input accepted' }
+} finally { Remove-Item -LiteralPath $certificateFixture -Force }
 if ((Get-Acl -LiteralPath $Launcher).Sddl -ne $beforeFile -or
     (Get-Acl -LiteralPath $folder).Sddl -ne $beforeFolder) { throw 'Rejected patch changed ACL' }
 Write-Host 'Isolation, ACL restoration and unknown-build rejection passed.'

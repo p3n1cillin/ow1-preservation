@@ -49,9 +49,19 @@ restoration or rebuilding its executable.
   Flag 1 = success, 0 = structured error. Captured status/tag/code = 3/2/-1
   at action +18/+19/+20. +138/+140 are successful data/count fields. Earlier
   empty-backend-reply/error-at-+140 claims are superseded.
-- The private TLS bridge works at transport level. A fresh bounded run reaches
-  our observer twice and closes before handshake completion. No decrypted RPC
-  or working private authentication has been captured.
+- **Latest TLS evidence supersedes the previous handshake-only failure:** the
+  observer with `--tls-max 1.2` completes native TLS, both with and without CA
+  import. The peer closes before the first two RPC-header-length bytes. No RPC
+  or working private authentication has been captured. Default TLS negotiation
+  still closes during handshake; its exact failure has not been decoded.
+- Private launches automatically disable the guarded native ShowIntro option.
+  Do not ask the user to dismiss the cutscene for these runs.
+- New opt-in `-TrustCaCertificate <public-root.pem>` calls the original PEM /
+  X509_STORE_add_cert / X509-free functions on the guarded primary transport.
+  Native parsed/inserted/unwind results are 1/1/1, about 3 seconds into the probe.
+  Retains the SSL_CTX until bounded job exit; it does not change verifier code,
+  TLS roles/modes, host trust or client files. Requires a 1..180-second run and
+  the exact port-1119 loopback endpoint. Preserve original thread suspend counts.
 - Candidate TLS writes fail Win32 87 on execute-read MEM_MAPPED pages.
   **ACG is not established:** queried dynamic-code policy flags are 0, including
   after failures. Do not repeat the old diagnosis or assume injection fixes
@@ -60,8 +70,12 @@ restoration or rebuilding its executable.
 - The original final executable hash/signature remain unchanged. No final map,
   controllable hero, authoritative match or 6v6 matchmaking is verified.
 
-Next: establish narrowly scoped trust for our own loopback TLS service, capture
-the real first RPC, then implement demonstrated login/session interfaces.
+Next: use TLS 1.2 to trace original post-handshake chain/hostname/pin verdicts
+and connection state, capture the real first RPC, then implement demonstrated
+login/session interfaces. Static bgs helpers are not proven OpenSSL handshake
+callbacks. A special mapped-loopback certificate case exists, but a matching
+CN certificate still yielded no RPC; bracketed mapped BNetServer yielded no TCP.
+Do not treat either experiment as a working pin solution.
 Independently trace native Hotfix/cache initialization. Never fabricate
 completion/readiness/state flags as gameplay success.
 

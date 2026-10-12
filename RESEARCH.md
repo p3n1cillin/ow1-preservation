@@ -59,3 +59,16 @@ mapped-page writes fail Win32 87, while measured dynamic-code policy is zero.
 ACG is not an established cause. Pattern matches elsewhere do not prove
 relocated functions, and a full-page comparison found no alternate copies in
 the capture. See FINAL_RETAIL.md for the bounded reproduction and evidence.
+
+## 2026-10-12 — TLS 1.2 and native certificate APIs
+
+The original client completes a TLS 1.2 handshake with our local observer, then
+closes before sending an RPC header. A no-CA/no-patch control repeats the result;
+default negotiation still fails during handshake. The native SSL_CTX and SSL
+verify modes are already zero. Separate bgs chain/hostname/pin helpers are
+reached under a connection-state dispatcher; they are not established OpenSSL
+handshake callbacks. A public-CA import through original PEM/X509 APIs returns
+success, but does not complete RPC/login. Static mapped-loopback CN handling
+has not produced an RPC in native tests. Observe actual post-handshake verdicts
+before attributing the close to a specific certificate or pin error. Details,
+runtime scope and reproduction are recorded in FINAL_RETAIL.md.

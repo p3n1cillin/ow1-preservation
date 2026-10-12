@@ -442,3 +442,83 @@ Local evidence: `retail-private-mitigation.log`,
 `final-retail-practice-sdk-corrected.json`, all outside Git. A game-window capture
 did not establish the current rendered screen; the runtime findings above come
 from native/server diagnostics. No final map, hero or private match is verified.
+
+## Continuation: native CA import and completed TLS 1.2
+
+**Latest evidence:** our TLS 1.2 observer completes the original client's
+handshake. The client then closes before sending even the two-byte RPC header
+length. This is transport progress, not private authentication or gameplay.
+The control run disables the legacy TLS patch worker and imports no CA; it also
+completes TLS 1.2 and closes without RPC. Thus CA import is not established as
+necessary for handshake completion. Default server TLS negotiation still fails
+during handshake; its precise native error remains unverified.
+
+All private diagnostic launches now skip the cutscene using the existing
+instruction-guarded native ShowIntro option. No window input is required, and
+this setting does not establish which screen rendered afterwards.
+
+Static original instruction tracing identifies a native TLS client context
+and its certificate store. SSL_CTX and SSL verify-mode fields are already zero;
+the transport +10 field is its client/server role, not a verification switch.
+The separate bgs chain/hostname/pin verdict path runs under its connection-state
+dispatcher. Earlier claims that the candidate patch sites necessarily belonged
+to OpenSSL's in-handshake certificate callbacks are superseded.
+
+The new opt-in `-TrustCaCertificate` diagnostic uses only an operator-supplied
+public certificate, at most 16 KiB, for the exact loopback BNetServer argument.
+It requires a 1..180-second run and one container-port-1119 forward. It verifies
+the executable hash and native instruction/object profile, finds one live TLS
+context, preserves existing thread suspend counts, stabilizes the owned thread
+inventory and retains the context. On the guarded primary transport it calls
+the original PEM parser, X509_STORE_add_cert and X509-free functions, then
+restores the original thread context. The extra context reference and author
+callback allocation remain local until bounded job exit.
+
+Native runs return `parsed=1 inserted=1 unwind_registered=1`; the timed run
+completes the callback in 2,891 ms, before a server delayed by 30 seconds sends
+its certificate. An independently read local dump also contains the completed
+author callback and a live retained context. This does not override original
+certificate, hostname or pin verdicts, alter TLS roles/modes, write original
+executable pages, or install host certificates. Initial parser-guard, thread
+suspension and changing-inventory failures stopped before CA import; the final
+thread guard preserves already-suspended threads and bounds stabilization.
+
+Provide your own local CA, server certificate chain and server private key
+outside Git, with a loopback SAN/name. Start the observing server in one shell:
+
+```powershell
+$localTls = Join-Path $env:LOCALAPPDATA 'OW1-preservation-build\private-ca-probe'
+python tools/bnet-probe.py --cert "$localTls\server.pem" --key "$localTls\server-key.pem" --log "$localTls\observer.log" --tls-max 1.2 --handshake-delay 10
+```
+
+In another shell, after building:
+
+```powershell
+.\scripts\Start-PrivateClient.ps1 -RunForSeconds 60 -TrustCaCertificate "$env:LOCALAPPDATA\OW1-preservation-build\private-ca-probe\root.pem"
+```
+
+The delay is diagnostic scheduling time, configurable 0..60 seconds; it is not
+a protocol requirement. The observer logs the negotiated TLS version and bounds
+framing while omitting body/string contents. The TLS 1.2 CA run exchanges 386
+client bytes / 2,185 server bytes, completes the handshake, then closes before
+RPC. The no-CA/no-patch control produces the same byte counts and outcome.
+[Python's TLS version limit API](https://docs.python.org/3/library/ssl.html#ssl.SSLContext.maximum_version).
+
+Original pin-helper tracing finds a special certificate-CN comparison for
+`::ffff:127.0.0.1`. A fresh own certificate with that CN still completes TLS 1.2
+and closes without RPC. A bracketed mapped-address BNetServer experiment makes
+no bridge connection. Neither is a verified solution; the shipped CA probe
+continues to require the exact IPv4 loopback argument. The next step is observing
+the original post-handshake verdict and connection-state transition, rather
+than assuming a specific pin failure or inventing server replies.
+
+Local evidence outside Git: `retail-private-ca-stable.log`,
+`retail-private-ca-delay30.log`, `retail-private-ca-tls12.log`,
+`retail-private-ca-mapped-cert.log`, `retail-private-tls12-no-ca.log`, corresponding
+named dumps, and observing-server logs under `private-ca-probe` /
+`private-mapped-ca`. Certificate/key files, dumps and proprietary bytes stay
+outside the public source repository. No RPC, private login, rendered final map,
+hero or original private match is verified.
+After the completed runs, client-folder and launcher-file ACLs match the saved
+baseline exactly; the original executable SHA256 is unchanged and its signature
+remains Valid. All owned clients and diagnostic observers were stopped.

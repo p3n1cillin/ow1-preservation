@@ -11,11 +11,13 @@ The eight gameplay milestones from the project request remain unverified. Infras
 7. **Complete one historical mode with 6v6.** Add objectives, spawn rooms, timers, overtime, round transitions, outcomes and cross-client HUD state. Acceptance: twelve real players complete repeated matches under correct team/rule constraints. Extend maps/modes/heroes after this vertical slice works.
 8. **Restore completeness and deployment.** Profile bandwidth/ticks, interpolation/reconciliation, stability and crash diagnostics; add progression/settings/history where supported. Validate Windows and Linux backend deployment separately. Original UI/audio/results/replay fidelity need their own evidence and tests.
 
-Current priority is final retail login: the client reaches our loopback TLS
-observer but closes during handshake. Candidate writes to mapped verification
+Current priority is final retail login: TLS 1.2 now completes with our loopback
+observer, then the peer closes before any RPC header. Default TLS negotiation
+still fails during handshake. Candidate writes to mapped verification
 pages fail Win32 87; queried dynamic-code policy flags are 0, so ACG is not
-established. Investigate mapping constraints and narrowly scoped private trust
-before implementing demonstrated RPC/login/session interfaces. The parallel
+established. The original native certificate store accepts our public CA, but
+RPC/login remain blocked. Trace post-handshake chain/hostname/pin verdicts and
+connection state before implementing demonstrated RPC/session interfaces. The parallel
 loading track publishes Practice's request, loads its header and activates the
 default context, with immediate updates reaching state 4. The corrected SDK
 result is a local Hotfix-directory error (status/tag/code 3/2/-1), not an empty

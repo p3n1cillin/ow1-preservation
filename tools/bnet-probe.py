@@ -16,6 +16,7 @@ import socket
 import ssl
 import struct
 import threading
+import time
 
 MAX_HEADER = 65535
 MAX_BODY = 1024 * 1024
@@ -89,7 +90,7 @@ def handle(conn, addr, log):
     def emit(line):
         print(line, flush=True); log.write(line + "\n"); log.flush()
 
-    emit(f"{stamp} bgs TLS connection established from {addr}")
+    emit(f"{stamp} bgs TLS connection established from {addr}; version={conn.version()}")
     try:
         conn.settimeout(20)
         hlen, fields, body_size = read_frame(conn)
@@ -110,10 +111,16 @@ def main():
     ap.add_argument("--cert", required=True, help="server certificate (chain) PEM")
     ap.add_argument("--key", required=True, help="server private key PEM")
     ap.add_argument("--log", default="bnet-probe.log")
+    ap.add_argument("--handshake-delay", type=int, choices=range(0, 61), default=0,
+                    help="local diagnostic delay before TLS, in seconds (0..60)")
+    ap.add_argument("--tls-max", choices=("1.2", "1.3"),
+                    help="limit the observer's TLS version for native compatibility diagnostics")
     args = ap.parse_args()
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(args.cert, args.key)
+    if args.tls_max:
+        ctx.maximum_version = {"1.2": ssl.TLSVersion.TLSv1_2, "1.3": ssl.TLSVersion.TLSv1_3}[args.tls_max]
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE  # we do not require a client cert
 
@@ -126,6 +133,7 @@ def main():
         while True:
             raw, addr = srv.accept()
             raw.settimeout(10)
+            if args.handshake_delay: time.sleep(args.handshake_delay)
             try:
                 tls = ctx.wrap_socket(raw, server_side=True)
             except (ssl.SSLError, OSError) as e:
