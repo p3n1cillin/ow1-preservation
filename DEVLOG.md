@@ -281,3 +281,20 @@ Implications for the bgs login patch:
 reason; it is retained as documented infrastructure even though the write is
 currently blocked. No disk bytes were ever modified; the launcher restored
 folder ACLs cleanly after every run.
+
+## 2026-10-12 — Branch consolidation onto main
+
+Consolidated all active work onto `main`. Fast-forwarded `main`
+`ad1fea7 -> 0bcc551` (the `claude/continuation` tip: full private-bgs TLS
+harness + ACG diagnosis). `codex/public-preservation` was a strict ancestor of
+that line, so it is fully included. `preservation-foundation` was **not**
+merged: it is a 3.5 h-older parallel line with zero files absent from the
+consolidated tree, and merging it would only re-delete the TLS harness; left in
+place as a reference branch. Auto-stash (`stash@{0}`, a CLAUDE.md deletion from
+a branch switch) left untouched. `git diff main claude/continuation` is empty —
+no work lost.
+
+Frontier unchanged: bgs leg blocked at the ACG wall (external write refused,
+Win32 87). Next step there remains the deferred, dual-use-sensitive in-process
+verify hook. Parallel non-blocked track is the clean-room server/native-metadata
+work per ROADMAP item 4 and the current-priority note.
