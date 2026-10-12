@@ -113,8 +113,9 @@ PROCESS_TASK = 1                     # GameUtilitiesService.ProcessTask
 
 
 def describe_attribute(raw):
-    """bgs.protocol.v2.Attribute {name=1, value=Variant=2}. Names and numeric/bool
-    values are shown; string/blob values only by length."""
+    """bgs.protocol.v2.Attribute {name=1, value=Variant=2}. Names, numeric/bool
+    values and short string values (<= 32 B, request parameters such as
+    service_type/cluster) are shown; longer strings and blobs only by length."""
     try: attr = decode_header(raw)
     except ValueError: return f"opaque({len(raw)} B)"
     name = attr.get(1, [b"?"])[0]
@@ -126,6 +127,8 @@ def describe_attribute(raw):
     for k, kind in kinds.items():
         if k in variant:
             v = variant[k][0]
+            if kind == "string" and isinstance(v, bytes) and len(v) <= 32:
+                return f"{name!r} = string {v.decode('utf-8', 'replace')!r}"
             return f"{name!r} = {kind}" + (f"({len(v)} B)" if isinstance(v, bytes) else f" {v}")
     return f"{name!r} = (empty)"
 ON_LOGON_COMPLETE = 5             # AuthenticationClient method id (from client descriptors)

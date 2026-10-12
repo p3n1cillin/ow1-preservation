@@ -550,3 +550,18 @@ by the measured policy result below. The private TLS handshake remains blocked.
   is producing the result attributes it expects. Schema added to BGS_PROTOCOL.md.
 - retail_ca_probe: per-pass TLS-context search deadline 15s -> 60s; under host load
   a single scan exceeded 15s and aborted the run ("CA session search deadline").
+
+## 2026-10-12 — post-login ProcessTask is the Balancer referral
+
+- Short ProcessTask string values (request parameters only) are now logged:
+  service_type='Balancer', request_type='Referral', version=3, build=104319,
+  cluster='Pro', platform_available='pc_1', payload=empty blob. This is the
+  load-balancer referral: the client asks where its game-service gateway is.
+- The client's referral attribute table (heap copy of its string pool) lists the
+  response vocabulary: response_type in {ReferralInfo, ReferralQueue,
+  ReferralUpdate, ReferralError}, plus payload, callback_delay,
+  approx_queue_position, error_code, debug_error_message, psplus_product_code.
+  Request-side extras: online_id, psn_account_id, xid, platform_env, method_name.
+- An empty ProcessTaskResponse makes the client retry with backoff. Next: decode
+  the ReferralInfo payload format from the client's handler and return a referral
+  to our own gateway.
