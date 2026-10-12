@@ -22,6 +22,10 @@ MAX_HEADER = 65535
 MAX_BODY = 1024 * 1024
 
 
+def now():
+    return datetime.datetime.now().isoformat(timespec="seconds")
+
+
 def read_exact(conn, size):
     data = bytearray()
     while len(data) < size:
@@ -101,7 +105,97 @@ def read_frame(conn):
     return hlen, fields, sizes[0]
 
 
-def handle(conn, addr, log):
+CONNECTION_SERVICE = 0x65446991   # public bgs ConnectionService hash
+AUTH_SERVER_SERVICE = 0x0DECFC01  # public bgs AuthenticationServer hash
+RESPONSE_SERVICE = 0xFE           # bgs service_id marking a message as a response
+
+
+def sketch(buf):
+    """Field-number/type outline of a protobuf body with NO string/bytes values
+    shown (only their length), so account identifiers in a LogonRequest are not
+    logged. Varints (flags/enums/versions) are shown; they carry no identity."""
+    try: fields = decode_header(buf)
+    except ValueError: return f"opaque({len(buf)} B)"
+    parts = []
+    for k, values in sorted(fields.items()):
+        shown = [f"str/bytes({len(v)})" if isinstance(v, bytes) else v for v in values]
+        parts.append(f"f{k}={shown}")
+    return ", ".join(parts)
+
+
+def enc_varint(n):
+    out = bytearray()
+    while True:
+        b = n & 0x7F; n >>= 7
+        out.append(b | (0x80 if n else 0))
+        if not n: return bytes(out)
+
+
+def enc_v(field, n):   return enc_varint(field << 3) + enc_varint(int(n))
+def enc_b(field, buf): return enc_varint(field << 3 | 2) + enc_varint(len(buf)) + buf
+
+
+def frame(header_parts, body):
+    """One bgs RPC message: u16-BE header length, Header protobuf, then body."""
+    header = b"".join(header_parts)
+    return struct.pack(">H", len(header)) + header + body
+
+
+def ws_send(conn, payload):
+    """Send one unmasked binary WebSocket message (server -> client)."""
+    n = len(payload)
+    out = bytearray([0x82])  # FIN + binary opcode
+    if n < 126: out.append(n)
+    elif n < 65536: out.append(126); out += struct.pack(">H", n)
+    else: out.append(127); out += struct.pack(">Q", n)
+    conn.sendall(bytes(out) + payload)
+
+
+def imported_hashes(bind):
+    """ConnectRequest.bind_request.imported_service_hash[] (field 1), whether the
+    client sent them packed (one bytes blob) or as repeated fixed32."""
+    out = []
+    for v in bind.get(1, []):
+        if isinstance(v, bytes):
+            out += [struct.unpack_from("<I", v, i)[0] for i in range(0, len(v) - 3, 4)]
+        else:
+            out.append(v)
+    return out
+
+
+def build_connect_response(req_body):
+    """ConnectResponse for ConnectionService.Connect, built from the client's
+    ConnectRequest. server_id/client_id are ProcessId{label,epoch}; the client's
+    imported services are each assigned a sequential server-local id, which it
+    then uses as the service_id when calling those services (e.g. Logon).
+    Field numbers follow the public bgs connection protocol; refine empirically."""
+    request = decode_header(req_body) if req_body else {}
+    client_id = request.get(1, [b""])[0]
+    client_id = client_id if isinstance(client_id, bytes) else b""
+    # bind_request is a sub-message; this client carries it in field 5.
+    bind, bind_field = {}, None
+    for f in (2, 5):
+        if f in request and isinstance(request[f][0], bytes):
+            try: bind = decode_header(request[f][0]); bind_field = f; break
+            except ValueError: pass
+    imports = imported_hashes(bind)
+    server_id = enc_v(1, 1) + enc_v(2, int(time.time()))
+    bind_response = b"".join(enc_v(1, i) for i in range(len(imports)))
+    body = enc_b(1, server_id)
+    if client_id: body += enc_b(2, client_id)
+    body += enc_v(3, 0)               # bind_result = success
+    body += enc_b(4, bind_response)   # BindResponse.imported_service_id[]
+    detail = (f"request={describe(request)}; bind(field {bind_field})={describe(bind)}; "
+              f"imported_hashes={[hex(h) for h in imports]}")
+    return body, imports, detail
+
+
+def describe(fields):
+    return ", ".join(f"f{k}=" + str([f"bytes({len(v)})" if isinstance(v, bytes) else v for v in values])
+                     for k, values in sorted(fields.items()))
+
+
+def handle(conn, addr, log, serve=False):
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
 
     def emit(line):
@@ -131,14 +225,34 @@ def handle(conn, addr, log):
             if proto: reply += "\r\nSec-WebSocket-Protocol: " + proto.split(",")[0].strip()
             conn.sendall((reply + "\r\n\r\n").encode())
             emit(f"{stamp} WebSocket upgrade accepted")
-            payload = read_ws_message(conn)
-            if payload is None:
-                emit(f"{stamp} WebSocket closed before a data message"); return
-            hlen = struct.unpack_from(">H", payload)[0]
-            fields = decode_header(payload[2:2 + hlen])
-            desc = ", ".join(f"f{k}=" + str([f"bytes({len(v)})" if isinstance(v, bytes) else v for v in values])
-                             for k, values in sorted(fields.items()))
-            emit(f"{stamp} WS bgs header ({hlen} B): {desc}; message bytes={len(payload)} (body omitted)")
+            # Observe the RPC sequence. In --serve mode, answer the opening
+            # ConnectionService.Connect so the client advances to the next RPC
+            # (expected: service bind, then authentication) and we learn it.
+            for _ in range(32 if serve else 1):
+                payload = read_ws_message(conn)
+                if payload is None:
+                    emit(f"{now()} WebSocket closed by client"); return
+                hlen = struct.unpack_from(">H", payload)[0]
+                header = decode_header(payload[2:2 + hlen])
+                body = payload[2 + hlen:]
+                service = header.get(11, [0])[0]
+                method = header.get(2, [None])[0]
+                token = header.get(3, [0])[0]
+                emit(f"{now()} WS RPC in: {describe(header)}; body bytes={len(body)}"
+                     + ("  <ConnectionService.Connect>" if service == CONNECTION_SERVICE and method == 1 else ""))
+                if not serve:
+                    return
+                if service == CONNECTION_SERVICE and method == 1:
+                    resp_body, imports, detail = build_connect_response(body)
+                    emit(f"{now()}   ConnectRequest: {detail}")
+                    ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], resp_body))
+                    emit(f"{now()}   -> ConnectResponse sent ({len(resp_body)} B, assigned {len(imports)} imported service id(s))")
+                elif service == AUTH_SERVER_SERVICE:
+                    emit(f"{now()}   AuthenticationServer method {method} body: {sketch(body)}"
+                         f"  (string/bytes values redacted)")
+                    emit(f"{now()}   (Logon responder not implemented yet; observing)")
+                else:
+                    emit(f"{now()}   service {hex(service)} method {method} body: {sketch(body)}")
             return
         hlen = struct.unpack(">H", first)[0]
         fields = decode_header(read_exact(conn, hlen))
@@ -167,6 +281,8 @@ def main():
                     help="local diagnostic delay before TLS, in seconds (0..60)")
     ap.add_argument("--tls-max", choices=("1.2", "1.3"),
                     help="limit the observer's TLS version for native compatibility diagnostics")
+    ap.add_argument("--serve", action="store_true",
+                    help="answer ConnectionService.Connect and keep observing the follow-on RPC sequence")
     args = ap.parse_args()
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -192,7 +308,7 @@ def main():
                 line = f"{datetime.datetime.now().isoformat(timespec='seconds')} TLS handshake FAILED from {addr}: {e}"
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue
-            threading.Thread(target=handle, args=(tls, addr, log), daemon=True).start()
+            threading.Thread(target=handle, args=(tls, addr, log, args.serve), daemon=True).start()
 
 
 if __name__ == "__main__":

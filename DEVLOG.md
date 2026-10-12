@@ -429,3 +429,21 @@ by the measured policy result below. The private TLS handshake remains blocked.
   **without** `-TrustSocketCa`): socket 1->2, job 2/1016, client closes before
   any bytes; no WebSocket upgrade or RPC. Both the mapped peer-name certificate
   and the original socket CA input are therefore required for the first RPC.
+
+## 2026-10-12 — RPC sequence to the login step (`--serve`)
+
+- `tools/bnet-probe.py --serve` answers ConnectionService.Connect (response =
+  Header{service_id=0xFE, token=echo} + minimal ConnectResponse) and keeps
+  observing. The client accepts a token-matched response (even a 14 B one) and
+  advances. ConnectRequest body carries no credentials.
+- Next RPC is **AuthenticationServer.Logon** (hash 0x0DECFC01, method 1). The
+  LogonRequest structure (string/bytes VALUES redacted, never logged):
+  f1 str(3)=program, f2 str(3)=platform, f3 str(4)=locale, f5 str(3)=version,
+  f6 varint=build 346134399, f10 varint=1 (flag), **f15 str(0)=empty**.
+- The empty credential field indicates the **web-auth flow**: Logon expects the
+  server to drive a browser login (our launcher/web page), not SRP-in-RPC. This
+  matches the two-TLS-stack model in [[retail-login-architecture]] (web leg =
+  libcurl+schannel, satisfiable via our CA in the Windows root store).
+- Confirmed login entry sequence: TLS (mapped cert + socket CA) -> WebSocket
+  v1.rpc.battle.net -> Connect -> Logon(web-auth). No login completed yet; the
+  Logon responder and the web-auth endpoint are the next implementation step.
