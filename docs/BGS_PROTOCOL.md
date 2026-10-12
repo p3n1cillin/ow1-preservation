@@ -143,3 +143,55 @@ message ServerStateChangeRequest {
 }
 
 ```
+
+## Logged-in phase: GameUtilities (v2)
+
+Service hash 0x5dbb51c2 = FNV-1a of the service-option name
+`bnet.protocol.game_utilities.v2.client.GameUtilities`. ProcessTask = 1,
+GetAllValuesForAttribute = 2 (byte-verified option ids).
+
+```proto
+// file bgs/low/pb/client/api/client/v2/game_utilities_service.proto  package bgs.protocol.game_utilities.v2.client
+message ProcessTaskRequest {
+  repeated .bgs.protocol.v2.Attribute attribute = 1;
+  repeated .bgs.protocol.v2.Attribute payload = 2;
+}
+message ProcessTaskResponse {
+  repeated .bgs.protocol.v2.Attribute result = 1;
+}
+message GetAllValuesForAttributeRequest {
+  optional string attribute_key = 1;
+}
+message GetAllValuesForAttributeResponse {
+  repeated .bgs.protocol.v2.Variant attribute_value = 1;
+}
+service GameUtilitiesService {  // options 82f92b360a34626e65742e70726f746f636f6c2e67616d655f7574696c69746965732e76322e636c69656e742e47616d655574696c697469657382f92b102a0e67616d655f7574696c69746965738af92b0210018af92b021801
+  rpc ProcessTask(.bgs.protocol.game_utilities.v2.client.ProcessTaskRequest) returns (.bgs.protocol.game_utilities.v2.client.ProcessTaskResponse);  // options 82f92b020801
+  rpc GetAllValuesForAttribute(.bgs.protocol.game_utilities.v2.client.GetAllValuesForAttributeRequest) returns (.bgs.protocol.game_utilities.v2.client.GetAllValuesForAttributeResponse);  // options 82f92b020802
+}
+
+// file bgs/low/pb/client/api/client/v2/attribute_types.proto  package bgs.protocol.v2
+message Variant {
+  optional bool bool_value = 1;  // oneof type
+  optional int64 int_value = 2;  // oneof type
+  optional double float_value = 3;  // oneof type
+  optional string string_value = 4;  // oneof type
+  optional bytes blob_value = 5;  // oneof type
+  optional uint64 uint_value = 6;  // oneof type
+}
+message Attribute {
+  optional string name = 1;
+  optional .bgs.protocol.v2.Variant value = 2;
+}
+message AttributeFilter {
+  enum Operation { MATCH_NONE=0, MATCH_ANY=1, MATCH_ALL=2, MATCH_ALL_MOST_SPECIFIC=3 }
+  optional .bgs.protocol.v2.AttributeFilter.Operation op = 1;
+  repeated .bgs.protocol.v2.Attribute attribute = 2;
+}
+
+```
+
+## Game account EntityId (required by the OnLogonComplete success path)
+
+`high = (2 << 56) | (region << 32) | program` with region a nonzero byte and
+program = `0x0050726f` ("Pro"); `low` = nonzero game-account id.

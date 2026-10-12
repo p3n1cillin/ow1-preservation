@@ -528,3 +528,25 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - Next: trace what the client does after the handler returns (the logged-in
   phase) to see which further backend step it needs before the main menu, and
   whether it keeps or drops the bgs connection.
+
+## 2026-10-12 — CORRECTION + real login: game account must carry program 'Pro'
+
+- **Correction to the previous entry:** the error_code switch is NOT telemetry-only.
+  Every case, including the error_code==0 branch (0x00e2f11a, id 0x10069), calls
+  0x7ff7952360a0, which moves the auth object to state 1 (via 0x7ff795236630) and
+  fires the logon-failure virtuals (+0xd0/+0xd8). That was a rejection.
+- The real success path is 0x00e2ed93 (sets auth state 0x18, then 0x7ff795227150).
+  It is taken only when a LogonResult.game_account_id decodes through helper
+  rva 0x02152e10 as: type (high>>56) == 2, region byte ((high>>32)&0xff) != 0,
+  program (low 32 bits of high) == 'Pro' 0x0050726f (global rva 0x0267838c), and
+  low != 0. Our game account used high = 2<<56 only, so it failed.
+- With high = (2<<56)|(1<<32)|0x0050726f the client accepts the login, keeps the
+  connection, and enters the logged-in phase: it repeatedly calls
+  **GameUtilities.ProcessTask** (service hash 0x5dbb51c2 =
+  FNV-1a("bnet.protocol.game_utilities.v2.client.GameUtilities"), method 1) with
+  attributes service_type, request_type, version=3, build=104319, cluster,
+  platform_available, payload(empty), plus ConnectionService.KeepAlive. It
+  retries with backoff when given an empty ProcessTaskResponse, so the next step
+  is producing the result attributes it expects. Schema added to BGS_PROTOCOL.md.
+- retail_ca_probe: per-pass TLS-context search deadline 15s -> 60s; under host load
+  a single scan exceeded 15s and aborted the run ("CA session search deadline").

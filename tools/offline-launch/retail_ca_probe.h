@@ -29,7 +29,7 @@ Session inspect(HANDLE process, uint64_t image, uint64_t address) {
 
 Session find(HANDLE process, uint64_t image, std::stop_token stop) {
     MEMORY_BASIC_INFORMATION region{}; uint64_t cursor = 0, scanned = 0;
-    const auto deadline = GetTickCount64() + 15000; Session found;
+    const auto deadline = GetTickCount64() + 60000; Session found;
     while (!stop.stop_requested() && VirtualQueryEx(process, reinterpret_cast<void*>(cursor), &region, sizeof(region))) {
         const auto start = reinterpret_cast<uint64_t>(region.BaseAddress), size = uint64_t(region.RegionSize);
         if (!size || start + size <= cursor) break;

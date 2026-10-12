@@ -108,7 +108,29 @@ def read_frame(conn):
 CONNECTION_SERVICE = 0x65446991   # FNV-1a of bnet.protocol.connection.ConnectionService
 AUTH_SERVER_SERVICE = 0x0DECFC01  # FNV-1a of bnet.protocol.authentication.AuthenticationServer
 AUTH_CLIENT_SERVICE = 0x71240E35  # FNV-1a of bnet.protocol.authentication.AuthenticationClient
+GAME_UTILITIES_SERVICE = 0x5DBB51C2  # FNV-1a of bnet.protocol.game_utilities.v2.client.GameUtilities
+PROCESS_TASK = 1                     # GameUtilitiesService.ProcessTask
+
+
+def describe_attribute(raw):
+    """bgs.protocol.v2.Attribute {name=1, value=Variant=2}. Names and numeric/bool
+    values are shown; string/blob values only by length."""
+    try: attr = decode_header(raw)
+    except ValueError: return f"opaque({len(raw)} B)"
+    name = attr.get(1, [b"?"])[0]
+    name = name.decode("utf-8", "replace") if isinstance(name, bytes) else str(name)
+    value = attr.get(2, [b""])[0]
+    try: variant = decode_header(value) if isinstance(value, bytes) and value else {}
+    except ValueError: return f"{name!r} = opaque"
+    kinds = {1: "bool", 2: "int", 3: "float", 4: "string", 5: "blob", 6: "uint"}
+    for k, kind in kinds.items():
+        if k in variant:
+            v = variant[k][0]
+            return f"{name!r} = {kind}" + (f"({len(v)} B)" if isinstance(v, bytes) else f" {v}")
+    return f"{name!r} = (empty)"
 ON_LOGON_COMPLETE = 5             # AuthenticationClient method id (from client descriptors)
+PROGRAM_PRO = 0x0050726F          # 'Pro' program fourcc the client requires
+REGION = 1                        # nonzero region byte for the game account
 RESPONSE_SERVICE = 0xFE           # bgs service_id marking a message as a response
 
 
@@ -124,16 +146,18 @@ def build_logon_result(battle_tag, account_id):
     """LogonResult for AuthenticationClient.OnLogonComplete. This is our own
     preservation server granting a local session; the battle_tag is the identity
     the player appears as. error_code 0 = success. EntityId = {high, low}."""
-    # EntityId.high carries a type tag (bgs convention): account = 1<<56,
-    # game account = 2<<56. high=0 reads as a null entity.
+    # EntityId.high carries a type tag: account = 1<<56. A game account must be
+    # high = (2<<56) | (region<<32) | program fourcc; the client's OnLogonComplete
+    # handler (rva 0x00e2ebe0, helper 0x02152e10) only takes its success path when
+    # a game account decodes with program == 'Pro' (0x0050726f) and region != 0.
     account_entity = enc_f64(1, 1 << 56) + enc_f64(2, account_id)
-    game_entity = enc_f64(1, 2 << 56) + enc_f64(2, account_id)
+    game_entity = enc_f64(1, (2 << 56) | (REGION << 32) | PROGRAM_PRO) + enc_f64(2, account_id)
     body = enc_v(1, 0)                       # error_code = success
     body += enc_b(2, account_entity)         # account_id
     body += enc_b(3, game_entity)            # game_account_id (repeated; one entry)
     body += enc_b(7, battle_tag.encode())    # battle_tag
-    body += enc_v(6, 1)                      # connected_region
-    body += enc_v(5, 1)                      # available_region (repeated; one entry)
+    body += enc_v(6, REGION)                 # connected_region
+    body += enc_v(5, REGION)                 # available_region (repeated; one entry)
     body += enc_b(9, bytes(32))              # session_key placeholder
     return body
 
@@ -282,7 +306,7 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_gran
             # Observe the RPC sequence. In --serve mode, answer the opening
             # ConnectionService.Connect so the client advances to the next RPC
             # (expected: service bind, then authentication) and we learn it.
-            for _ in range(32 if serve else 1):
+            for _ in range(64 if serve else 1):
                 payload = read_ws_message(conn)
                 if payload is None:
                     emit(f"{now()} WebSocket closed by client"); return
@@ -324,6 +348,16 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_gran
                     ws_send(conn, frame([header], result))
                     emit(f"{now()}   -> OnLogonComplete sent (battle_tag={battle_tag!r}, "
                          f"{len(result)} B); observing client's next move")
+                    conn.settimeout(45)
+                elif service == GAME_UTILITIES_SERVICE and method == PROCESS_TASK:
+                    request = decode_header(body) if body else {}
+                    for label, key in (("attribute", 1), ("payload", 2)):
+                        for raw in request.get(key, []):
+                            emit(f"{now()}   ProcessTask {label}: {describe_attribute(raw)}")
+                    # Empty ProcessTaskResponse (no result attributes) for now; the
+                    # client's reaction tells us what result this task requires.
+                    ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], b""))
+                    emit(f"{now()}   -> empty ProcessTaskResponse sent")
                 else:
                     emit(f"{now()}   service {hex(service)} method {method} body: {sketch(body)}")
             return
