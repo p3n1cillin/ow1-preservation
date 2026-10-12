@@ -12,7 +12,7 @@ Commands: find <ascii>        locate a string and its referencing code
 """
 import struct, sys
 
-IMAGE_BASE = 0x7ff794400000
+IMAGE_BASE = 0x7ff794400000  # fallback; each dump's real base is read from its module list
 
 
 class Dump:
@@ -22,10 +22,14 @@ class Dump:
         assert data[:4] == b"MDMP", "not a minidump"
         nstreams, dir_rva = struct.unpack_from("<II", data, 8)
         self.ranges = []  # (va_start, size, file_offset)
+        self.image_base = IMAGE_BASE  # ASLR: differs per dump; RVAs are stable
         self.f.seek(dir_rva)
         directory = self.f.read(nstreams * 12)
         for i in range(nstreams):
             stype, dsize, rva = struct.unpack_from("<III", directory, i * 12)
+            if stype == 4:  # ModuleListStream: first module is the client executable
+                self.f.seek(rva + 4)
+                self.image_base = struct.unpack("<Q", self.f.read(8))[0]
             if stype == 9:  # Memory64ListStream
                 self.f.seek(rva)
                 nranges, base_rva = struct.unpack("<QQ", self.f.read(16))
@@ -101,16 +105,17 @@ def disasm(dump, va, count=40):
 
 def main():
     dump = Dump(sys.argv[1]); cmd = sys.argv[2]
+    base = dump.image_base
     if cmd == "find":
         needle = sys.argv[3].encode()
         for va in dump.find_all(needle):
-            print(f"string {needle!r} @ {va:012x} (rva {va - IMAGE_BASE:08x})", flush=True)
+            print(f"string {needle!r} @ {va:012x} (rva {va - base:08x})", flush=True)
             for ref in dump.xrefs(va):
-                print(f"  xref @ {ref:012x} (rva {ref - IMAGE_BASE:08x})", flush=True)
+                print(f"  xref @ {ref:012x} (rva {ref - base:08x})", flush=True)
     elif cmd == "dis":
         va = int(sys.argv[3], 16)
-        if va < IMAGE_BASE:
-            va += IMAGE_BASE
+        if va < base:
+            va += base
         disasm(dump, va, int(sys.argv[4]) if len(sys.argv) > 4 else 40)
 
 

@@ -14,7 +14,8 @@ import argparse
 import datetime
 import socket
 import ssl
-import base64, hashlib, struct
+import base64, hashlib, hmac, struct
+import os
 import threading
 import time
 
@@ -135,6 +136,7 @@ ON_LOGON_COMPLETE = 5             # AuthenticationClient method id (from client 
 PROGRAM_PRO = 0x0050726F          # 'Pro' program fourcc the client requires
 REGION = 1                        # nonzero region byte for the game account
 RESPONSE_SERVICE = 0xFE           # bgs service_id marking a message as a response
+REFERRAL_KEY_BYTES = 64           # k0..k3 must each be a 64-byte blob (handler rva 0x00e2f6c0)
 
 
 def enc_f64(field, val):
@@ -163,6 +165,56 @@ def build_logon_result(battle_tag, account_id):
     body += enc_v(5, REGION)                 # available_region (repeated; one entry)
     body += enc_b(9, bytes(32))              # session_key placeholder
     return body
+
+
+def enc_attribute(name, variant_field, value):
+    """bgs.protocol.v2.Attribute{name=1, value=Variant=2}. Variant field numbers:
+    4 string, 5 blob, 6 uint (the client's variant type tag equals the field)."""
+    if variant_field == 6:
+        variant = enc_v(6, value)
+    else:
+        variant = enc_b(variant_field, value.encode() if isinstance(value, str) else value)
+    return enc_b(1, name.encode()) + enc_b(2, variant)
+
+
+def attribute_strings(request):
+    """name -> string value for a ProcessTaskRequest's string attributes."""
+    out = {}
+    for raw in request.get(1, []):
+        try:
+            attr = decode_header(raw)
+            variant = decode_header(attr.get(2, [b""])[0] or b"")
+        except (ValueError, TypeError):
+            continue
+        name, value = attr.get(1, [b""])[0], variant.get(4, [None])[0]
+        if isinstance(name, bytes) and isinstance(value, bytes):
+            out[name.decode("utf-8", "replace")] = value.decode("utf-8", "replace")
+    return out
+
+
+# Referral sessions handed to the client: cid -> (k0, k1, k2, k3). The lobby
+# connection names its cid in the first handshake message.
+REFERRALS = {}
+REFERRALS_LOCK = threading.Lock()
+
+
+def build_referral_info(host):
+    """ProcessTaskResponse answering the Balancer/Referral task with ReferralInfo.
+    The client's ReferralInfo handler (rva 0x00e2f6c0, reached from the
+    response_type dispatch at rva 0x00e2a880) requires all six result attributes:
+    k0..k3 = 64-byte blobs, cid = uint, hostv4 = string. Missing or mistyped
+    attributes set the referral to its failure state (4). The keys are random
+    per session; we own both ends, so no Blizzard key material is involved."""
+    keys = tuple(os.urandom(REFERRAL_KEY_BYTES) for _ in range(4))
+    with REFERRALS_LOCK:
+        connection_id = len(REFERRALS) + 1
+        REFERRALS[connection_id] = keys
+    result = [enc_attribute("response_type", 4, "ReferralInfo")]
+    for name, key in zip(("k0", "k1", "k2", "k3"), keys):
+        result.append(enc_attribute(name, 5, key))
+    result.append(enc_attribute("cid", 6, connection_id))
+    result.append(enc_attribute("hostv4", 4, host))
+    return b"".join(enc_b(1, attr) for attr in result), connection_id
 
 
 def walk(buf, depth=0):
@@ -276,7 +328,8 @@ def describe(fields):
                      for k, values in sorted(fields.items()))
 
 
-def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_grant=False):
+def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_grant=False,
+           referral_host=None):
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
 
     def emit(line):
@@ -357,8 +410,17 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_gran
                     for label, key in (("attribute", 1), ("payload", 2)):
                         for raw in request.get(key, []):
                             emit(f"{now()}   ProcessTask {label}: {describe_attribute(raw)}")
-                    # Empty ProcessTaskResponse (no result attributes) for now; the
-                    # client's reaction tells us what result this task requires.
+                    task = attribute_strings(request)
+                    if (referral_host and task.get("service_type") == "Balancer"
+                            and task.get("request_type") == "Referral"):
+                        resp, cid = build_referral_info(referral_host)
+                        ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], resp))
+                        emit(f"{now()}   -> ReferralInfo sent (hostv4={referral_host!r}, cid={cid}, "
+                             f"k0..k3 random, {len(resp)} B); observing client's next move")
+                        conn.settimeout(60)
+                        continue
+                    # Empty ProcessTaskResponse (no result attributes); the client
+                    # retries with backoff, which shows what result it requires.
                     ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], b""))
                     emit(f"{now()}   -> empty ProcessTaskResponse sent")
                 else:
@@ -381,6 +443,92 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_gran
         conn.close()
 
 
+def observe_raw(raw, addr, number, log):
+    """Log the size and a short prefix of a non-TLS follow-on connection's first
+    bytes (protocol identification only), then close it."""
+    try:
+        raw.settimeout(20)
+        data = raw.recv(4096)
+        line = (f"{now()} connection #{number} from {addr}: first read {len(data)} B, "
+                f"prefix {data[:16].hex()}")
+    except OSError as e:
+        line = f"{now()} connection #{number} from {addr}: read error {e}"
+    finally:
+        raw.close()
+    print(line, flush=True); log.write(line + "\n"); log.flush()
+
+
+LOBBY_CLIENT_HELLO = b"HELLO PRO CLIENT\0"
+LOBBY_SERVER_HELLO = b"HELLO PRO SERVER\0"
+
+
+def lobby_hmac(key, *parts):
+    return hmac.new(key, b"".join(parts), hashlib.sha256).digest()
+
+
+def serve_lobby(raw, addr, number, log, difficulty=0):
+    """Lobby (game-service gateway) handshake at the referral hostv4, as the
+    client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
+    are raw little-endian bytes, one per TCP send, with no framing:
+      C: "HELLO PRO CLIENT\0"            S: "HELLO PRO SERVER\0"
+      C: cid u64 | client_random[32]      S: challenge[32] | difficulty u8 | server_random[32]
+      C: nonce u64 | HMAC(k0, CR|SR)      S: HMAC(k1, SR|CR)
+    nonce is the client's proof of work (rva 0x00e38990): SHA-1(challenge|nonce)
+    must have >= difficulty low zero bits. Session keys are then
+    HMAC(k2, CR|SR) and HMAC(k3, SR|CR) (rva 0x00e39890). The client next
+    expects a 256-byte block checked with an RSA key embedded in the client
+    (rva 0x00e386a0); that is a Blizzard-signed server credential which this
+    preservation server cannot and does not produce, so we stop there."""
+    def emit(line):
+        line = f"{now()} lobby #{number}: {line}"
+        print(line, flush=True); log.write(line + "\n"); log.flush()
+
+    try:
+        raw.settimeout(20)
+        hello = raw.recv(64)
+        if hello != LOBBY_CLIENT_HELLO:
+            emit(f"unexpected greeting ({len(hello)} B, prefix {hello[:16].hex()})"); return
+        raw.sendall(LOBBY_SERVER_HELLO)
+        emit("client hello received; server hello sent")
+        m1 = raw.recv(256)
+        if len(m1) != 40:
+            emit(f"stage 1: expected 40 B (cid|client_random), got {len(m1)} B"); return
+        cid = struct.unpack_from("<Q", m1)[0]
+        client_random = m1[8:]
+        with REFERRALS_LOCK:
+            keys = REFERRALS.get(cid)
+        if keys is None:
+            emit(f"stage 1: unknown cid {cid}"); return
+        challenge, server_random = os.urandom(32), os.urandom(32)
+        raw.sendall(challenge + bytes([difficulty]) + server_random)
+        emit(f"stage 1: cid={cid} matches a referral; challenge sent (difficulty={difficulty})")
+        m3 = raw.recv(256)
+        if len(m3) != 40:
+            emit(f"stage 2: expected 40 B (nonce|proof), got {len(m3)} B"); return
+        nonce = struct.unpack_from("<Q", m3)[0]
+        work = hashlib.sha1(challenge + m3[:8]).digest()
+        zeros = 0
+        for byte in work:
+            if byte == 0: zeros += 8; continue
+            while not byte & 1: zeros += 1; byte >>= 1
+            break
+        proof_ok = hmac.compare_digest(m3[8:], lobby_hmac(keys[0], client_random, server_random))
+        emit(f"stage 2: nonce={nonce} work_zero_bits={zeros} client_proof_valid={proof_ok}")
+        if not proof_ok or zeros < difficulty:
+            return
+        raw.sendall(lobby_hmac(keys[1], server_random, client_random))
+        emit("stage 2: server proof sent; client now expects the 256-byte signed server "
+             "credential (embedded-RSA-verified), which we do not have. Observing.")
+        raw.settimeout(60)
+        data = raw.recv(4096)
+        emit(f"after server proof: client sent {len(data)} B" + (" (closed)" if not data else
+             f", prefix {data[:16].hex()}"))
+    except OSError as e:
+        emit(f"connection error: {e}")
+    finally:
+        raw.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=21119)
@@ -396,6 +544,9 @@ def main():
     ap.add_argument("--no-grant", action="store_true", help="ack Logon but do not send OnLogonComplete; observe the client's next move")
     ap.add_argument("--battle-tag", default="Preservation#1001",
                     help="identity granted to the client on login (served to OnLogonComplete)")
+    ap.add_argument("--referral-host", default="127.0.0.1:1119",
+                    help="hostv4 returned for the Balancer referral (ReferralInfo); "
+                         "'' keeps the empty-response behaviour")
     args = ap.parse_args()
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -406,22 +557,46 @@ def main():
     ctx.verify_mode = ssl.CERT_NONE  # we do not require a client cert
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # On Windows SO_REUSEADDR lets a second probe bind the same port and steal
+    # connections (a stale probe contaminated runs); require exclusive use.
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+    else:
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", args.port))
     srv.listen(8)
     with open(args.log, "a", encoding="utf-8") as log:
         print(f"bgs observing TLS server on 127.0.0.1:{args.port}", flush=True)
+        accepted = 0
         while True:
             raw, addr = srv.accept()
+            accepted += 1
             raw.settimeout(10)
-            if args.handshake_delay: time.sleep(args.handshake_delay)
+            # The CA probe imports our CA shortly after the first connection
+            # opens, so only that first handshake is delayed.
+            if args.handshake_delay and accepted == 1: time.sleep(args.handshake_delay)
+            if accepted > 1:
+                # Follow-on connections (e.g. to the referral hostv4) may not be
+                # TLS. Peek at the first byte: 0x16 = TLS handshake record.
+                try: first = raw.recv(1, socket.MSG_PEEK)
+                except OSError as e: first = e
+                if first != b"\x16":
+                    line = (f"{now()} connection #{accepted} from {addr}: "
+                            + (f"no data ({first})" if isinstance(first, OSError)
+                               else "closed without data" if first == b""
+                               else f"non-TLS first byte 0x{first[0]:02x}"))
+                    print(line, flush=True); log.write(line + "\n"); log.flush()
+                    target = serve_lobby if first == b"H" and args.serve else observe_raw
+                    threading.Thread(target=target, args=(raw, addr, accepted, log), daemon=True).start()
+                    continue
             try:
                 tls = ctx.wrap_socket(raw, server_side=True)
             except (ssl.SSLError, OSError) as e:
                 line = f"{datetime.datetime.now().isoformat(timespec='seconds')} TLS handshake FAILED from {addr}: {e}"
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue
-            threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag, args.no_grant), daemon=True).start()
+            threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag, args.no_grant,
+                                                  args.referral_host or None), daemon=True).start()
 
 
 if __name__ == "__main__":

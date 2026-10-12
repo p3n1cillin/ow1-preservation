@@ -94,7 +94,12 @@ struct PrimarySubmission {
         const auto suspended = SuspendThread(thread.get());
         if (suspended == DWORD(-1)) throw std::runtime_error("Final context suspension failed");
         try {
-            if (suspended) throw std::runtime_error("Final context thread already suspended");
+            // The client itself sometimes holds the thread suspended briefly.
+            // Undo only our own suspension (preserving its count); callers retry.
+            if (suspended) {
+                if (ResumeThread(thread.get()) == DWORD(-1)) throw std::runtime_error("Final context resume failed");
+                return false;
+            }
             CONTEXT original{}; original.ContextFlags = CONTEXT_ALL;
             if (!GetThreadContext(thread.get(), &original)) throw std::runtime_error("Final context read failed");
             bool redirected = false;

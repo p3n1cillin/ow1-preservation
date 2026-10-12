@@ -76,6 +76,13 @@ WebSocket (`v1.rpc.battle.net`) and sends its first real RPC:
 ConnectionService (hash 0x65446991) method 1 Connect. See DEVLOG. Next: reply
 with a demonstrated ConnectResponse; isolate which cert/CA step is required.
 
+**Later 2026-10-12:** login works ('Pro' game account), the Balancer referral is
+answered with ReferralInfo (k0..k3, cid, hostv4), and the probe serves the lobby
+TCP handshake through HMAC(k1). The client then waits for a 256-byte credential
+verified with an RSA key **embedded in the client** (Blizzard-signed; never forge).
+Going further needs an owner decision on making the owned process trust our key.
+See DEVLOG / docs/BGS_PROTOCOL.md. Stop the previous probe before every run.
+
 Previous next-steps: use TLS 1.2 to trace original post-handshake chain/hostname/pin verdicts
 and connection state, capture the real first RPC, then implement demonstrated
 login/session interfaces. Static bgs helpers are not proven OpenSSL handshake

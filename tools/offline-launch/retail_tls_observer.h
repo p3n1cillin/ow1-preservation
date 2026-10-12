@@ -169,7 +169,8 @@ void install_ca(HANDLE process, uint64_t image, DWORD tid, const Socket& socket,
     DWORD old = 0; checked(VirtualProtectEx(process,reinterpret_cast<void*>(remote),4096,PAGE_EXECUTE_READWRITE,&old),"TLS CA setter author code protection");
     checked(FlushInstructionCache(process,reinterpret_cast<void*>(remote+256),code.size()),"TLS CA setter author code cache");
     retail_world_probe::PrimarySubmission primary(process,tid,remote,true);
-    bool submitted = false; const auto deadline = GetTickCount64()+5000;
+    // 15 s: the client may hold its primary thread suspended for a while.
+    bool submitted = false; const auto deadline = GetTickCount64()+15000;
     while (WaitForSingleObject(process,10)==WAIT_TIMEOUT && GetTickCount64()<deadline) {
         if (!submitted) submitted = primary.schedule(socket.address,remote+256);
         if (read_child<uint32_t>(process,remote)!=2) continue;

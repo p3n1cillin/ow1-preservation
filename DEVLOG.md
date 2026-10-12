@@ -565,3 +565,49 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - An empty ProcessTaskResponse makes the client retry with backoff. Next: decode
   the ReferralInfo payload format from the client's handler and return a referral
   to our own gateway.
+
+## 2026-10-12 — ReferralInfo accepted; lobby handshake served up to the signed credential
+
+- Decoded the Balancer referral response. Dispatcher rva 0x00e2a880 reads result
+  attribute `response_type` and routes ReferralError -> 0x00e2ff20, ReferralInfo
+  -> 0x00e2f6c0, ReferralQueued -> 0x00e30090; anything else = referral state 4
+  (failure). ReferralInfo requires all six attributes (names are XOR-obfuscated
+  inline strings in the handler): `k0`,`k1`,`k2`,`k3` = 64-byte blobs, `cid` =
+  uint, `hostv4` = string. Variant type tags equal the proto field numbers
+  (4 string, 5 blob, 6 uint). Success = state 5 + the requester's callback.
+- `tools/bnet-probe.py` now answers the referral with random per-session keys and
+  `hostv4=127.0.0.1:1119` (the only bridged endpoint). The client accepts it and
+  immediately opens a **plaintext TCP connection** to hostv4 that starts with
+  `HELLO PRO CLIENT\0` (17 B). With no reply it retried the referral (run 4).
+- Reversed the lobby pipe handshake (handler rva 0x00e38fe0, state at pipe+0x80;
+  referral copied to pipe+0x88: k0 +0x88, k1 +0xc8, k2 +0x108, k3 +0x148, cid
+  +0x1a8). Raw little-endian messages, one per send, no framing:
+  1. C `HELLO PRO CLIENT\0` / S `HELLO PRO SERVER\0`
+  2. C `cid u64 | client_random[32]` / S `challenge[32] | difficulty u8 | server_random[32]`
+  3. C `nonce u64 | HMAC-SHA256(k0, CR|SR)` / S `HMAC-SHA256(k1, SR|CR)`
+  The nonce is a proof of work (rva 0x00e38990): SHA-1(challenge | nonce) must
+  have >= difficulty low-order zero bits (difficulty <= 160). Session keys are
+  HMAC-SHA256(k2, CR|SR) and HMAC-SHA256(k3, SR|CR) (rva 0x00e39890).
+- Run 6 (live): the probe served stages 1-3. It verified the client's
+  HMAC(k0) proof as valid (confirming the key/cid/random mapping), sent HMAC(k1),
+  and the client stayed connected silently for 60 s, then closed and requested a
+  new referral. Bridge byte counts match exactly: 97 B up (17+40+40), 114 B down
+  (17+65+32).
+- **Hard gate (state 4):** the client next expects a 256-byte block that it
+  raises to e=65537 mod a 2048-bit modulus **embedded in the client** (key built
+  at rva 0x00e386a0 from rva 0x026779d0; RSA op rva 0x024d3510). The result must
+  carry the 19-byte server address (checked against the peer address/port) and,
+  at +0xb0, an HMAC-SHA256 under a client-embedded key (rva 0x01908fe0). This is a
+  Blizzard-signed server credential. We do not have that private key and will not
+  forge it. An unmodified client therefore cannot complete the lobby handshake
+  against any third-party server. Moving past it means having the owned
+  diagnostic process trust OUR key instead (e.g. replace the modulus in the
+  heap key object at pipe+0x28 with our own public key, analogous to
+  `-TrustSocketCa`), which is a scope decision for the project owner.
+- Run hygiene: the launcher's primary-thread scheduler now undoes its own suspend
+  and retries when the client already holds the thread suspended (two runs saw 36
+  client-suspended threads and aborted the socket-CA install); the socket-CA install
+  window is 15 s. The probe binds with SO_EXCLUSIVEADDRUSE, so a stale probe makes
+  a new one fail instead of silently sharing port 21119 (this contaminated run 3).
+  Always stop the previous probe before a run.
+- Not verified: main menu, lobby session, map, heroes or matchmaking.

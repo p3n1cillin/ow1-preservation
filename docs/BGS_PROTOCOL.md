@@ -195,3 +195,41 @@ message AttributeFilter {
 
 `high = (2 << 56) | (region << 32) | program` with region a nonzero byte and
 program = `0x0050726f` ("Pro"); `low` = nonzero game-account id.
+
+## Balancer referral (GameUtilities.ProcessTask)
+
+Request attributes: `service_type="Balancer"`, `request_type="Referral"`,
+`version=3`, `build=104319`, `cluster="Pro"`, `platform_available="pc_1"`,
+`payload` (empty blob). Response `result` attributes for success:
+
+| name | Variant field | value |
+|---|---|---|
+| response_type | 4 string | `ReferralInfo` |
+| k0, k1, k2, k3 | 5 blob | exactly 64 bytes each |
+| cid | 6 uint | connection id the lobby handshake echoes |
+| hostv4 | 4 string | `ip:port` of the lobby gateway |
+
+Other response types: `ReferralQueued` (callback_delay, approx_queue_position,
+payload), `ReferralError` (error_code, psplus_product_code). All six ReferralInfo
+attributes are required; any missing or mistyped one fails the referral.
+
+## Lobby gateway handshake (TCP to hostv4)
+
+Raw bytes, little-endian, one message per send, no framing. CR/SR = 32-byte
+client/server randoms.
+
+| # | direction | bytes |
+|---|---|---|
+| 1 | C->S | `HELLO PRO CLIENT\0` (17) |
+| 2 | S->C | `HELLO PRO SERVER\0` (17) |
+| 3 | C->S | cid u64, CR (40) |
+| 4 | S->C | challenge[32], difficulty u8, SR (65) |
+| 5 | C->S | nonce u64, HMAC-SHA256(k0, CR‖SR) (40) |
+| 6 | S->C | HMAC-SHA256(k1, SR‖CR) (32) |
+| 7 | S->C | 256-byte server credential, RSA-2048 e=65537 with a client-embedded modulus |
+
+nonce: SHA-1(challenge‖nonce_le64) must have >= difficulty low-order zero bits.
+Session keys: HMAC-SHA256(k2, CR‖SR), HMAC-SHA256(k3, SR‖CR). Step 7's
+decrypted block holds the 19-byte server address (must match the peer) and an
+HMAC-SHA256 at +0xb0 under a client-embedded key. It requires Blizzard's private
+key; this project does not produce it.
