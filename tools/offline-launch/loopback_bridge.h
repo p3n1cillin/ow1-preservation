@@ -183,11 +183,21 @@ public:
         // container token may write to the pipe.
         sddl_ = std::wstring(L"D:P(A;;GA;;;") + owner + L")(A;;GRGW;;;" + sandbox + L")S:(ML;;NW;;;LW)";
         LocalFree(owner); LocalFree(sandbox);
+        stop_event_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!stop_event_) throw std::runtime_error("Host bridge stop event");
+    }
+
+    HostForwarder(const HostForwarder&) = delete;
+    HostForwarder& operator=(const HostForwarder&) = delete;
+    ~HostForwarder() {
+        SetEvent(stop_event_);
+        for (auto& listener : listeners_) if (listener.joinable()) listener.join();
+        CloseHandle(stop_event_);
     }
 
     void start() {
         for (const auto forward : forwards_) {
-            std::thread(&HostForwarder::serve, this, forward).detach();
+            listeners_.emplace_back(&HostForwarder::serve, this, forward);
             log("bridge: container 127.0.0.1:", forward.container_port, " -> host 127.0.0.1:", forward.host_port);
         }
     }
@@ -196,7 +206,7 @@ private:
     void serve(Forward forward) {
         const auto name = pipe_name(GetCurrentProcessId(), forward.container_port);
         unsigned connection = 0;
-        for (;;) {
+        while (WaitForSingleObject(stop_event_, 0) == WAIT_TIMEOUT) {
             PSECURITY_DESCRIPTOR descriptor = nullptr;
             if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl_.c_str(), SDDL_REVISION_1, &descriptor, nullptr)) {
                 log("bridge: pipe descriptor failed Win32=", GetLastError());
@@ -210,10 +220,17 @@ private:
             if (pipe == INVALID_HANDLE_VALUE) { log("bridge: create pipe failed Win32=", GetLastError()); return; }
             OVERLAPPED overlapped{}; overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
             DWORD ignored = 0;
-            const bool connected = ConnectNamedPipe(pipe, &overlapped)
-                || GetLastError() == ERROR_PIPE_CONNECTED
-                || (GetLastError() == ERROR_IO_PENDING && GetOverlappedResult(pipe, &overlapped, &ignored, TRUE));
+            bool connected = ConnectNamedPipe(pipe, &overlapped) != FALSE;
+            const DWORD connect_error = connected ? ERROR_SUCCESS : GetLastError();
+            if (connect_error == ERROR_PIPE_CONNECTED) connected = true;
+            else if (connect_error == ERROR_IO_PENDING) {
+                HANDLE events[] = {stop_event_, overlapped.hEvent};
+                if (WaitForMultipleObjects(2, events, FALSE, INFINITE) != WAIT_OBJECT_0 + 1)
+                    CancelIoEx(pipe, &overlapped);
+                connected = GetOverlappedResult(pipe, &overlapped, &ignored, TRUE) != FALSE;
+            }
             CloseHandle(overlapped.hEvent);
+            if (WaitForSingleObject(stop_event_, 0) == WAIT_OBJECT_0) { CloseHandle(pipe); break; }
             if (!connected) { CloseHandle(pipe); continue; }
             const unsigned id = ++connection;
             std::thread([pipe, forward, id]() {
@@ -238,6 +255,8 @@ private:
 
     std::vector<Forward> forwards_;
     std::wstring sddl_;
+    HANDLE stop_event_ = nullptr;
+    std::vector<std::thread> listeners_;
 };
 
 } // namespace loopback_bridge

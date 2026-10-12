@@ -369,16 +369,16 @@ The two-minute captured run establishes:
 - The async submission gate is 1, including immediately before the retained
   request's submission. The native submission API returns true.
 - The retained request's completion flag becomes true, with result flag 0 and
-  queue-reset marker 0. Its response-data pointer is null. There is no native
-  error-code value to report for this result.
+  queue-reset marker 0. The original report interpreted the result union
+  incorrectly; the correction below supersedes its empty-data/error claims.
 - Both native metadata handlers return 432 times in the dump. The world update
   returns 433 times and still returns at state 4 in immediate observations.
 - The context remains current, its readiness stays zero, and the metadata cache
   stays empty. The service's initialization terminal flag is 1 and its pending
   metadata action has been cleared.
 
-This narrows the next investigation to the metadata provider/session path,
-which returns no usable response data in the isolated standalone launch. It
+The initial report suggested a metadata provider/session failure. The corrected
+native trace below instead identifies a local Hotfix-directory operation. It
 does not demonstrate a private-backend reply, a working login, an original
 wire protocol, or a completed map. No socket capability was granted and no
 production credentials were entered. SDK submission/completion alone is not
@@ -394,3 +394,50 @@ Local evidence: `final-retail-practice-metadata-service.json`,
 `retail-map-metadata-probe.dmp` outside Git. The pre-retention comparison is
 `retail-PracticeMetadata-service-baseline.log` /
 `retail-map-metadata-service-baseline.dmp`.
+
+## Continuation: structured result and private TLS diagnosis
+
+Read-only tracing of the original async worker, kind-13 virtual method and
+native consumer establishes that **result flag 1 means success; flag 0 means
+structured error**. The completed captured request reports status 3, domain 2
+and signed code -1 from offsets +18, +19 and +20. Data presence and entry count
+at +138/+140 are reported only on success; error code +140 was a decoder bug.
+New instruction/vtable guards and synthetic malformed-flag tests protect this
+interpretation. Re-reading the existing dump reproduces the structured error.
+
+The kind-13 method enumerates the native local `104319/Hotfix` directory
+through a filesystem provider. Its successful consumer marks existing cache
+entries rather than populating the cache. This is not a backend-response or
+authentication operation. Missing/empty Hotfix state and the empty context
+cache still need separate investigation; no cache records or readiness flags
+have been supplied by this project.
+
+Claude's loopback bridge and observing TLS server were tested in a new
+90-second owned run. The final client makes two TLS attempts: each sends
+293 bytes and receives 1,295 bytes, then closes before completing the handshake.
+No decrypted RPC, login or menu is verified. Candidate code-page writes still
+fail with Win32 87. The pages are committed execute-read **MEM_MAPPED** pages,
+with execute-read allocation protection. Dynamic-code policy was queried at
+startup and again after failures: both return flags 0. This does **not** support
+the prior ACG diagnosis; the mapping's protection constraints remain unresolved.
+[Windows policy field meanings](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_dynamic_code_policy).
+
+The launcher now supports a bounded private diagnostic:
+
+```powershell
+.\scripts\Start-PrivateClient.ps1 -RunForSeconds 90
+```
+
+Pair it with `tools/bnet-probe.py` using your own loopback certificate/key outside
+Git. The bridge preserves Internet/LAN isolation; only configured host loopback
+ports are reachable. The TLS patch worker stops and joins before process-handle
+cleanup. The run saves `retail-private.dmp` locally and restores the original
+ACLs; exact restoration was checked after the completed run. Dump writing adds
+time after the configured client wait. The TLS observer bounds framing, exits
+on EOF/timeout and omits body/length-delimited field contents from logs.
+
+Local evidence: `retail-private-mitigation.log`,
+`private-tls-probe/bnet-observer.log`, `retail-private.dmp` and
+`final-retail-practice-sdk-corrected.json`, all outside Git. A game-window capture
+did not establish the current rendered screen; the runtime findings above come
+from native/server diagnostics. No final map, hero or private match is verified.

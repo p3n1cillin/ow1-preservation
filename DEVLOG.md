@@ -294,7 +294,47 @@ place as a reference branch. Auto-stash (`stash@{0}`, a CLAUDE.md deletion from
 a branch switch) left untouched. `git diff main claude/continuation` is empty —
 no work lost.
 
-Frontier unchanged: bgs leg blocked at the ACG wall (external write refused,
-Win32 87). Next step there remains the deferred, dual-use-sensitive in-process
-verify hook. Parallel non-blocked track is the clean-room server/native-metadata
-work per ROADMAP item 4 and the current-priority note.
+The ACG diagnosis in the preceding entries was provisional and is superseded
+by the measured policy result below. The private TLS handshake remains blocked.
+
+## 2026-10-12 — Codex resumes Claude's continuation
+
+- Inspected the consolidated `main` and preserved Claude's loopback bridge,
+  TLS observer and VS 2026 support. The original local captures/build tree are
+  present; corrected stale CLAUDE.md statements about absent evidence/branches.
+- Traced native worker result copying, the kind-13 virtual operation and its
+  consumer. Corrected a prior Codex decoder error: flag 1 is success, flag 0
+  structured error. Real captured status/domain/code are 3/2/-1 at +18/+19/+20;
+  +138/+140 hold success data/count, not an error code. The operation enumerates
+  the local Hotfix directory through a filesystem provider. Its success loop
+  marks existing cache entries, rather than registering new records. This does
+  not demonstrate any backend reply or authentication prerequisite.
+- Added native instruction/vtable guards and malformed flag/result coverage;
+  re-read the existing native dump with the corrected decoder. Context readiness
+  remains zero and cache count zero. No native response or ready flag fabricated.
+- Added `--run-for` / `-RunForSeconds` private diagnostics and stop-aware TLS
+  worker teardown before process-handle closure. Duration rejection and final
+  executable fingerprint checks run in the isolation regression target.
+  Host bridge listeners now cancel pending pipe connections and join before
+  their owner is destroyed; the self-test exercises idle-listener teardown.
+- Queried dynamic-code policy at startup and again after write failures: flags
+  0 on both queries. ACG is therefore not established by Win32 87. TLS candidate
+  pages are committed execute-read MEM_MAPPED pages with execute-read allocation
+  protection. Exact full-page searches in the dump find no alternate copies;
+  short repeated signatures are no proof of relocated verify functions.
+- A new 90-second native run reaches our own loopback TLS observer twice.
+  Each direction records 293 client bytes / 1,295 server bytes; the peer closes
+  before handshake completion. No RPC or private login succeeded. The run ends
+  all owned game/bridge jobs and restores exact folder/file ACLs. Original exe
+  remains unchanged; no trust store or production credentials were used.
+- Hardened the observing server's fragmented/truncated input handling, protobuf
+  bounds, maximum body length and handshake timeout. Removed raw body/string
+  contents from logs; new framing tests verify omission and malformed input.
+  Generic header fields are not presented as verified final-retail dispatch.
+- Reproduced a Build.ps1 generator regression when VS 2026 was chosen for the
+  existing VS 2022 cache. Build.ps1 now reuses the cached generator and selects
+  its matching installed toolchain. Full local build then passes, including
+  relay, launcher, beta DLL, patcher and all 13 CTest targets.
+- Updated persistent status, roadmap and handoff records. Private TLS acceptance
+  and native Hotfix/cache initialization remain unresolved; final map/hero/login
+  and original authoritative multiplayer are not verified.

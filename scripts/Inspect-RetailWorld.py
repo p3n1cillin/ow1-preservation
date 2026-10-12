@@ -44,6 +44,11 @@ GUARDS = {
     0x81c1e2: bytes.fromhex('66c741100d00'),          # internal metadata request kind 13
     0x81c1eb: bytes.fromhex('488d05d6c6df01'),        # original request object's vtable
     0x681909: bytes.fromhex('488d05304efd01'),        # original shared control block
+    0x681ba3: bytes.fromhex('41807f11000f84b9010000'), # flag zero takes structured-error branch
+    0x821bb7: bytes.fromhex('44387424300f94c0884711'), # worker stores error-status inversion
+    0x81dcaf: bytes.fromhex('66c7070302'),            # metadata enumeration error status/domain
+    0x81dc4f: bytes.fromhex('488d1502d4a502'),        # native Hotfix-directory string
+    0x185d220: bytes.fromhex('ff5018'),              # directory provider's method dispatch
 }
 
 
@@ -54,6 +59,8 @@ def verify_image(image, base):
     for slot, function in [(0, 0xb4a860), (5, 0xb4a7d0), (6, 0xb4b5c0), (14, 0xb4b5f0)]:
         if struct.unpack_from('<Q', image, WORLD_VTABLE + slot * 8)[0] != base + function:
             raise ValueError('World vtable slot differs')
+    if struct.unpack_from('<Q', image, 0x26188c8 + 8)[0] != base + 0x81dc30:
+        raise ValueError('SDK directory-enumeration method differs')
     table = struct.unpack_from('<8I', image, 0xb4d8e4)
     if table != (0xb4ccca, 0xb4ccd4, 0xb4cce7, 0xb4ccf1, 0xb4ccfb, 0xb4cd05, 0xb4cd20, 0xb4cd0f):
         raise ValueError('Native state dispatch differs')
@@ -192,11 +199,19 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
     if blob[200]:
         sdk_request = {'allocation_attempted': True, 'submission_accepted': bool(blob[202]) if blob[201] else None,
                        'internal_kind': None, 'completed': None, 'queue_reset_marker_raw': None,
-                       'result_flag_raw': None, 'response_data_present': None, 'error_code_raw': None}
+                       'result_flag_raw': None, 'result_succeeded': None, 'response_data_present': None,
+                       'response_entry_count': None, 'error_status_raw': None,
+                       'error_domain_raw': None, 'error_code_raw': None}
         gate_last, gate_first, gate_recorded = struct.unpack_from('<3I', blob, 224)
         if gate_recorded > 1: raise ValueError('Retained SDK submission gate observation bounds')
         sdk_request['submission_gate_before_call'] = gate_first if gate_recorded else None
         sdk_request['submission_gate_latest'] = gate_last if gate_recorded else None
+        if image is not None:
+            # Its input is a resident native path, not a service URL. Report
+            # only the classification; never expose the user's full path.
+            path = image[0x327b058:0x327b058 + 1024].split(b'\0', 1)[0]
+            sdk_request['native_hotfix_directory_configured'] = path.lower().endswith(b'\\104319\\hotfix')
+            sdk_request['operation'] = 'local_hotfix_directory_enumeration'
         if control_pointer:
             if image_base is None or control_pointer % 16 or action_pointer != control_pointer + 16:
                 raise ValueError('Retained SDK request allocation identity')
@@ -206,12 +221,20 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
             if (vft != image_base + 0x2656740 or not 0 < strong <= 1000000 or not 0 < weak <= 1000000
                     or struct.unpack_from('<Q', action)[0] != image_base + 0x26188c8 or action[0x10] != 13):
                 raise ValueError('Retained SDK request native identity differs')
+            if any(action[offset] > 1 for offset in (0x11, 0x130, 0x131)):
+                raise ValueError('Retained SDK request native flag bounds')
+            completed, succeeded = bool(action[0x130]), bool(action[0x11])
             sdk_request.update({'internal_kind': action[0x10], 'completed': bool(action[0x130]),
                                 'queue_reset_marker_raw': action[0x131], 'result_flag_raw': action[0x11],
+                                'result_succeeded': succeeded if completed else None,
                                 'response_data_present': bool(struct.unpack_from('<Q', action, 0x138)[0])
-                                                         if action[0x130] and not action[0x11] else None,
-                                'error_code_raw': struct.unpack_from('<I', action, 0x140)[0]
-                                                  if action[0x130] and action[0x11] else None})
+                                                         if completed and succeeded else None,
+                                'response_entry_count': struct.unpack_from('<i', action, 0x140)[0]
+                                                        if completed and succeeded else None,
+                                'error_status_raw': action[0x18] if completed and not succeeded else None,
+                                'error_domain_raw': action[0x19] if completed and not succeeded else None,
+                                'error_code_raw': struct.unpack_from('<q', action, 0x20)[0]
+                                                  if completed and not succeeded else None})
     elif control_pointer or action_pointer or blob[201]:
         raise ValueError('Retained SDK request allocation attempt required')
     return {'address': f'{address:x}', 'completion': completion, 'entered': entered,

@@ -27,6 +27,7 @@ class WorldTests(unittest.TestCase):
         for rva, data in world.GUARDS.items(): cls.image[rva:rva + len(data)] = data
         for slot, function in [(0, 0xb4a860), (5, 0xb4a7d0), (6, 0xb4b5c0), (14, 0xb4b5f0)]:
             struct.pack_into('<Q', cls.image, world.WORLD_VTABLE + slot * 8, BASE + function)
+        struct.pack_into('<Q', cls.image, 0x26188c8 + 8, BASE + 0x81dc30)
         struct.pack_into('<8I', cls.image, 0xb4d8e4, 0xb4ccca, 0xb4ccd4, 0xb4cce7, 0xb4ccf1,
                          0xb4ccfb, 0xb4cd05, 0xb4cd20, 0xb4cd0f)
 
@@ -44,7 +45,7 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(report['owner'], f'{OWNER:x}')
 
     def test_instruction_and_table_rejection(self):
-        for at in [0xb4b5cd, world.WORLD_VTABLE + 6 * 8, 0xb4d8e4]:
+        for at in [0xb4b5cd, world.WORLD_VTABLE + 6 * 8, 0xb4d8e4, 0x26188c8 + 8]:
             saved = self.image[at]; self.image[at] ^= 1
             try:
                 with self.assertRaises(ValueError): world.verify_image(self.image, BASE)
@@ -196,12 +197,23 @@ class WorldTests(unittest.TestCase):
         self.assertTrue(result['submission_accepted']); self.assertFalse(result['completed'])
         self.assertIsNone(result['response_data_present']); self.assertIsNone(result['error_code_raw'])
         action[0x130] = 1
+        action[0x18:0x1a] = bytes((3, 2)); struct.pack_into('<q', action, 0x20, -1)
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
-        self.assertTrue(result['completed']); self.assertFalse(result['response_data_present'])
+        self.assertTrue(result['completed']); self.assertFalse(result['result_succeeded'])
+        self.assertIsNone(result['response_data_present']); self.assertIsNone(result['response_entry_count'])
+        self.assertEqual((result['error_status_raw'], result['error_domain_raw'], result['error_code_raw']), (3, 2, -1))
         action[0x11] = 1; struct.pack_into('<I', action, 0x140, 51)
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
-        self.assertIsNone(result['response_data_present']); self.assertEqual(result['error_code_raw'], 51)
-        for buffer, offset, value in [(control, 0, 0), (control, 8, 0), (action, 0, 0), (action, 0x10, 12), (blob, 200, 0), (blob, 201, 2)]:
+        self.assertTrue(result['result_succeeded']); self.assertFalse(result['response_data_present'])
+        self.assertEqual(result['response_entry_count'], 51); self.assertIsNone(result['error_code_raw'])
+        struct.pack_into('<Q', action, 0x138, 0x30000000)
+        result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
+        self.assertTrue(result['response_data_present']); self.assertIsNone(result['error_domain_raw'])
+        action[0x130] = 0
+        result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
+        self.assertIsNone(result['result_succeeded']); self.assertIsNone(result['response_entry_count'])
+        for buffer, offset, value in [(control, 0, 0), (control, 8, 0), (action, 0, 0), (action, 0x10, 12),
+                                     (action, 0x11, 2), (action, 0x130, 2), (action, 0x131, 2), (blob, 200, 0), (blob, 201, 2)]:
             saved = buffer[offset]; buffer[offset] = value
             try:
                 with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured, BASE)

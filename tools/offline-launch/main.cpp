@@ -718,11 +718,22 @@ int wmain(int argc, wchar_t** argv) {
     // --retail-private [--forward PORT[:HOSTPORT]]... [-- CLIENT_ARGS...]
     std::vector<loopback_bridge::Forward> forwards;
     std::wstring client_arguments;
+    DWORD private_run_ms = INFINITE;
     const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
     if (retail_private) {
         try {
             int n = 3;
             for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) == L"--run-for" && n + 1 < argc) {
+                    const std::wstring seconds = argv[++n];
+                    if (seconds.empty() || seconds.size() > 4 || seconds.find_first_not_of(L"0123456789") != std::wstring::npos)
+                        throw std::runtime_error("Private diagnostic duration must be 1..3600 seconds");
+                    const auto value = std::stoul(seconds);
+                    if (!value || value > 3600 || private_run_ms != INFINITE)
+                        throw std::runtime_error("Private diagnostic duration must be specified once, in 1..3600 seconds");
+                    private_run_ms = value * 1000;
+                    continue;
+                }
                 if (std::wstring(argv[n]) != L"--forward" || n + 1 >= argc) throw std::runtime_error("Expected --forward PORT[:HOSTPORT] or --");
                 forwards.push_back(loopback_bridge::parse_forward(argv[++n]));
             }
@@ -811,6 +822,10 @@ int wmain(int argc, wchar_t** argv) {
         if (code) throw std::runtime_error("Network isolation probe failed: " + std::to_string(code));
         std::cout << "Network isolation verified; no network capabilities granted." << std::endl;
         if (argc > 2 && std::wstring(argv[2]) == L"--self-test") {
+            // No connection is made: exercise cancellation of the host's
+            // pending ConnectNamedPipe before its owning object is destroyed.
+            { loopback_bridge::HostForwarder bridge(sid, {{1, 1}}); bridge.start(); Sleep(100); }
+            std::cout << "Host bridge idle-listener cleanup passed." << std::endl;
             FreeSid(sid); DeleteAppContainerProfile(profile.c_str()); return 0;
         }
         if (argc > 2 && std::wstring(argv[2]) == L"--graphics-test") {
@@ -857,7 +872,7 @@ int wmain(int argc, wchar_t** argv) {
             // interactive client keeps starting while we wait for the packed
             // image to decrypt the verify site. In-memory only; disk unchanged.
             const HANDLE patch_process = child.hProcess;
-            tls_patch_thread = std::make_unique<std::jthread>([patch_process]() {
+            tls_patch_thread = std::make_unique<std::jthread>([patch_process](std::stop_token stop) {
                 PROCESS_BASIC_INFORMATION basic{};
                 using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
                 const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
@@ -868,7 +883,7 @@ int wmain(int argc, wchar_t** argv) {
                 if (!ReadProcessMemory(patch_process, reinterpret_cast<char*>(basic.PebBaseAddress) + 0x10, &image, sizeof(image), nullptr) || !image) {
                     std::cout << "bgs TLS patch: image base unavailable; client left unpatched." << std::endl; return;
                 }
-                retail_tls_patch::apply(patch_process, image);
+                retail_tls_patch::apply(patch_process, image, stop);
             });
         }
         if (retail_map && !retail_debug) {
@@ -1005,14 +1020,16 @@ int wmain(int argc, wchar_t** argv) {
             code = debug_run(child, std::filesystem::path(exe).parent_path());
             std::cout << "Debug client exited: 0x" << std::hex << code << std::endl;
         }
-        if (interactive) std::cout << "Offline window stays open until you exit the client; authentication and gameplay are unavailable." << std::endl;
-        const auto wait = debug ? WAIT_OBJECT_0 : WaitForSingleObject(child.hProcess, interactive ? INFINITE : (probe_map || retail_map) ? 0 : 60000);
+        if (interactive) std::cout << (private_run_ms == INFINITE
+            ? "Offline window stays open until you exit the client; authentication and gameplay are unavailable."
+            : "Private diagnostic is bounded; authentication and gameplay are unavailable.") << std::endl;
+        const auto wait = debug ? WAIT_OBJECT_0 : WaitForSingleObject(child.hProcess, interactive ? private_run_ms : (probe_map || retail_map) ? 0 : 60000);
         if (wait == WAIT_OBJECT_0) {
             GetExitCodeProcess(child.hProcess, &code);
             std::cout << "Client exited: 0x" << std::hex << code << std::endl;
         } else {
             const auto dump_path = std::filesystem::path(exe).parent_path()
-                / ((probe_map || retail_map) ? mode.substr(2) + L".dmp" : std::wstring(L"startup-wait.dmp"));
+                / ((probe_map || retail_map || retail_private) ? mode.substr(2) + L".dmp" : std::wstring(L"startup-wait.dmp"));
             HANDLE dump = CreateFileW(dump_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
             if (dump != INVALID_HANDLE_VALUE) {
                 MiniDumpWriteDump(child.hProcess, child.dwProcessId, dump,
@@ -1022,6 +1039,9 @@ int wmain(int argc, wchar_t** argv) {
             std::cout << "Owned client still alive; ending bounded diagnostic run." << std::endl;
             TerminateJobObject(job, 3); WaitForSingleObject(child.hProcess, 5000); code = 3;
         }
+        // Stop/join while the owned process handle is still valid. Exceptions
+        // also request stop through jthread destruction before catch cleanup.
+        if (tls_patch_thread) { tls_patch_thread->request_stop(); tls_patch_thread->join(); }
         CloseHandle(child.hProcess); child_process = nullptr;
         CloseHandle(job); job = nullptr;
         FreeSid(sid); sid = nullptr; DeleteAppContainerProfile(profile.c_str());

@@ -69,10 +69,20 @@ no-context run now stops after native rejection, verified after three updates.
 Neither result is a gameplay acceptance test; see FINAL_RETAIL.md.
 
 The PracticeMetadata run also verifies original handler execution and a retained
-native SDK request. Submission and completion occur, but response data is absent
-and the context stays unready. Synthetic coverage verifies SDK native identity,
-reference lifetime bounds, unqueried/incomplete results, completed empty results
-and conditional error-code reporting. Internal SDK kinds are not wire-format
+native SDK request. Submission and completion occur, but the corrected result
+is a local Hotfix-enumeration error (status 3/domain 2/code -1), and the context
+stays unready. Synthetic coverage verifies SDK native identity, reference
+lifetime bounds, unqueried/incomplete results, successful result fields,
+structured errors and malformed flags. Internal SDK kinds are not wire-format
 tests or evidence of private-server communication.
+
+`bnet-probe-framing` tests fragmented input, truncated/malformed protobuf fields,
+body-size limits and omitted secret/body bytes. These fixtures do not establish
+original-client protocol compatibility. A bounded private-client TLS run reaches
+the observing server twice and closes during handshake; native dynamic-code
+policy flags are zero despite Win32 87 on the candidate mapped-page writes.
+See FINAL_RETAIL.md for the actual run and corrected scope.
+The isolation self-test also exercises host bridge teardown with a pending pipe
+listener, so bounded cleanup does not leave a detached thread using its owner.
 
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.

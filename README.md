@@ -15,7 +15,14 @@ This preservation branch builds the beta extension and adds a standalone movemen
 
 The supplied final retail build `1.74.0.0.104319` is now extracted and fingerprinted. Its unmodified process survives isolated startup, and the user confirms its title/login screen; selected original manifests and 130 bundled map headers are hash-verified. Final gameplay remains unverified. See [final-retail evidence and launch instructions](FINAL_RETAIL.md).
 
-Final native research now publishes a client-owned Practice Range request, loads its header and activates a native default loading context. Immediate update tracing reaches state 4; context readiness and metadata registration remain unresolved. No rendered final map, hero or private session is verified. The launch script exposes bounded `PracticeRequest`, `PracticeLoad`, `PracticeResources` and `PracticeContext` diagnostics alongside normal startup.
+Final native research publishes a client-owned Practice Range request, loads its
+header and activates a native default loading context. Immediate updates reach
+state 4; native readiness and cache initialization remain unresolved. The SDK
+kind-13 result is a local Hotfix-enumeration error, not an empty backend reply.
+Claude's private loopback bridge reaches our TLS observer, but handshake/login
+do not complete. Bounded diagnostics and corrected findings are recorded in
+[FINAL_RETAIL](FINAL_RETAIL.md) and [project status](docs/PROJECT_STATUS.md).
+No rendered final map, hero or private session is verified.
 
 Build on Windows with Visual Studio 2022 C++ tools, Windows SDK 10.0.26100.0, CMake and .NET 8:
 

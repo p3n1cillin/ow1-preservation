@@ -43,3 +43,19 @@ The author-written old-package inspector uses independently built MIT CascLib fo
 The supplied exact 104319 client enables local research independent of unavailable CDN paths. External TACTLib revision `388f8dd6a7e67a72904bab9b5bffaa163ecbe59c` provides the exact CMF crypto provider and modern bundle layout; a small .NET 8 host links that provider, rather than requiring the complete library’s .NET 9 toolchain. Independently built CascLib `38a3466` reads the original storage offline. Source-hash/table checks and bundled logical-content hashes are recorded in FINAL_RETAIL.md. Neither tool implements account/session handling or a match server. No remote source availability was inferred from this local archive.
 
 The follow-up STU V2 reader follows OWLib’s serialized field-bag, dynamic-string and resource-reference format. All 130 audited map headers decode with original type/name/reference metadata; Hanamura and Practice map-root payloads are separately hash-verified but unparsed. The user confirms original title/login display in the running final client. These are resource/startup milestones, with native map/hero/session integration pending.
+
+## 2026-10-12 continuation corrections
+
+The original native worker stores success when its structured result status
+byte is zero; the metadata consumer branches to error handling when action
+flag +11 is zero. The read-only inspector now guards this interpretation.
+Kind 13 invokes native local Hotfix-directory enumeration; captured error
+status/domain/code 3/2/-1 are not a wire opcode or server response. This corrects
+the earlier empty-response interpretation. The existing cache remains empty;
+cache population and default-context readiness still require investigation.
+
+The fresh private TLS run establishes loopback transport only. Execute-read
+mapped-page writes fail Win32 87, while measured dynamic-code policy is zero.
+ACG is not an established cause. Pattern matches elsewhere do not prove
+relocated functions, and a full-page comparison found no alternate copies in
+the capture. See FINAL_RETAIL.md for the bounded reproduction and evidence.

@@ -17,11 +17,26 @@ import ssl
 import struct
 import threading
 
+MAX_HEADER = 65535
+MAX_BODY = 1024 * 1024
+
+
+def read_exact(conn, size):
+    data = bytearray()
+    while len(data) < size:
+        chunk = conn.recv(size - len(data))
+        if not chunk:
+            raise EOFError(f"peer closed with {size - len(data)} bytes missing")
+        data.extend(chunk)
+    return bytes(data)
+
 
 def read_varint(buf, pos):
     shift = result = 0
-    while pos < len(buf):
+    while pos < len(buf) and shift < 70:
         b = buf[pos]; pos += 1
+        if shift == 63 and b > 1:
+            raise ValueError("varint exceeds uint64")
         result |= (b & 0x7F) << shift
         if not (b & 0x80):
             return result, pos
@@ -31,23 +46,41 @@ def read_varint(buf, pos):
 
 def decode_header(buf):
     """Decode the bgs Header protobuf into {field_number: value} (generic)."""
+    if not 0 < len(buf) <= MAX_HEADER:
+        raise ValueError("header size out of bounds")
     fields, pos = {}, 0
     while pos < len(buf):
         tag, pos = read_varint(buf, pos)
         fnum, wire = tag >> 3, tag & 7
+        if not 0 < fnum <= 0x1fffffff:
+            raise ValueError("protobuf field number out of bounds")
         if wire == 0:
             val, pos = read_varint(buf, pos)
         elif wire == 2:
             ln, pos = read_varint(buf, pos)
+            if ln > len(buf) - pos: raise ValueError("truncated length-delimited field")
             val = buf[pos:pos + ln]; pos += ln
         elif wire == 5:
+            if len(buf) - pos < 4: raise ValueError("truncated fixed32")
             val = struct.unpack_from("<I", buf, pos)[0]; pos += 4
         elif wire == 1:
+            if len(buf) - pos < 8: raise ValueError("truncated fixed64")
             val = struct.unpack_from("<Q", buf, pos)[0]; pos += 8
         else:
             raise ValueError(f"unsupported wire type {wire}")
         fields.setdefault(fnum, []).append(val)
     return fields
+
+
+def read_frame(conn):
+    hlen = struct.unpack(">H", read_exact(conn, 2))[0]
+    fields = decode_header(read_exact(conn, hlen))
+    sizes = fields.get(5, [0])
+    if len(sizes) != 1 or not isinstance(sizes[0], int) or not 0 <= sizes[0] <= MAX_BODY:
+        raise ValueError("invalid or oversized body length")
+    # Observe framing only. Account/token/body bytes are never written to logs.
+    read_exact(conn, sizes[0])
+    return hlen, fields, sizes[0]
 
 
 def handle(conn, addr, log):
@@ -59,27 +92,13 @@ def handle(conn, addr, log):
     emit(f"{stamp} bgs TLS connection established from {addr}")
     try:
         conn.settimeout(20)
-        data = b""
-        while len(data) < 2:
-            chunk = conn.recv(4096)
-            if not chunk:
-                emit(f"{stamp} peer closed before a full frame ({len(data)} bytes)"); return
-            data += chunk
-        hlen = struct.unpack_from(">H", data, 0)[0]
-        while len(data) < 2 + hlen:
-            data += conn.recv(4096)
-        header = data[2:2 + hlen]
-        try:
-            fields = decode_header(header)
-            desc = ", ".join(f"f{k}={v}" for k, v in sorted(fields.items()))
-            emit(f"{stamp} Header ({hlen} B): {desc}")
-            # Field 1 is the service hash on export-service requests; field 2 is
-            # the method id; field 5 is the body size. These are what the real
-            # login service must dispatch on.
-        except ValueError as e:
-            emit(f"{stamp} Header ({hlen} B) raw {header.hex()} ({e})")
-        emit(f"{stamp} first frame bytes: {data[:2 + hlen + 16].hex()}")
-    except (ssl.SSLError, OSError, ValueError) as e:
+        hlen, fields, body_size = read_frame(conn)
+        desc = ", ".join(f"f{k}=" + str([f"bytes({len(v)})" if isinstance(v, bytes) else v for v in values])
+                         for k, values in sorted(fields.items()))
+        emit(f"{stamp} Header ({hlen} B): {desc}; body bytes={body_size} (omitted)")
+        # These are generic field numbers, not verified final-OW1 service
+        # dispatch. Field 1 and field 11 must not be conflated as one hash.
+    except (ssl.SSLError, OSError, ValueError, EOFError) as e:
         emit(f"{stamp} connection error: {e}")
     finally:
         conn.close()
@@ -106,9 +125,10 @@ def main():
         print(f"bgs observing TLS server on 127.0.0.1:{args.port}", flush=True)
         while True:
             raw, addr = srv.accept()
+            raw.settimeout(10)
             try:
                 tls = ctx.wrap_socket(raw, server_side=True)
-            except ssl.SSLError as e:
+            except (ssl.SSLError, OSError) as e:
                 line = f"{datetime.datetime.now().isoformat(timespec='seconds')} TLS handshake FAILED from {addr}: {e}"
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue

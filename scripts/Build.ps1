@@ -20,9 +20,18 @@ Push-Location $repo
 try {
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (!(Test-Path -LiteralPath $vswhere)) { throw 'Install Visual Studio 2022 C++ build tools and Windows SDK.' }
-    $vs = & $vswhere -products '*' -version '[17.0,19.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -latest
+    $versionRange = '[17.0,19.0)'
+    $cache = Join-Path $BuildRoot 'relay\CMakeCache.txt'
+    if (Test-Path -LiteralPath $cache) {
+        $cachedGenerator = (Select-String -LiteralPath $cache -Pattern '^CMAKE_GENERATOR:INTERNAL=(.+)$').Matches.Groups[1].Value
+        if ($cachedGenerator -eq 'Visual Studio 17 2022') { $versionRange = '[17.0,18.0)' }
+        elseif ($cachedGenerator -eq 'Visual Studio 18 2026') { $versionRange = '[18.0,19.0)' }
+        else { throw "Unsupported cached generator '$cachedGenerator'; choose a fresh BuildRoot." }
+        Write-Host "Reusing cached generator: $cachedGenerator"
+    }
+    $vs = & $vswhere -products '*' -version $versionRange -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -latest
     if (!$vs) { throw 'Visual Studio 2022 or 18 (2026) with the x64 C++ tools is required.' }
-    $vsMajor = [int]((& $vswhere -products '*' -version '[17.0,19.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion -latest).Split('.')[0])
+    $vsMajor = [int]((& $vswhere -products '*' -version $versionRange -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion -latest).Split('.')[0])
     # VS 18 ships only the v145 toolset; the generator and toolset must match the install.
     $generator = if ($vsMajor -ge 18) { 'Visual Studio 18 2026' } else { 'Visual Studio 17 2022' }
     $toolset = if ($vsMajor -ge 18) { 'v145' } else { 'v143' }

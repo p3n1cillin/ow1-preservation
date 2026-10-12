@@ -59,7 +59,7 @@ try {
 }
 foreach ($mode in @('--wmi-workaround', '--run-offline', '--map-probe', '--map-probe-no-speech', '--map-probe-preload',
     '--map-probe-voice-request', '--map-probe-stages', '--catalogue-schema-probe', '--catalogue-import-probe',
-    '--retail-snapshot', '--retail-offline', '--retail-map-probe', '--retail-map-worker-probe', '--retail-map-tick-probe',
+    '--retail-snapshot', '--retail-offline', '--retail-private', '--retail-map-probe', '--retail-map-worker-probe', '--retail-map-tick-probe',
     '--retail-map-context-probe', '--retail-map-context-tick-probe', '--retail-map-context-tick-debug', '--retail-map-loader-probe', '--retail-map-resource-probe', '--retail-map-loading-context-probe', '--retail-map-metadata-probe')) {
     $rejection = & $Launcher $Launcher $mode 2>&1
     if ($LASTEXITCODE -eq 0) { throw 'Unknown executable accepted for in-memory patch' }
@@ -67,6 +67,12 @@ foreach ($mode in @('--wmi-workaround', '--run-offline', '--map-probe', '--map-p
         else { 'WMI workaround only supports verified Overwatch 1.0.1.27578' }
     if (($rejection | Out-String) -notlike "*$expected*") {
         throw "Mode $mode did not reach its executable fingerprint guard: $rejection"
+    }
+}
+foreach ($duration in @('0','3601','-1','NaN','99999')) {
+    $rejection = & $Launcher $Launcher --retail-private --run-for $duration 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Private diagnostic duration*') {
+        throw "Invalid private diagnostic duration accepted: $duration"
     }
 }
 if ((Get-Acl -LiteralPath $Launcher).Sddl -ne $beforeFile -or

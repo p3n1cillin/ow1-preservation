@@ -16,7 +16,8 @@
 // success. This is the established private-server technique for a client the
 // user owns (cf. Plasmawatch OverLauncher for the beta). It does NOT forge
 // Blizzard's ServerInfo signature and changes nothing on disk; only the
-// locally configured --BNetServer connection is affected.
+// process is confined to the launcher's explicitly forwarded loopback ports.
+// The candidate changes the process-wide verifier, not a per-connection rule.
 //
 // The on-disk exe is packed; code is decrypted lazily, so we poll each site
 // until its exact instruction window appears, then apply a two-byte patch
@@ -27,6 +28,7 @@
 #include <cstdint>
 #include <iostream>
 #include <vector>
+#include <stop_token>
 
 namespace retail_tls_patch {
 
@@ -54,6 +56,17 @@ inline const std::vector<Site>& sites() {
 
 inline constexpr unsigned char patched[] = {0x31,0xc0}; // xor eax, eax
 
+// Error 87 alone does not establish ACG. Query the policy of this owned child.
+inline void report_policy(HANDLE process) {
+    PROCESS_MITIGATION_DYNAMIC_CODE_POLICY policy{};
+    if (GetProcessMitigationPolicy(process, ProcessDynamicCodePolicy, &policy, sizeof(policy)))
+        std::cout << "bgs TLS diagnostic: dynamic-code policy flags=" << policy.Flags
+                  << " prohibit=" << policy.ProhibitDynamicCode
+                  << " thread_opt_out=" << policy.AllowThreadOptOut
+                  << " remote_downgrade=" << policy.AllowRemoteDowngrade << std::endl;
+    else std::cout << "bgs TLS diagnostic: mitigation query failed Win32=" << GetLastError() << std::endl;
+}
+
 inline bool patch_one(HANDLE process, uint64_t image, const Site& site) {
     const auto anchor = image + site.anchor_rva;
     std::vector<unsigned char> window(site.signature.size());
@@ -72,7 +85,8 @@ inline bool patch_one(HANDLE process, uint64_t image, const Site& site) {
     const auto target = anchor + site.patch_offset;
     DWORD protect = 0, ignored = 0; SIZE_T written = 0;
     if (!VirtualProtectEx(process, reinterpret_cast<void*>(target), sizeof(patched), PAGE_EXECUTE_READWRITE, &protect)) {
-        log_once("VirtualProtectEx(RWX) failed Win32=" + std::to_string(GetLastError()) + " (possible Arbitrary Code Guard)");
+        const auto error = GetLastError();
+        log_once("VirtualProtectEx(RWX) failed Win32=" + std::to_string(error));
         return false;
     }
     const bool ok = WriteProcessMemory(process, reinterpret_cast<void*>(target), patched, sizeof(patched), &written)
@@ -91,6 +105,7 @@ inline bool patch_one(HANDLE process, uint64_t image, const Site& site) {
 // independent signature of the function, to tell "encrypted in place" from
 // "relocated to a copy we could patch elsewhere".
 inline void diagnose(HANDLE process, uint64_t image, const Site& site) {
+    report_policy(process);
     const auto anchor = image + site.anchor_rva;
     unsigned char live[16]{}; SIZE_T count = 0;
     MEMORY_BASIC_INFORMATION mbi{};
@@ -98,6 +113,7 @@ inline void diagnose(HANDLE process, uint64_t image, const Site& site) {
     ReadProcessMemory(process, reinterpret_cast<void*>(anchor), live, sizeof(live), &count);
     std::cout << "  diag '" << site.name << "' RVA 0x" << std::hex << site.anchor_rva
               << " state=" << (q ? mbi.State : 0) << " protect=" << (q ? mbi.Protect : 0)
+              << " type=" << (q ? mbi.Type : 0) << " allocation_protect=" << (q ? mbi.AllocationProtect : 0)
               << " live=" << std::dec;
     for (SIZE_T i = 0; i < count; ++i) { char b[4]; sprintf_s(b, "%02x", live[i]); std::cout << b; }
     std::cout << " (expected " ;
@@ -118,7 +134,7 @@ inline void diagnose(HANDLE process, uint64_t image, const Site& site) {
                     if (!memcmp(buf.data() + i, sig.data(), sig.size())) {
                         const auto found = base + i;
                         std::cout << "    sig found at 0x" << std::hex << found
-                                  << (found == anchor ? " (== site)" : " (relocated copy)") << std::dec << std::endl;
+                                  << (found == anchor ? " (== site)" : " (additional byte-pattern match)") << std::dec << std::endl;
                         if (++hits >= 8) break;
                     }
                 }
@@ -135,13 +151,14 @@ inline void diagnose(HANDLE process, uint64_t image, const Site& site) {
 // connection attempts), so we must keep watching and patch the moment the code
 // is resident; the client's next bgs retry then uses the accepting verify.
 // Does not throw; an interactive client is never torn down by a patch failure.
-inline void apply(HANDLE process, uint64_t image, unsigned timeout_ms = 900000) {
+inline void apply(HANDLE process, uint64_t image, std::stop_token stop, unsigned timeout_ms = 900000) {
+    report_policy(process);
     std::vector<bool> done(sites().size(), false);
     std::vector<bool> diagnosed(sites().size(), false);
     size_t required_remaining = 0;
     for (const auto& s : sites()) if (s.required) ++required_remaining;
     const auto start = GetTickCount64();
-    while (required_remaining && GetTickCount64() - start < timeout_ms) {
+    while (!stop.stop_requested() && required_remaining && GetTickCount64() - start < timeout_ms) {
         for (size_t i = 0; i < sites().size(); ++i) {
             if (done[i]) continue;
             if (patch_one(process, image, sites()[i])) {
@@ -158,7 +175,9 @@ inline void apply(HANDLE process, uint64_t image, unsigned timeout_ms = 900000) 
         Sleep(200);
     }
     if (!required_remaining)
-        std::cout << "bgs TLS patch: all required verify sites patched; the client should now accept our loopback cert on its next bgs retry." << std::endl;
+        std::cout << "bgs TLS patch: required candidate sites patched; handshake acceptance still requires server-side verification." << std::endl;
+    else if (stop.stop_requested() || WaitForSingleObject(process, 0) == WAIT_OBJECT_0)
+        std::cout << "bgs TLS patch: diagnostic ended with required sites unpatched." << std::endl;
     else
         std::cout << "bgs TLS patch: gave up after timeout with required sites unpatched." << std::endl;
 }
