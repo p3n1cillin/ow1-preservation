@@ -58,4 +58,14 @@ Integration tests use an ephemeral loopback port, bounded event waits and a chil
 
 ## Next original-client smoke test
 
+Final-retail diagnostics also cover immediate native update-state observations,
+rejected/cleared map requests, context constructor/activation results, native
+object identity/readiness, and bounded unique context-service discovery. The
+synthetic world-profile tests reject malformed observations, context objects,
+owners, duplicate services and oversized cache/subscriber counts. A real
+two-minute PracticeContext run retained its map request and captured 433 native
+updates, with highest returned state 4 and readiness still zero. The separate
+no-context run now stops after native rejection, verified after three updates.
+Neither result is a gameplay acceptance test; see FINAL_RETAIL.md.
+
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.

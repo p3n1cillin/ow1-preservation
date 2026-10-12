@@ -33,6 +33,12 @@ GUARDS = {
     0xb4ccd4: bytes.fromhex('833d6d6b7402007f43'),   # native state-3 gate
     0xb50053: bytes.fromhex('4883c118'),              # later loader examines request +18
     0xb510c3: bytes.fromhex('c647180a'),              # native terminal unload state 10
+    0x684746: bytes.fromhex('488d0543cbf801488901'),  # native loading-context vtable
+    0x6855ca: bytes.fromhex('488b050f318d02'),        # context service component root
+    0x6855e3: bytes.fromhex('482b1de6f58502'),        # component array decoding operand
+    0x60e6ef: bytes.fromhex('488bb958010000'),        # native metadata lookup count
+    0x60e0bb: bytes.fromhex('488d05b6310002488901'),  # context service vtable
+    0x60e0aa: bytes.fromhex('48b81a4c0e30a530b5f3'),  # decoded component owner identity
 }
 
 
@@ -66,16 +72,46 @@ def world_state(reader, address, image, base):
     request_index = struct.unpack_from('<I', descriptor)[0] if descriptor else None
     return {'address': f'{address:x}', 'owner': f'{owner:x}', 'state': state,
             'request_descriptor_pointer': f'{request:x}', 'request_descriptor_first_u32': request_index,
-            # Report presence only; never expose the opaque 32-byte context.
-            'request_loading_context_present': bool(any(descriptor[0x18:0x38])) if descriptor else None,
+            # Zero is a native default identifier, not proof of an absent
+            # context. Report only this byte predicate, never identifier bytes.
+            'request_loading_context_nonzero': bool(any(descriptor[0x18:0x38])) if descriptor else None,
             'load_timer': load_timer, 'stall_timer': stall_timer,
             'idle_without_request': state == 2 and request == 0}
 
 
-def callback_metadata(reader, address, world):
+def loading_context_service(reader, image, base, context_pointer):
+    """Bounded owner discovery; no context identifiers or payloads are returned."""
+    root = struct.unpack_from('<Q', image, 0x2f586e0)[0]
+    operand = struct.unpack_from('<Q', image, 0x2ee4bd0)[0]
+    if not 0 < root < 0x800000000000 or root % 8: raise ValueError('Context component root bounds')
+    encoded = struct.unpack('<Q', reader.memory(root + 0x140, 8))[0]
+    array = encoded ^ ((0x4e3494c633194824 - operand) & 0xffffffffffffffff)
+    if not 0 < array < 0x800000000000 or array % 8: raise ValueError('Context component array bounds')
+    candidates = {}
+    for slot, address in enumerate(struct.unpack('<256Q', reader.memory(array, 256 * 8))):
+        if not 0 < address < 0x800000000000 or address % 8: continue
+        try: blob = reader.memory(address, 0x1a8)
+        except ValueError: continue
+        vft, encoded_owner = struct.unpack_from('<2Q', blob)
+        if vft != base + 0x2611278 or encoded_owner ^ 0xf3b530a5300e4c1a != root: continue
+        previous, current = struct.unpack_from('<2Q', blob, 0x198)
+        if context_pointer not in (previous, current): continue
+        cached = struct.unpack_from('<Q', blob, 0x158)[0]
+        subscribers = struct.unpack_from('<I', blob, 0xe8)[0]
+        if cached > 4096 or subscribers > 4096: raise ValueError('Context service inspection budget')
+        candidates[address] = {'address': f'{address:x}', 'component_slot': slot,
+                               'current_context_matches': current == context_pointer,
+                               'previous_context_matches': previous == context_pointer,
+                               'cached_metadata_entries': cached,
+                               'registered_context_change_subscribers': subscribers}
+    if len(candidates) != 1: raise ValueError('Requires one verified native context service')
+    return next(iter(candidates.values()))
+
+
+def callback_metadata(reader, address, world, image_base=None, image=None):
     """Optional author-written FRP1 diagnostics; never infer these from game data."""
     if address % 4096: raise ValueError('Callback metadata allocation alignment')
-    blob = reader.memory(address, 176)
+    blob = reader.memory(address, 200)
     if blob[60:64] != b'FRP1' or blob[128:136] != bytes.fromhex('0107020007011b00'):
         raise ValueError('Callback metadata identity differs')
     begin, end, unwind = struct.unpack_from('<III', blob, 160)
@@ -90,8 +126,42 @@ def callback_metadata(reader, address, world):
     active, native_index = struct.unpack_from('<I4xQ', blob, 96)
     resource_entry = struct.unpack_from('<Q', blob, 64)[0]
     if (active > 1 or native_index >= 0x800000000000 or resource_entry >= 0x800000000000
-            or blob[56] not in (0, 1, 255) or blob[58] > 1 or blob[72] > 1):
+            or blob[56] not in (0, 1, 255) or blob[58] > 1 or blob[72] > 1 or blob[77] > 1):
         raise ValueError('Callback metadata native result bounds')
+    update_observation = None
+    if blob[77]:
+        counters = struct.unpack_from('<3I', blob, 80)
+        if any(state > 10 for state in blob[74:77]) or blob[78] not in (0, 1, 2) or any(count > 10000 for count in counters):
+            raise ValueError('Callback metadata update observation bounds')
+        update_observation = {'state_before': blob[74], 'state_after': blob[75],
+                              'highest_returned_state': blob[76], 'maximum_updates_per_callback': blob[78] or None,
+                              'calls_entered_from_loading_states': dict(zip(('2', '3', '4'), counters))}
+    loading_context = None
+    context_pointer = struct.unpack_from('<Q', blob, 176)[0]
+    if context_pointer >= 0x800000000000 or any(flag > 1 for flag in blob[192:196]):
+        raise ValueError('Callback loading-context metadata bounds')
+    if not blob[192] and (context_pointer or blob[194] or blob[195]):
+        raise ValueError('Callback loading-context constructor identity')
+    if blob[194] and (not context_pointer or not blob[195]):
+        raise ValueError('Callback loading-context activation identity')
+    if blob[192]:
+        loading_context = {'constructor_attempted': True, 'object_address': f'{context_pointer:x}',
+                           'identity_verified': bool(blob[195]),
+                           'activation_result': bool(blob[193]) if blob[194] else None,
+                           'native_ready_flag_raw': None, 'native_reports_ready': None,
+                           'native_service': None}
+        if blob[195]:
+            if image_base is None or not context_pointer or context_pointer % 8:
+                raise ValueError('Context object verification requires captured image base and bounded pointer')
+            context = reader.memory(context_pointer, 0xa0)
+            if (struct.unpack_from('<Q', context)[0] != image_base + 0x2611290
+                    or struct.unpack_from('<I', context, 0x10)[0] != 2
+                    or not 0 < struct.unpack_from('<I', context, 8)[0] <= 1000000):
+                raise ValueError('Native loading-context object identity differs')
+            loading_context['native_ready_flag_raw'] = context[0x98]
+            loading_context['native_reports_ready'] = bool(context[0x98])
+            if image is not None:
+                loading_context['native_service'] = loading_context_service(reader, image, image_base, context_pointer)
     return {'address': f'{address:x}', 'completion': completion, 'entered': entered,
             'native_request_submitted': completion == 2,
             'request_matches_world': native_request == int(world['request_descriptor_pointer'], 16),
@@ -100,7 +170,9 @@ def callback_metadata(reader, address, world):
             'native_practice_header_available': None if blob[56] == 255 else bool(blob[56]),
             'native_practice_header_load_state_raw': blob[57] if blob[58] else None,
             'native_header_resource_request_attempted': bool(blob[72]),
-            'native_header_resource_request_entry': f'{resource_entry:x}'}
+            'native_header_resource_request_entry': f'{resource_entry:x}',
+            'native_update_observation': update_observation,
+            'native_loading_context': loading_context}
 
 
 def inspect(executable, dump_path):
@@ -140,7 +212,7 @@ def inspect(executable, dump_path):
         if len(objects) != 1: raise ValueError(f'Requires one verified world object; found {len(objects)}')
         callbacks = []
         for address in sorted(callback_addresses):
-            try: callbacks.append(callback_metadata(dump, address, objects[0]))
+            try: callbacks.append(callback_metadata(dump, address, objects[0], base, image))
             except ValueError: pass  # An unrelated payload can contain the marker.
         if len(callbacks) > 1: raise ValueError('Ambiguous callback metadata')
         return {'build': '1.74.0.0.104319', 'read_only': True, 'native_instruction_guards_verified': True,

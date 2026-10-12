@@ -60,7 +60,7 @@ try {
 foreach ($mode in @('--wmi-workaround', '--run-offline', '--map-probe', '--map-probe-no-speech', '--map-probe-preload',
     '--map-probe-voice-request', '--map-probe-stages', '--catalogue-schema-probe', '--catalogue-import-probe',
     '--retail-snapshot', '--retail-offline', '--retail-map-probe', '--retail-map-worker-probe', '--retail-map-tick-probe',
-    '--retail-map-context-probe', '--retail-map-context-tick-probe', '--retail-map-context-tick-debug', '--retail-map-loader-probe', '--retail-map-resource-probe')) {
+    '--retail-map-context-probe', '--retail-map-context-tick-probe', '--retail-map-context-tick-debug', '--retail-map-loader-probe', '--retail-map-resource-probe', '--retail-map-loading-context-probe')) {
     $rejection = & $Launcher $Launcher $mode 2>&1
     if ($LASTEXITCODE -eq 0) { throw 'Unknown executable accepted for in-memory patch' }
     $expected = if ($mode.StartsWith('--retail-')) { 'Retail launch only supports the fingerprinted final OW1 executable' }

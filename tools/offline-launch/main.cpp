@@ -715,7 +715,7 @@ int wmain(int argc, wchar_t** argv) {
     if (argc < 2 || argc > 3) {
         std::cerr << "ow1-offline-launch PATH [--self-test|--graphics-test|--debug|--snapshot|--retail-snapshot|--retail-offline|--wmi-workaround|--run-offline|--map-probe|--map-probe-no-speech|--map-probe-preload|--map-probe-voice-request|--map-probe-stages|--catalogue-schema-probe|--catalogue-import-probe]\n";
         std::cerr << "Final research probes: --retail-map-probe, --retail-map-worker-probe, --retail-map-tick-probe,\n"
-                     "  --retail-map-context-probe, --retail-map-context-tick-probe, --retail-map-context-tick-debug, --retail-map-loader-probe, --retail-map-resource-probe\n";
+                     "  --retail-map-context-probe, --retail-map-context-tick-probe, --retail-map-context-tick-debug, --retail-map-loader-probe, --retail-map-resource-probe, --retail-map-loading-context-probe\n";
         return 2;
     }
     PSID sid = nullptr;
@@ -731,7 +731,8 @@ int wmain(int argc, wchar_t** argv) {
         const bool retail_worker = mode == L"--retail-map-worker-probe";
         const bool retail_tick = mode == L"--retail-map-tick-probe";
         const bool retail_debug = mode == L"--retail-map-context-tick-debug";
-        const bool retail_resources = mode == L"--retail-map-resource-probe";
+        const bool retail_loading_context = mode == L"--retail-map-loading-context-probe";
+        const bool retail_resources = mode == L"--retail-map-resource-probe" || retail_loading_context;
         const bool retail_loader = mode == L"--retail-map-loader-probe";
         const bool retail_context_tick = mode == L"--retail-map-context-tick-probe" || retail_debug || retail_loader || retail_resources;
         const bool retail_context = mode == L"--retail-map-context-probe" || retail_context_tick;
@@ -911,7 +912,7 @@ int wmain(int argc, wchar_t** argv) {
             const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
             checked(query && query(child.hProcess, ProcessBasicInformation, &basic, sizeof(basic), nullptr) >= 0, "Final image lookup");
             const auto image = read_child<uint64_t>(child.hProcess, reinterpret_cast<uint64_t>(basic.PebBaseAddress) + 0x10);
-            retail_world_probe::run(child.hProcess, image, child.dwThreadId, retail_worker, retail_tick, retail_context, retail_context_tick, retail_loader, retail_resources);
+            retail_world_probe::run(child.hProcess, image, child.dwThreadId, retail_worker, retail_tick, retail_context, retail_context_tick, retail_loader, retail_resources, retail_loading_context);
             };
             if (retail_debug) {
                 std::atomic<bool> completed{false}; std::exception_ptr probe_error;
@@ -957,7 +958,7 @@ int wmain(int argc, wchar_t** argv) {
                     static_cast<MINIDUMP_TYPE>(MiniDumpWithThreadInfo | MiniDumpWithFullMemory), nullptr, nullptr, nullptr);
                 CloseHandle(dump);
             }
-            std::cout << "Client still alive at diagnostic deadline; ending bounded diagnostic run." << std::endl;
+            std::cout << "Owned client still alive; ending bounded diagnostic run." << std::endl;
             TerminateJobObject(job, 3); WaitForSingleObject(child.hProcess, 5000); code = 3;
         }
         CloseHandle(child.hProcess); child_process = nullptr;

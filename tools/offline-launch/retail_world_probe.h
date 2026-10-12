@@ -129,7 +129,7 @@ struct PrimarySubmission {
     }
 };
 
-void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe, bool resource_probe) {
+void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe, bool resource_probe, bool loading_context_probe) {
     guard(process, image, 0xb4a5c2, {0x48,0x8d,0x05,0xbf,0xb7,0xb0,0x01,0x48,0x89,0x03});
     guard(process, image, 0xb4b5cd, {0xc6,0x41,0x18,0x02});
     guard(process, image, 0xb52b88, {0x48,0x8b,0x79,0x20,0x48,0x85,0xff});
@@ -186,12 +186,27 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             throw std::runtime_error("Final default inline vector differs");
     }
     if (original_defaults[0x148]) throw std::runtime_error("Final default trailing flag differs");
+    if (loading_context_probe) {
+        guard(process, image, 0x684610, {0x48,0x89,0x74,0x24,0x10,0x55,0x57,0x41,0x54,0x41,0x56,0x41,0x57});
+        guard(process, image, 0x684671, {0x48,0x8d,0x15,0xb8,0xba,0xb9,0x02});
+        guard(process, image, 0x684746, {0x48,0x8d,0x05,0x43,0xcb,0xf8,0x01,0x48,0x89,0x01});
+        guard(process, image, 0x835ab6, {0xba,2,0,0,0});
+        guard(process, image, 0x835ad8, {0xf0,0xff,0x40,0x08});
+        guard(process, image, 0x6855a0, {0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x74,0x24,0x18});
+        guard(process, image, 0x6857fc, {0x49,0x8b,0x06,0x48,0x89,0x86,0xa0,1,0,0});
+        guard(process, image, 0x6858ca, {0x80,0xbd,0x98,0,0,0,0});
+        unsigned char native_empty_context[32]{};
+        if (!ReadProcessMemory(process, reinterpret_cast<void*>(image + 0x3220130), native_empty_context, 32, &count)
+            || count != 32 || memcmp(native_empty_context, original_defaults + 0x18, 32))
+            throw std::runtime_error("Final native default loading context differs");
+    }
     const auto remote = reinterpret_cast<uint64_t>(VirtualAllocEx(process, nullptr, context_probe ? 65536 : 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     if (!remote) throw std::runtime_error("Final callback allocation failed");
     constexpr unsigned code_offset = 256, config_offset = 2048, unwind_offset = 128, table_offset = 160;
     constexpr unsigned dispatch_offset = 1032, dispatch_bytes = 512;
     unsigned char page[4096]{};
     page[56] = 0xff; // Native map-header availability has not been queried.
+    page[78] = resource_probe ? 2 : 0; // Bounded immediate native updates.
     const uint32_t metadata_version = 0x31505246; memcpy(page + 60, &metadata_version, 4); // FRP1
     if (tick_probe) {
         if (!ReadProcessMemory(process, reinterpret_cast<void*>(image + vtable - 8),
@@ -217,7 +232,7 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
     emit({0x48,0x81,0xec,0xd8,0,0,0});
     emit({0x48,0x89,0x4c,0x24,0x20,0x48,0x89,0x54,0x24,0x28,0x4c,0x89,0x44,0x24,0x30,0x4c,0x89,0x4c,0x24,0x38});
     for (unsigned reg = 0; reg < 4; ++reg) emit({0xf3,0x0f,0x7f,static_cast<unsigned char>(0x44 + reg * 8),0x24,static_cast<unsigned char>(0x40 + reg * 16)});
-    emit({0x48,0xb8}); value(remote); emit({0xf0,0xff,0x40,0x04,0x48,0x89,0x48,0x20,0xc7,0x40,0x60,1,0,0,0});
+    emit({0x48,0xb8}); value(remote); emit({0xf0,0xff,0x40,0x04,0x48,0x89,0x48,0x20,0xc7,0x40,0x60,1,0,0,0,0xc6,0x40,0x5e,0});
     // Syscall return may replace RCX with the return PC. Context mode uses the
     // separately verified world pointer rather than a callback argument.
     if (context_probe) { emit({0x48,0xb9}); value(world); }
@@ -228,6 +243,27 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
     emit({0x48,0xb8}); value(child_function_table_api(process)); emit({0xff,0xd0});
     emit({0x48,0xb9}); value(remote + 8); emit({0x88,0x01,0x84,0xc0,0x0f,0x84});
     const auto registration_failed = code.size(); value(int32_t{0});
+    if (loading_context_probe) {
+        // Follow the original caller: construct type 2 from the native empty
+        // key, retain one reference, and pass another to its consuming API.
+        // That API publishes the context and dispatches its native change
+        // notifications. Native processing owns readiness; this probe supplies
+        // no metadata or ready bit.
+        emit({0x48,0xb9}); value(remote); emit({0xc6,0x81,0xc0,0,0,0,1});
+        emit({0x48,0xb9}); value(remote + 176); emit({0xba,2,0,0,0,0x49,0xb8}); value(remote + config_offset + 0x18);
+        emit({0x48,0xb8}); value(image + 0x684610); emit({0xff,0xd0,0x48,0xb9}); value(remote + 176);
+        emit({0x48,0x8b,0x01,0x48,0x85,0xc0}); const auto no_context = branch();
+        // JZ is required here; the branch helper emits JNZ by default.
+        code[no_context - 1] = 0x84;
+        emit({0x48,0xba}); value(image + 0x2611290); emit({0x48,0x39,0x10}); const auto wrong_context = branch();
+        emit({0x83,0x78,0x10,2}); const auto wrong_type = branch();
+        emit({0x48,0x89,0x41,0x08,0xf0,0xff,0x40,0x08,0xc6,0x41,0x13,1});
+        emit({0x48,0xb9}); value(remote + 184); emit({0x48,0xb8}); value(image + 0x6855a0); emit({0xff,0xd0,0x48,0xb9}); value(remote);
+        emit({0x88,0x81,0xc1,0,0,0,0xc6,0x81,0xc2,0,0,0,1});
+        for (auto at : {no_context, wrong_context, wrong_type}) {
+            const auto relative = static_cast<int32_t>(code.size() - at - 4); memcpy(code.data() + at, &relative, 4);
+        }
+    }
     emit({0x48,0xb9}); value(world); emit({0x48,0xba}); value(remote + config_offset);
     emit({0x48,0xb8}); value(image + request_api); emit({0xff,0xd0});
     emit({0x48,0xb9}); value(world); emit({0x48,0x8b,0x41,0x20});
@@ -247,7 +283,23 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
         emit({0x48,0x89,0x41,0x40,0xc6,0x41,0x48,1});
     }
     const auto pump = code.size();
+    std::vector<size_t> outside_loading;
     if (context_tick) {
+        if (resource_probe) {
+            // Observe the state immediately around our native call. The host's
+            // half-second sampling can miss a short transition or reset.
+            emit({0x48,0xb8}); value(world); emit({0x0f,0xb6,0x50,0x18,0x48,0xb9}); value(remote);
+            emit({0x88,0x51,0x4a,0x48,0x83,0x78,0x20,0,0x0f,0x84});
+            outside_loading.push_back(code.size()); value(int32_t{0});
+            emit({0x80,0xfa,2,0x0f,0x82}); outside_loading.push_back(code.size()); value(int32_t{0});
+            emit({0x80,0xfa,4,0x0f,0x87}); outside_loading.push_back(code.size()); value(int32_t{0});
+            for (unsigned state = 2; state <= 4; ++state) {
+                emit({0x80,0xfa,static_cast<unsigned char>(state)}); const auto other_state = branch();
+                emit({0xff,0x41,static_cast<unsigned char>(80 + (state - 2) * 4)});
+                const auto relative = static_cast<int32_t>(code.size() - other_state - 4);
+                memcpy(code.data() + other_state, &relative, 4);
+            }
+        }
         std::vector<size_t> called;
         if (loader_probe || resource_probe) {
             emit({0x48,0xb9}); value(uint64_t{0x0790000000000688});
@@ -286,8 +338,27 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
         emit({0xba,0,0,0,0x3f,0x66,0x0f,0x6e,0xca,0x48,0xb8}); value(image + tick); emit({0xff,0xd0});
         emit({0x48,0xb8}); value(remote); emit({0xf0,0xff,0x40,0x30});
         }
+        if (resource_probe) {
+            emit({0x48,0xb8}); value(world); emit({0x0f,0xb6,0x50,0x18,0x48,0xb9}); value(remote);
+            emit({0x88,0x51,0x4b,0xc6,0x41,0x4d,1,0x3a,0x51,0x4c,0x76,3,0x88,0x51,0x4c});
+            // Observe at most one additional update while the native world is
+            // still at state 4, before resuming the original title/login loop.
+            // All native loading gates remain in the original full update.
+            emit({0x80,0xfa,4}); const auto not_map_loading = branch();
+            emit({0x80,0x79,0x5e,0}); const auto already_repeated = branch();
+            emit({0xc6,0x41,0x5e,1,0xe9}); const auto repeat = code.size(); value(int32_t{0});
+            const auto repeat_relative = static_cast<int32_t>(pump - repeat - 4);
+            memcpy(code.data() + repeat, &repeat_relative, 4);
+            for (auto at : {not_map_loading, already_repeated}) {
+                const auto relative = static_cast<int32_t>(code.size() - at - 4); memcpy(code.data() + at, &relative, 4);
+            }
+        }
     }
     const auto restore = code.size();
+    for (auto at : outside_loading) {
+        const auto relative = static_cast<int32_t>(restore - at - 4);
+        memcpy(code.data() + at, &relative, 4);
+    }
     for (auto at : {other_world, already_done, registration_failed}) {
         const auto target = at == already_done && context_tick ? pump : restore;
         const auto relative = static_cast<int32_t>(target - at - 4); memcpy(code.data() + at, &relative, 4);
@@ -371,6 +442,11 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
                 std::cout << "Native Practice header resource request returned=0x" << std::hex
                     << read_child<uint64_t>(process, remote + 64) << std::dec
                     << " attempted=" << unsigned(read_child<unsigned char>(process, remote + 72)) << std::endl;
+            if (loading_context_probe)
+                std::cout << "Native loading context constructor returned=0x" << std::hex
+                    << read_child<uint64_t>(process, remote + 176) << std::dec
+                    << " validated=" << unsigned(read_child<unsigned char>(process, remote + 195))
+                    << " activated=" << unsigned(read_child<unsigned char>(process, remote + 193)) << std::endl;
             if (tick_probe) {
                 replace_callback(process, world, remote + dispatch_offset, image + vtable);
                 std::cout << "Original final world tick restored after native submission." << std::endl;
@@ -381,15 +457,27 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             std::cout << "Final native world state=" << unsigned(state) << " request_descriptor=0x" << std::hex
                 << read_child<uint64_t>(process, world + 0x20) << std::dec << std::endl; previous = state;
         }
+        if (resource_probe && submitted && !read_child<uint64_t>(process, world + 0x20)
+            && read_child<unsigned char>(process, remote + 77)) {
+            std::cout << "Native loading cleared its request; stopping extra updates." << std::endl;
+            break;
+        }
         // Resource experiments stop our updates after native loading. Later
         // activation/replication needs its own verified session integration.
-        if (context_tick && submitted && (!resource_probe || state <= 4)) primary->schedule(world, remote + code_offset);
+        if (context_tick && submitted && (!resource_probe || (state >= 2 && state <= 4))) primary->schedule(world, remote + code_offset);
         if (context_tick && n % 20 == 19)
             std::cout << "Final loading callbacks returned=" << read_child<uint32_t>(process, remote + 48)
                 << " active=" << read_child<uint32_t>(process, remote + 96)
                 << " native_Practice_header_available=" << unsigned(read_child<unsigned char>(process, remote + 56))
                 << " native_Practice_header_load_state=" << unsigned(read_child<unsigned char>(process, remote + 57))
                 << " native_header_index_entry=0x" << std::hex << read_child<uint64_t>(process, remote + 104) << std::dec << std::endl;
+        if (resource_probe && n % 20 == 19)
+            std::cout << "Final native update states before=" << unsigned(read_child<unsigned char>(process, remote + 74))
+                << " after=" << unsigned(read_child<unsigned char>(process, remote + 75))
+                << " highest_returned=" << unsigned(read_child<unsigned char>(process, remote + 76))
+                << " calls_from_2=" << read_child<uint32_t>(process, remote + 80)
+                << " calls_from_3=" << read_child<uint32_t>(process, remote + 84)
+                << " calls_from_4=" << read_child<uint32_t>(process, remote + 88) << std::endl;
     }
     if (tick_probe && !submitted && WaitForSingleObject(process, 0) == WAIT_TIMEOUT)
         replace_callback(process, world, remote + dispatch_offset, image + vtable);

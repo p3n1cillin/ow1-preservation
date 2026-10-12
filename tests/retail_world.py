@@ -70,10 +70,10 @@ class WorldTests(unittest.TestCase):
         report = world.world_state(memory, OBJECT, self.image, BASE)
         self.assertFalse(report['idle_without_request'])
         self.assertEqual(report['request_descriptor_first_u32'], 0x688)
-        self.assertFalse(report['request_loading_context_present'])
+        self.assertFalse(report['request_loading_context_nonzero'])
         memory.data[descriptor][0x18] = 1
         report = world.world_state(memory, OBJECT, self.image, BASE)
-        self.assertTrue(report['request_loading_context_present'])
+        self.assertTrue(report['request_loading_context_nonzero'])
         memory.data[OBJECT][0x18] = 10
         self.assertEqual(world.world_state(memory, OBJECT, self.image, BASE)['state'], 10)
         memory.data[descriptor] = memory.data[descriptor][:4]
@@ -85,7 +85,7 @@ class WorldTests(unittest.TestCase):
             with self.assertRaises(ValueError): world.inspect(executable, Path(folder) / 'absent.dmp')
 
     def test_callback_metadata_distinguishes_unqueried_and_available(self):
-        address = 0x24000000; blob = bytearray(176)
+        address = 0x24000000; blob = bytearray(200)
         blob[60:64] = b'FRP1'; blob[128:136] = bytes.fromhex('0107020007011b00')
         struct.pack_into('<III', blob, 160, 256, 1000, 128)
         blob[56] = 255
@@ -93,6 +93,8 @@ class WorldTests(unittest.TestCase):
         self.assertIsNone(world.callback_metadata(memory, address, captured)['native_practice_header_available'])
         self.assertIsNone(world.callback_metadata(memory, address, captured)['native_practice_header_load_state_raw'])
         self.assertFalse(world.callback_metadata(memory, address, captured)['native_header_resource_request_attempted'])
+        self.assertIsNone(world.callback_metadata(memory, address, captured)['native_update_observation'])
+        self.assertIsNone(world.callback_metadata(memory, address, captured)['native_loading_context'])
         struct.pack_into('<II', blob, 0, 2, 3); blob[8] = 1
         struct.pack_into('<QI', blob, 16, 0x25000000, 0x688); blob[56] = 1
         captured['request_descriptor_pointer'] = '25000000'
@@ -107,11 +109,77 @@ class WorldTests(unittest.TestCase):
         result = world.callback_metadata(memory, address, captured)
         self.assertTrue(result['native_header_resource_request_attempted'])
         self.assertEqual(result['native_header_resource_request_entry'], '26000000')
+        blob[74:79] = bytes((3, 4, 4, 1, 1))
+        struct.pack_into('<3I', blob, 80, 1, 4, 0)
+        observation = world.callback_metadata(memory, address, captured)['native_update_observation']
+        self.assertEqual(observation['highest_returned_state'], 4)
+        self.assertEqual(observation['calls_entered_from_loading_states'], {'2': 1, '3': 4, '4': 0})
+        captured['request_descriptor_pointer'] = '0'
+        rejected = world.callback_metadata(memory, address, captured)
+        self.assertTrue(rejected['native_request_submitted'])
+        self.assertFalse(rejected['request_matches_world'])
+        captured['request_descriptor_pointer'] = '25000000'
         for offset, value in [(60, 0), (128, 0), (161, 0), (56, 2), (58, 2), (72, 2), (96, 2)]:
             saved = blob[offset]; blob[offset] = value
             try:
                 with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured)
             finally: blob[offset] = saved
+        for offset, value in [(74, 11), (75, 11), (76, 11), (77, 2), (78, 3), (83, 1)]:
+            saved = blob[offset]; blob[offset] = value
+            try:
+                with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured)
+            finally: blob[offset] = saved
+
+    def test_native_loading_context_verifies_identity_and_reads_readiness(self):
+        address = 0x24000000; context_pointer = 0x28000000; blob = bytearray(200)
+        blob[60:64] = b'FRP1'; blob[128:136] = bytes.fromhex('0107020007011b00')
+        struct.pack_into('<III', blob, 160, 256, 1500, 128)
+        blob[56] = 255; blob[192:196] = bytes((1, 1, 1, 1))
+        struct.pack_into('<Q', blob, 176, context_pointer)
+        context = bytearray(0xa0)
+        struct.pack_into('<QI', context, 0, BASE + 0x2611290, 2)
+        struct.pack_into('<I', context, 0x10, 2)
+        memory = Memory({address: blob, context_pointer: context}); captured = {'request_descriptor_pointer': '0'}
+        result = world.callback_metadata(memory, address, captured, BASE)['native_loading_context']
+        self.assertTrue(result['identity_verified']); self.assertTrue(result['activation_result'])
+        self.assertFalse(result['native_reports_ready'])
+        context[0x98] = 1
+        self.assertTrue(world.callback_metadata(memory, address, captured, BASE)['native_loading_context']['native_reports_ready'])
+        with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured)
+        for offset, value in [(0, 0), (8, 0), (0x10, 3)]:
+            saved = context[offset]; context[offset] = value
+            try:
+                with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured, BASE)
+            finally: context[offset] = saved
+        for offset, value in [(192, 2), (193, 2), (194, 2), (195, 0)]:
+            saved = blob[offset]; blob[offset] = value
+            try:
+                with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured, BASE)
+            finally: blob[offset] = saved
+        struct.pack_into('<Q', blob, 176, 0); blob[193:196] = bytes(3)
+        result = world.callback_metadata(memory, address, captured)['native_loading_context']
+        self.assertFalse(result['identity_verified']); self.assertIsNone(result['activation_result'])
+        self.assertIsNone(result['native_reports_ready'])
+
+    def test_native_context_service_requires_unique_owner_and_bounds(self):
+        root, array, manager, context = 0x29000000, 0x2a000000, 0x2b000000, 0x2c000000
+        image = self.image.copy(); struct.pack_into('<Q', image, 0x2f586e0, root)
+        struct.pack_into('<Q', image, 0x2ee4bd0, 0)
+        slots = bytearray(256 * 8); struct.pack_into('<Q', slots, 126 * 8, manager)
+        blob = bytearray(0x1a8)
+        struct.pack_into('<2Q', blob, 0, BASE + 0x2611278, root ^ 0xf3b530a5300e4c1a)
+        struct.pack_into('<Q', blob, 0x1a0, context); struct.pack_into('<I', blob, 0xe8, 2)
+        memory = Memory({root + 0x140: struct.pack('<Q', array ^ 0x4e3494c633194824), array: slots, manager: blob})
+        report = world.loading_context_service(memory, image, BASE, context)
+        self.assertTrue(report['current_context_matches']); self.assertEqual(report['cached_metadata_entries'], 0)
+        self.assertEqual(report['registered_context_change_subscribers'], 2)
+        for offset, format, value in [(0, '<Q', 0), (8, '<Q', 0), (0x1a0, '<Q', 0), (0x158, '<Q', 4097), (0xe8, '<I', 4097)]:
+            saved = blob[:]; struct.pack_into(format, blob, offset, value)
+            try:
+                with self.assertRaises(ValueError): world.loading_context_service(memory, image, BASE, context)
+            finally: blob[:] = saved
+        other = 0x2d000000; memory.data[other] = blob[:]; struct.pack_into('<Q', slots, 127 * 8, other)
+        with self.assertRaises(ValueError): world.loading_context_service(memory, image, BASE, context)
 
 
 if __name__ == '__main__': unittest.main()

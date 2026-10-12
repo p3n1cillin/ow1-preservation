@@ -284,3 +284,63 @@ Local evidence: `final-retail-practice-load-state.json`,
 `final-retail-practice-resource-request.json` and the corresponding
 `retail-PracticeLoad.log` / `retail-PracticeResources*.log` files.
 The additional loading report is `final-retail-practice-loading-context.json`.
+
+## Immediate state tracing and native context activation — 2026-10-12
+
+The earlier half-second host observations miss a short state transition.
+Measurements immediately before/after each original update show **3 → 4**;
+by the next host observation the world is back at 3. The single-update dump
+captures 222 returned calls, including 221 entered from state 3, with highest
+returned state 4. This establishes a native transition, not a completed map.
+
+The resource experiment now permits at most two updates per callback. The
+second is conditional on the first returning in state 4. Without an active
+context, that state-4 update rejects and clears the native map request. The
+probe now stops extra updates when the native request is cleared and refuses
+to call the update outside loading states 2–4, including a check inside the
+callback. No original loading gate or state is overwritten.
+
+The descriptor's 32-byte all-zero identifier matches a resident native default;
+zero bytes alone do **not** prove that the identifier is invalid. A separate
+`PracticeContext` experiment follows the original caller's native sequence:
+construct a type-2 context from that default identifier, retain a reference,
+and pass another reference to the consuming activation API. The native API
+publishes the object and dispatches its context-change notifications. The
+adapter does not register fabricated metadata, fill an original resource
+payload, set readiness, or advance a world-state field.
+
+```powershell
+.\scripts\Start-RetailClient.ps1 -Mode PracticeContext
+```
+
+The native constructor's object identity and type are guarded. Activation
+returns true. A two-minute run logged 431 returned updates; the later dump
+captures 433, including 216 entered from state 4, with the callback inactive
+and the native Practice request retained. Each immediate state-4 update
+returns at state 4. Host observations still see state 3 between callbacks;
+the reason for that intervening change remains unverified.
+
+The guarded read-only report verifies the native context service through its
+vtable, decoded owner and a bounded 256-slot component search. It records:
+
+- The constructed context is the service's current context; it has not become
+  the previous context.
+- Two native context-change subscribers are registered.
+- The native metadata cache has zero entries, and the context's readiness
+  flag remains zero. The native lookup used by context processing cannot find
+  a metadata entry in that empty cache.
+
+The next prerequisite is native content-metadata registration and processing.
+Its source, schema and service/session relationship still need verification;
+the existing archive's map-header availability does not supply this cache.
+There is no evidence yet of state 5, a rendered final world, a hero or a private
+match. The report now names the descriptor byte predicate
+`request_loading_context_nonzero` to avoid implying that a zero native default
+identifier is an absent object. Identifier and metadata payload bytes are not
+returned by the report.
+
+Local evidence: `final-retail-practice-update-trace-single.json`,
+`final-retail-practice-update-burst.json`,
+`final-retail-practice-context-service.json` and the corresponding
+`retail-PracticeResources-update-*.log` / `retail-PracticeContext.log` files.
+The context diagnostic saves `retail-map-loading-context-probe.dmp` outside Git.
