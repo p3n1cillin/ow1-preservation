@@ -495,3 +495,20 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - Resolving this by guessing is exhausted; next is reading the AuthenticationClient
   method-5 handler in the client image. Added tools/offline-launch/re/mdump.py to
   read VAs out of the minidump for disassembly.
+
+## 2026-10-12 — located the client's OnLogonComplete handler
+
+- Added tools/offline-launch/re/mdump.py (minidump VA reader + numpy xref +
+  capstone disasm; run with PYTHONPATH=<scratch>/pylibs, no -I so capstone loads).
+- Client exports its services in a registration table at rva 0x00e369xx:
+  call site encodes rdx=(hash<<32)|(0x80000000|method). Confirms the listener is
+  AuthenticationClient 0x71240e35 (our hash is correct), with method 5 =
+  OnLogonComplete. Also confirms bindless dispatch by hash.
+- OnLogonComplete handler = rva 0x00e2ebe0 (reached via thunk 0x00e2f310).
+  It parses LogonResult, requires [rbp+0x48]==0, iterates game_account_id, and
+  branches on a result field == 0x35 (53) into a path that XOR-decrypts embedded
+  data (web-auth related). The token value is irrelevant (high-token test still
+  closed). Reject/parse-fail paths of the sibling method return quietly; the
+  immediate close on our grant comes from this handler's own logic.
+- Next: finish reversing 0x00e2ebe0 to determine the exact LogonResult the accept
+  path needs (and what [rbp+0x48] / the 0x35 branch require) vs. the disconnect.
