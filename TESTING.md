@@ -70,7 +70,7 @@ Neither result is a gameplay acceptance test; see FINAL_RETAIL.md.
 
 The PracticeMetadata run also verifies original handler execution and a retained
 native SDK request. Submission and completion occur, but the corrected result
-is a local Hotfix-enumeration error (status 3/domain 2/code -1), and the context
+is a local Hotfix-enumeration error (status 3/tag 2/code -1), and the context
 stays unready. Synthetic coverage verifies SDK native identity, reference
 lifetime bounds, unqueried/incomplete results, successful result fields,
 structured errors and malformed flags. Internal SDK kinds are not wire-format

@@ -46,7 +46,7 @@ restoration or rebuilding its executable.
 - Practice header loading and native default-context activation work. Immediate
   updates return state 4, but the context stays unready and its cache is empty.
 - **SDK result correction:** kind 13 is local Hotfix-directory enumeration.
-  Flag 1 = success, 0 = structured error. Captured status/domain/code = 3/2/-1
+  Flag 1 = success, 0 = structured error. Captured status/tag/code = 3/2/-1
   at action +18/+19/+20. +138/+140 are successful data/count fields. Earlier
   empty-backend-reply/error-at-+140 claims are superseded.
 - The private TLS bridge works at transport level. A fresh bounded run reaches

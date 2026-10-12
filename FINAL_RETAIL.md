@@ -399,11 +399,12 @@ Local evidence: `final-retail-practice-metadata-service.json`,
 
 Read-only tracing of the original async worker, kind-13 virtual method and
 native consumer establishes that **result flag 1 means success; flag 0 means
-structured error**. The completed captured request reports status 3, domain 2
+structured error**. The completed captured request reports status 3, tag 2
 and signed code -1 from offsets +18, +19 and +20. Data presence and entry count
 at +138/+140 are reported only on success; error code +140 was a decoder bug.
 New instruction/vtable guards and synthetic malformed-flag tests protect this
 interpretation. Re-reading the existing dump reproduces the structured error.
+The second tag is reported numerically; its enum meaning is unverified.
 
 The kind-13 method enumerates the native local `104319/Hotfix` directory
 through a filesystem provider. Its successful consumer marks existing cache

@@ -18,7 +18,7 @@ established. Investigate mapping constraints and narrowly scoped private trust
 before implementing demonstrated RPC/login/session interfaces. The parallel
 loading track publishes Practice's request, loads its header and activates the
 default context, with immediate updates reaching state 4. The corrected SDK
-result is a local Hotfix-directory error (status/domain/code 3/2/-1), not an empty
+result is a local Hotfix-directory error (status/tag/code 3/2/-1), not an empty
 backend reply. Cache initialization and readiness remain unresolved. No final
 map, hero or private session is verified. Do not reuse beta/disc offsets or
 invent login/combat messages. See FINAL_RETAIL.md and docs/PROJECT_STATUS.md.

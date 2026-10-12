@@ -46,7 +46,7 @@ GUARDS = {
     0x681909: bytes.fromhex('488d05304efd01'),        # original shared control block
     0x681ba3: bytes.fromhex('41807f11000f84b9010000'), # flag zero takes structured-error branch
     0x821bb7: bytes.fromhex('44387424300f94c0884711'), # worker stores error-status inversion
-    0x81dcaf: bytes.fromhex('66c7070302'),            # metadata enumeration error status/domain
+    0x81dcaf: bytes.fromhex('66c7070302'),            # metadata enumeration status/second tag
     0x81dc4f: bytes.fromhex('488d1502d4a502'),        # native Hotfix-directory string
     0x185d220: bytes.fromhex('ff5018'),              # directory provider's method dispatch
 }
@@ -201,7 +201,7 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
                        'internal_kind': None, 'completed': None, 'queue_reset_marker_raw': None,
                        'result_flag_raw': None, 'result_succeeded': None, 'response_data_present': None,
                        'response_entry_count': None, 'error_status_raw': None,
-                       'error_domain_raw': None, 'error_code_raw': None}
+                       'error_tag_raw': None, 'error_code_raw': None}
         gate_last, gate_first, gate_recorded = struct.unpack_from('<3I', blob, 224)
         if gate_recorded > 1: raise ValueError('Retained SDK submission gate observation bounds')
         sdk_request['submission_gate_before_call'] = gate_first if gate_recorded else None
@@ -232,7 +232,8 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
                                 'response_entry_count': struct.unpack_from('<i', action, 0x140)[0]
                                                         if completed and succeeded else None,
                                 'error_status_raw': action[0x18] if completed and not succeeded else None,
-                                'error_domain_raw': action[0x19] if completed and not succeeded else None,
+                                # The second tag's enum meaning is unverified.
+                                'error_tag_raw': action[0x19] if completed and not succeeded else None,
                                 'error_code_raw': struct.unpack_from('<q', action, 0x20)[0]
                                                   if completed and not succeeded else None})
     elif control_pointer or action_pointer or blob[201]:

@@ -304,7 +304,7 @@ by the measured policy result below. The private TLS handshake remains blocked.
   present; corrected stale CLAUDE.md statements about absent evidence/branches.
 - Traced native worker result copying, the kind-13 virtual operation and its
   consumer. Corrected a prior Codex decoder error: flag 1 is success, flag 0
-  structured error. Real captured status/domain/code are 3/2/-1 at +18/+19/+20;
+  structured error. Real captured status/tag/code are 3/2/-1 at +18/+19/+20;
   +138/+140 hold success data/count, not an error code. The operation enumerates
   the local Hotfix directory through a filesystem provider. Its success loop
   marks existing cache entries, rather than registering new records. This does

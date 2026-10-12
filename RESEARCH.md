@@ -50,7 +50,7 @@ The original native worker stores success when its structured result status
 byte is zero; the metadata consumer branches to error handling when action
 flag +11 is zero. The read-only inspector now guards this interpretation.
 Kind 13 invokes native local Hotfix-directory enumeration; captured error
-status/domain/code 3/2/-1 are not a wire opcode or server response. This corrects
+status/tag/code 3/2/-1 are not a wire opcode or server response. This corrects
 the earlier empty-response interpretation. The existing cache remains empty;
 cache population and default-context readiness still require investigation.
 

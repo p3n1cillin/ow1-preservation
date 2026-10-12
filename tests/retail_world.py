@@ -201,14 +201,14 @@ class WorldTests(unittest.TestCase):
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
         self.assertTrue(result['completed']); self.assertFalse(result['result_succeeded'])
         self.assertIsNone(result['response_data_present']); self.assertIsNone(result['response_entry_count'])
-        self.assertEqual((result['error_status_raw'], result['error_domain_raw'], result['error_code_raw']), (3, 2, -1))
+        self.assertEqual((result['error_status_raw'], result['error_tag_raw'], result['error_code_raw']), (3, 2, -1))
         action[0x11] = 1; struct.pack_into('<I', action, 0x140, 51)
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
         self.assertTrue(result['result_succeeded']); self.assertFalse(result['response_data_present'])
         self.assertEqual(result['response_entry_count'], 51); self.assertIsNone(result['error_code_raw'])
         struct.pack_into('<Q', action, 0x138, 0x30000000)
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
-        self.assertTrue(result['response_data_present']); self.assertIsNone(result['error_domain_raw'])
+        self.assertTrue(result['response_data_present']); self.assertIsNone(result['error_tag_raw'])
         action[0x130] = 0
         result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
         self.assertIsNone(result['result_succeeded']); self.assertIsNone(result['response_entry_count'])
