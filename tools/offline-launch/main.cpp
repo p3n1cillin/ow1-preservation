@@ -519,7 +519,7 @@ struct ScopedAcl {
                                                  nullptr, nullptr, &acl, nullptr, &descriptor);
         if (status) throw std::runtime_error("Read original scoped ACL: " + std::to_string(status));
     }
-    ~ScopedAcl() {
+    void restore() noexcept {
         if (changed) {
             SECURITY_DESCRIPTOR_CONTROL control = 0; DWORD revision = 0;
             GetSecurityDescriptorControl(descriptor, &control, &revision);
@@ -527,8 +527,32 @@ struct ScopedAcl {
                 ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION);
             const auto status = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT, flags, nullptr, nullptr, acl, nullptr);
             if (status) std::cerr << "Scoped ACL restoration failed: " << status << std::endl;
+            // SetNamedSecurityInfo removes inherited temporary grants from
+            // children, but converts legacy descriptors to auto inheritance.
+            // Restore the captured descriptor's exact control bits afterward.
+            if (!status) {
+                // The legacy setter derives AUTO_INHERITED from the request
+                // bit, rather than preserving AUTO_INHERITED by itself.
+                if (!SetSecurityDescriptorControl(descriptor, SE_DACL_AUTO_INHERIT_REQ,
+                        (control & SE_DACL_AUTO_INHERITED) ? SE_DACL_AUTO_INHERIT_REQ : 0)
+                    || !SetFileSecurityW(path.c_str(), DACL_SECURITY_INFORMATION, descriptor))
+                    std::cerr << "Scoped ACL control restoration failed: " << GetLastError() << std::endl;
+            }
+            changed = false;
         }
+    }
+    ~ScopedAcl() {
+        restore();
         if (descriptor) LocalFree(descriptor);
+    }
+};
+
+struct ScopedAcls {
+    std::vector<std::unique_ptr<ScopedAcl>> entries;
+    ~ScopedAcls() {
+        // Restore parents before separately captured children. Do not depend
+        // on the vector implementation's element destruction order.
+        for (auto& entry : entries) entry->restore();
     }
 };
 
@@ -698,7 +722,7 @@ int wmain(int argc, wchar_t** argv) {
     const auto profile = L"OW1.Preservation.Offline." + std::to_wstring(GetCurrentProcessId());
     HANDLE job = nullptr;
     HANDLE child_process = nullptr, child_thread = nullptr;
-    std::vector<std::unique_ptr<ScopedAcl>> original_acls;
+    ScopedAcls original_acls;
     try {
         const auto exe = std::filesystem::absolute(argv[1]).wstring();
         checked(std::filesystem::is_regular_file(exe), "Executable missing");
@@ -740,14 +764,16 @@ int wmain(int argc, wchar_t** argv) {
             client_folder = installation.wstring();
             std::cout << "Retail launch uses original files and shared parent CASC storage; no disk patch is applied." << std::endl;
         }
-        original_acls.push_back(std::make_unique<ScopedAcl>(client_folder));
-        original_acls.back()->changed = true;
-        allow(sid, client_folder, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE | FILE_GENERIC_WRITE | DELETE,
-              SUB_CONTAINERS_AND_OBJECTS_INHERIT);
         wchar_t own_path[32768]{};
         checked(GetModuleFileNameW(nullptr, own_path, 32768) != 0, "Launcher path");
-        original_acls.push_back(std::make_unique<ScopedAcl>(own_path));
-        original_acls.back()->changed = true;
+        // Capture both before the parent grant can change the launcher's
+        // inherited ACL when the executable is inside the client folder.
+        original_acls.entries.push_back(std::make_unique<ScopedAcl>(client_folder));
+        original_acls.entries.push_back(std::make_unique<ScopedAcl>(own_path));
+        original_acls.entries[0]->changed = true;
+        allow(sid, client_folder, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE | FILE_GENERIC_WRITE | DELETE,
+              SUB_CONTAINERS_AND_OBJECTS_INHERIT);
+        original_acls.entries[1]->changed = true;
         allow(sid, own_path, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE, NO_INHERITANCE);
         auto probe = launch(sid, own_path, L"--child-probe");
         ResumeThread(probe.hThread);
