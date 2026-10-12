@@ -82,13 +82,23 @@ class WorldTests(unittest.TestCase):
         blob[56] = 255
         memory = Memory({address: blob}); captured = {'request_descriptor_pointer': '0'}
         self.assertIsNone(world.callback_metadata(memory, address, captured)['native_practice_header_available'])
+        self.assertIsNone(world.callback_metadata(memory, address, captured)['native_practice_header_load_state_raw'])
+        self.assertFalse(world.callback_metadata(memory, address, captured)['native_header_resource_request_attempted'])
         struct.pack_into('<II', blob, 0, 2, 3); blob[8] = 1
         struct.pack_into('<QI', blob, 16, 0x25000000, 0x688); blob[56] = 1
         captured['request_descriptor_pointer'] = '25000000'
         result = world.callback_metadata(memory, address, captured)
         self.assertTrue(result['native_request_submitted']); self.assertTrue(result['request_matches_world'])
         self.assertTrue(result['native_practice_header_available'])
-        for offset, value in [(60, 0), (128, 0), (161, 0), (56, 2), (96, 2)]:
+        blob[58] = 1
+        for raw in (0, 1, 2, 3, 255):
+            blob[57] = raw
+            self.assertEqual(world.callback_metadata(memory, address, captured)['native_practice_header_load_state_raw'], raw)
+        blob[72] = 1; struct.pack_into('<Q', blob, 64, 0x26000000)
+        result = world.callback_metadata(memory, address, captured)
+        self.assertTrue(result['native_header_resource_request_attempted'])
+        self.assertEqual(result['native_header_resource_request_entry'], '26000000')
+        for offset, value in [(60, 0), (128, 0), (161, 0), (56, 2), (58, 2), (72, 2), (96, 2)]:
             saved = blob[offset]; blob[offset] = value
             try:
                 with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured)

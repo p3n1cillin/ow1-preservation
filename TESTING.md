@@ -41,7 +41,8 @@ Outputs and logs are outside Git: `<BuildRoot>\client\prometheus.dll` plus runti
 | Disc staging / CASC verification | Pass within stated scope | 14 install files; all encoded records copied/hash-checked; CascLib reads original executable and English APMs |
 | Offline launcher safeguards | Pass | Real AppContainer denies network, restores DACLs, rejects unknown patch fingerprints |
 | Original gameplay | Blocked | Compatible adapter and local authentication/session handling remain missing |
-| Linux backend / Wine client / hosted CI | Untested | Source paths/workflow present, no execution evidence |
+| Hosted Windows CI | Pass | [Public run](https://github.com/p3n1cillin/ow1-preservation/actions/runs/38258001906): dependency install, source builds and 12 tests; protected/inherited legacy ACL fixtures included |
+| Linux backend / Wine client | Untested | Source paths present, no execution evidence |
 
 Last full CTest run: 12/12 passed (2026-10-12), including disc parsing/storage format, EN page integrity/bounds, old package bounds/decompression, bounded dump inspection, final bundle/STU table/field/string bounds, independent CRC/reference vectors, captured retail world/owner and diagnostic metadata bounds, and isolated-launcher safeguards (including final retail fingerprint refusal and correct mode routing). Separately, the native catalogue schema probe constructed the expected author-written empty root; native catalogue import is verified separately, but playable map/session integration remains unverified. Logs are local build artifacts; no benchmark or stability claim is based on this short run. Upstream DLL warnings include pointer truncation in STU, format mismatches, macro token-pasting and missing-return diagnostics. Some were addressed in touched code, but the DLL build is not warning-clean and runtime crashes remain plausible. Debugger reproduction is required before attributing issue #41 to a specific fault.
 

@@ -87,7 +87,7 @@
 - Next priority: locate final native world/resource and session/controller entry points with verified instruction/profile evidence before requesting a map. The beta and disc profiles remain separate; there is still no final playable hero or actual multiplayer.
 
 
-## 2026-10-12 — Native retail request and repeatable diagnostics
+## 2026-10-12 - Native retail request and repeatable diagnostics
 
 - Added a read-only dump inspector for the fingerprinted final world, its decoded owner, native state table and request descriptor. A descriptor pointer is distinguished from a resource GUID. Added malformed profile/object/owner/descriptor and author-written diagnostic metadata checks.
 - Directly observed the original 104319 title/login screen through computer-use. Later input returned Windows access denial despite the unlocked desktop. Added guarded process-local ShowIntro handling to make map diagnostics independent of intro keys; original files remain unchanged.
@@ -98,3 +98,12 @@
 - Next native work is request/session/entity-admin initialization required by the idle handler, followed by actual map loading and controller/session integration. Native header recognition is verified; missing header data is not an evidenced explanation for the idle state.
 
 - The user has removed the old 1.0 ISO. Active development remains exclusively on supplied final retail 104319; old tools/notes are historical and synthetic disc tests do not require the ISO.
+
+## 2026-10-12 - Public source and native header loading
+
+- Created the public AGPL-3.0 repository at https://github.com/p3n1cillin/ow1-preservation. Retained public upstream history and published a source snapshot using the GitHub noreply identity. Existing local development history remains on preservation-foundation; game files, dumps and private external research were excluded.
+- The first remote CI run exposed legacy ACL control changes. Reproduced them in an owned temporary fixture, captured file ACLs before parent grants, restored parents before children, and preserved the exact original control flags. Added protected/inherited legacy fixtures. The subsequent public Windows CI completed dependency installation, DLL/patcher/relay builds and all 12 tests.
+- Distinguished native header existence from load state. A query-only run returned 214 handlers at world state 2 with raw header load state 0. A once-only native resource request returns a client-owned entry, changes raw header state to 3 and advances native world state 2 to 3.
+- The first resource/loading-handler run returned 216 calls and survived two minutes at state 3. The full original-world-update version returned 214 calls and survived two minutes, with loading state 3 and observed retries through state 2. Loading completion, rendering, hero control and private sessions remain unverified.
+- Added the bounded PracticeResources mode and guarded raw resource-state/request-entry diagnostics, including explicit unqueried results. The full local CTest suite passes 12/12. A captured game window was black; activation still returned Access denied despite the unlocked desktop. No new input or authentication was attempted.
+- All owned test jobs ended. Next work is native loading/session prerequisites beyond the loaded Practice header. The original executable remains unchanged.

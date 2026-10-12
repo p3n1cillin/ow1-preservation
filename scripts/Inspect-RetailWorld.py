@@ -82,14 +82,19 @@ def callback_metadata(reader, address, world):
     if completion == 2 and (not native_request or index != 0x688 or not blob[8]):
         raise ValueError('Callback metadata native ownership differs')
     active, native_index = struct.unpack_from('<I4xQ', blob, 96)
-    if active > 1 or native_index >= 0x800000000000 or blob[56] not in (0, 1, 255):
+    resource_entry = struct.unpack_from('<Q', blob, 64)[0]
+    if (active > 1 or native_index >= 0x800000000000 or resource_entry >= 0x800000000000
+            or blob[56] not in (0, 1, 255) or blob[58] > 1 or blob[72] > 1):
         raise ValueError('Callback metadata native result bounds')
     return {'address': f'{address:x}', 'completion': completion, 'entered': entered,
             'native_request_submitted': completion == 2,
             'request_matches_world': native_request == int(world['request_descriptor_pointer'], 16),
             'loading_callbacks_returned': struct.unpack_from('<I', blob, 48)[0],
             'callback_active': bool(active), 'native_header_index_entry': f'{native_index:x}',
-            'native_practice_header_available': None if blob[56] == 255 else bool(blob[56])}
+            'native_practice_header_available': None if blob[56] == 255 else bool(blob[56]),
+            'native_practice_header_load_state_raw': blob[57] if blob[58] else None,
+            'native_header_resource_request_attempted': bool(blob[72]),
+            'native_header_resource_request_entry': f'{resource_entry:x}'}
 
 
 def inspect(executable, dump_path):

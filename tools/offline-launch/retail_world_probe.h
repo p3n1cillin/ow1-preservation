@@ -129,7 +129,7 @@ struct PrimarySubmission {
     }
 };
 
-void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe) {
+void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe, bool resource_probe) {
     guard(process, image, 0xb4a5c2, {0x48,0x8d,0x05,0xbf,0xb7,0xb0,0x01,0x48,0x89,0x03});
     guard(process, image, 0xb4b5cd, {0xc6,0x41,0x18,0x02});
     guard(process, image, 0xb52b88, {0x48,0x8b,0x79,0x20,0x48,0x85,0xff});
@@ -137,9 +137,11 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
     guard(process, image, 0xb4b1de, {0x80,0x79,0x18,0x02,0x48,0x8b,0xfa,0x48,0x8b,0xd9});
     guard(process, image, 0xb4b226, {0xb9,0x50,0x01,0,0});
     guard(process, image, 0xb4b3c7, {0x48,0x8b,0x73,0x20,0x48,0x89,0x7b,0x20});
-    if (loader_probe) {
+    if (loader_probe || resource_probe) {
         guard(process, image, 0x171b800, {0x48,0x83,0xec,0x38});
         guard(process, image, 0x171b815, {0xe8,0x06,0x00,0x00,0x00});
+        guard(process, image, 0x171c0b0, {0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x30});
+        guard(process, image, 0xb542ef, {0x49,0x8b,0xcc,0xe8,0xb9,0x7d,0xbc,0x00});
         guard(process, image, 0x171b82c, {0x48,0x8b,0x0d,0x05,0x3b,0xb0,0x01});
         guard(process, image, 0x1734310, {0x48,0x89,0x54,0x24,0x10,0x48,0x83,0xec,0x28});
         guard(process, image, 0xb52b20, {0x48,0x89,0x4c,0x24,0x08,0x55,0x57,0x41,0x57});
@@ -153,6 +155,12 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
         }
     }
     const auto slot = image + vtable + 14 * 8;
+    if (resource_probe) {
+        guard(process, image, 0x171e8e0, {0x4c,0x8b,0xdc,0x49,0x89,0x5b,0x18,0x57,0x48,0x81,0xec,0x80,0,0,0});
+        guard(process, image, 0x171e926, {0x49,0x89,0x4b,0x98}); // request GUID
+        guard(process, image, 0x171e936, {0x89,0x54,0x24,0x30,0xe8,0x61,0xe3,0xff,0xff}); // priority and native request
+        guard(process, image, 0x171b220, {0x33,0xd2,0xc7,0x41,0x10,4,0,0,0}); // native default priority
+    }
     if (read_child<uint64_t>(process, slot) != image + tick) throw std::runtime_error("Final world tick slot differs");
     uint64_t world = 0;
     const auto ready_deadline = GetTickCount64() + 300000;
@@ -230,16 +238,31 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
     const auto no_descriptor_relative = static_cast<int32_t>(mark_done - no_descriptor - 4);
     memcpy(code.data() + no_descriptor, &no_descriptor_relative, 4);
     emit({0x48,0xb9}); value(remote); emit({0xc7,0x01,2,0,0,0});
+    if (resource_probe) {
+        // Submit once through the native resource API with its normal default
+        // priority. The returned native reference stays alive until job exit.
+        // No resource data or completion state is supplied by this project.
+        emit({0x48,0xb9}); value(uint64_t{0x0790000000000688}); emit({0xba,4,0,0,0});
+        emit({0x48,0xb8}); value(image + 0x171e8e0); emit({0xff,0xd0,0x48,0xb9}); value(remote);
+        emit({0x48,0x89,0x41,0x40,0xc6,0x41,0x48,1});
+    }
     const auto pump = code.size();
     if (context_tick) {
         std::vector<size_t> called;
-        if (loader_probe) {
+        if (loader_probe || resource_probe) {
             emit({0x48,0xb9}); value(uint64_t{0x0790000000000688});
             emit({0x48,0xb8}); value(image + 0x171b800); emit({0xff,0xd0,0x48,0xb9}); value(remote);
             emit({0x88,0x41,0x38});
+            // Existence and residency are separate native queries. Preserve
+            // the raw load-state byte; its enum is not yet established.
+            emit({0x48,0xb9}); value(uint64_t{0x0790000000000688});
+            emit({0x48,0xb8}); value(image + 0x171c0b0); emit({0xff,0xd0,0x48,0xb9}); value(remote);
+            emit({0x88,0x41,0x39,0xc6,0x41,0x3a,1});
             emit({0x48,0xb8}); value(image + 0x321f338); emit({0x48,0x8b,0x08,0x48,0xba});
             value(uint64_t{0x0790000000000688}); emit({0x48,0xb8}); value(image + 0x1734310);
             emit({0xff,0xd0,0x48,0xb9}); value(remote); emit({0x48,0x89,0x41,0x68});
+        }
+        if (loader_probe) {
             // Follow only the original state table's loading handlers (2..4).
             // Each handler owns its transition; replication is not advanced.
             for (auto [state, function] : {std::pair<unsigned,uint64_t>{2,0xb52b20}, {3,0xb523f0}, {4,0xb4ff60}}) {
@@ -344,6 +367,10 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             if (!descriptor || descriptor == remote + config_offset || read_child<uint32_t>(process, remote + 24) != practice_index)
                 throw std::runtime_error("Native final request ownership/index differs");
             std::cout << "Native-owned Practice descriptor published." << std::endl;
+            if (resource_probe)
+                std::cout << "Native Practice header resource request returned=0x" << std::hex
+                    << read_child<uint64_t>(process, remote + 64) << std::dec
+                    << " attempted=" << unsigned(read_child<unsigned char>(process, remote + 72)) << std::endl;
             if (tick_probe) {
                 replace_callback(process, world, remote + dispatch_offset, image + vtable);
                 std::cout << "Original final world tick restored after native submission." << std::endl;
@@ -354,11 +381,14 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             std::cout << "Final native world state=" << unsigned(state) << " request_descriptor=0x" << std::hex
                 << read_child<uint64_t>(process, world + 0x20) << std::dec << std::endl; previous = state;
         }
-        if (context_tick && submitted) primary->schedule(world, remote + code_offset);
+        // Resource experiments stop our updates after native loading. Later
+        // activation/replication needs its own verified session integration.
+        if (context_tick && submitted && (!resource_probe || state <= 4)) primary->schedule(world, remote + code_offset);
         if (context_tick && n % 20 == 19)
             std::cout << "Final loading callbacks returned=" << read_child<uint32_t>(process, remote + 48)
                 << " active=" << read_child<uint32_t>(process, remote + 96)
                 << " native_Practice_header_available=" << unsigned(read_child<unsigned char>(process, remote + 56))
+                << " native_Practice_header_load_state=" << unsigned(read_child<unsigned char>(process, remote + 57))
                 << " native_header_index_entry=0x" << std::hex << read_child<uint64_t>(process, remote + 104) << std::dec << std::endl;
     }
     if (tick_probe && !submitted && WaitForSingleObject(process, 0) == WAIT_TIMEOUT)

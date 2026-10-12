@@ -206,10 +206,8 @@ Results:
   failed before map submission at RVA `0x2101790` / `0xc0000005`. These failures
   are recorded separately; their exact internal causes are not established.
 
-Current next work is the native idle handler's request fields and required
-session/entity-admin context. The selected header is recognized, so its absence
-is not an evidenced explanation for this idle state. Private login and actual
-match replication remain unimplemented.
+The next experiment below distinguishes resource existence from loading.
+Private login and actual match replication remain unimplemented.
 
 ```powershell
 .\scripts\Start-RetailClient.ps1 -Mode PracticeRequest
@@ -233,3 +231,46 @@ Local evidence: `final-retail-practice-request.json`,
 `final-retail-practice-loader.json`, `retail-map-loader-availability.log`,
 `retail-map-context-tick-native-stack.log` and
 `final-retail-loader-native-logs.txt` under the external build root.
+
+## Native header loading — 2026-10-12
+
+The idle handler's existence query is separate from its load-state query.
+With just the map descriptor, native header existence is true but the raw
+load-state byte remains `0`. A captured two-minute run returned 214 loading
+callbacks without progressing beyond world state 2.
+
+A separate experiment requests `0790000000000688` once through the native
+resource API at its native default priority 4. That API returns a nonzero
+client-owned resource entry. The raw header load state changes to `3` and
+the idle handler advances the world to state `3`. No resource payload,
+readiness flag, loader counter or world state is supplied by the probe.
+The native resource reference remains alive until this owned job ends.
+
+The initial loading-handler experiment returned 216 callbacks and survived
+two minutes at state 3. The subsequent full original-world-update experiment
+returned 214 updates and also survived two minutes. It reaches state 3 but
+can return to state 2 and retry. Further loading completion is unverified.
+A directly captured game window was black; activation still failed with
+`GetCursorPos ... Access is denied (0x80070005)` despite the unlocked desktop.
+No rendered map, hero or session is claimed.
+
+`PracticeResources` now uses the full original world update on the verified
+original thread stack. It stops this project's extra updates if the native
+world advances beyond loading states 2–4; later session/replication integration
+needs separate verification. The existing `PracticeLoad` mode remains the
+earlier loading-handler experiment without the resource request.
+
+```powershell
+.\scripts\Start-RetailClient.ps1 -Mode PracticeResources
+```
+
+The deadline saves `retail-map-resource-probe.dmp` outside Git and ends the
+owned job. `Inspect-RetailWorld.py` reports resource existence, the raw load
+state (or explicitly unqueried), whether this experiment submitted a native
+resource request, and its returned entry pointer. These measurements establish
+the header-loading prerequisite, not complete map dependency readiness.
+
+Local evidence: `final-retail-practice-load-state.json`,
+`final-retail-practice-resource-handlers.json`,
+`final-retail-practice-resource-request.json` and the corresponding
+`retail-PracticeLoad.log` / `retail-PracticeResources*.log` files.
