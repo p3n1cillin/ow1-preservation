@@ -467,3 +467,18 @@ by the measured policy result below. The private TLS handshake remains blocked.
   params (hash 0x71240E35, method 5) are byte-verified correct, so the client is
   rejecting the LogonResult CONTENT. Next: real EntityId high-word type bits and/or
   session_key; iterate LogonResult until the client stays connected and proceeds.
+
+## 2026-10-12 — OnLogonComplete content is parse-clean but flow-rejected
+
+- LogonResult now uses EntityId type tags (account high=1<<56, game=2<<56) and a
+  session_key; all fields are wire-type-correct against docs/BGS_PROTOCOL.md.
+  Client still cleanly closes right after OnLogonComplete (native job error 0).
+- Since routing (hash 0x71240E35, method 5) and encoding are both verified, the
+  client is rejecting on LOGIN-FLOW LOGIC, not parse/route. The client ships an
+  embedded CEF browser (`_retail_/BlizzardBrowser`) and sent Logon with empty
+  cached_web_credentials — it expects the web-auth session to occur, and treats
+  an unsolicited OnLogonComplete(success) as invalid.
+- Next (needs client-code analysis, not more blind runs): read the Authentication
+  Client/login state machine in the image to find the exact post-Logon sequence
+  the client requires (e.g. a server-pushed web-auth URL + VerifyWebCredentials,
+  or a prerequisite OnServerStateChange), then implement that sequence.

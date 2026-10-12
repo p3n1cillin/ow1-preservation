@@ -124,13 +124,17 @@ def build_logon_result(battle_tag, account_id):
     """LogonResult for AuthenticationClient.OnLogonComplete. This is our own
     preservation server granting a local session; the battle_tag is the identity
     the player appears as. error_code 0 = success. EntityId = {high, low}."""
-    entity = enc_f64(1, 0) + enc_f64(2, account_id)
+    # EntityId.high carries a type tag (bgs convention): account = 1<<56,
+    # game account = 2<<56. high=0 reads as a null entity.
+    account_entity = enc_f64(1, 1 << 56) + enc_f64(2, account_id)
+    game_entity = enc_f64(1, 2 << 56) + enc_f64(2, account_id)
     body = enc_v(1, 0)                       # error_code = success
-    body += enc_b(2, entity)                 # account_id
-    body += enc_b(3, entity)                 # game_account_id (repeated; one entry)
+    body += enc_b(2, account_entity)         # account_id
+    body += enc_b(3, game_entity)            # game_account_id (repeated; one entry)
     body += enc_b(7, battle_tag.encode())    # battle_tag
-    body += enc_v(6, 1)                       # connected_region
-    body += enc_v(5, 1)                       # available_region (repeated; one entry)
+    body += enc_v(6, 1)                      # connected_region
+    body += enc_v(5, 1)                      # available_region (repeated; one entry)
+    body += enc_b(9, bytes(32))              # session_key placeholder
     return body
 
 
