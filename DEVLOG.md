@@ -425,3 +425,7 @@ by the measured policy result below. The private TLS handshake remains blocked.
   observed bytes; no response was sent, so the client tears down (job 3).
 - Not yet run: certificate-variant isolation (which SAN/CN entry is required)
   and the `-TrustSocketCa`-off control. No login, session or gameplay is verified.
+- Control (same mapped-loopback certificate, `-TrustCaCertificate -ObserveTls`,
+  **without** `-TrustSocketCa`): socket 1->2, job 2/1016, client closes before
+  any bytes; no WebSocket upgrade or RPC. Both the mapped peer-name certificate
+  and the original socket CA input are therefore required for the first RPC.
