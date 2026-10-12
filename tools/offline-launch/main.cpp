@@ -27,6 +27,8 @@
 #include "disc_profile.h"
 #include "silent_catalogue.h"
 #include "retail_profile.h"
+#include "retail_tls_patch.h"
+#include "loopback_bridge.h"
 
 template<typename T> T read_child(HANDLE process, uint64_t address) {
     T value{};
@@ -712,6 +714,27 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--child-probe") return network_probe();
     if (argc == 2 && std::wstring(argv[1]) == L"--graphics-probe") return graphics_probe();
+    if (argc >= 4 && std::wstring(argv[1]) == L"--loopback-bridge") return loopback_bridge::run_container(argc, argv);
+    // --retail-private [--forward PORT[:HOSTPORT]]... [-- CLIENT_ARGS...]
+    std::vector<loopback_bridge::Forward> forwards;
+    std::wstring client_arguments;
+    const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
+    if (retail_private) {
+        try {
+            int n = 3;
+            for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) != L"--forward" || n + 1 >= argc) throw std::runtime_error("Expected --forward PORT[:HOSTPORT] or --");
+                forwards.push_back(loopback_bridge::parse_forward(argv[++n]));
+            }
+            for (++n; n < argc; ++n) {
+                const std::wstring argument = argv[n];
+                if (argument.find(L'"') != std::wstring::npos) throw std::runtime_error("Client arguments may not contain quotes");
+                if (!client_arguments.empty()) client_arguments += L' ';
+                client_arguments += argument.find(L' ') == std::wstring::npos ? argument : L"\"" + argument + L"\"";
+            }
+        } catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
+        argc = 3;
+    }
     if (argc < 2 || argc > 3) {
         std::cerr << "ow1-offline-launch PATH [--self-test|--graphics-test|--debug|--snapshot|--retail-snapshot|--retail-offline|--wmi-workaround|--run-offline|--map-probe|--map-probe-no-speech|--map-probe-preload|--map-probe-voice-request|--map-probe-stages|--catalogue-schema-probe|--catalogue-import-probe]\n";
         std::cerr << "Final research probes: --retail-map-probe, --retail-map-worker-probe, --retail-map-tick-probe,\n"
@@ -738,9 +761,9 @@ int wmain(int argc, wchar_t** argv) {
         const bool retail_context_tick = mode == L"--retail-map-context-tick-probe" || retail_debug || retail_loader || retail_resources;
         const bool retail_context = mode == L"--retail-map-context-probe" || retail_context_tick;
         const bool retail_map = mode == L"--retail-map-probe" || retail_worker || retail_tick || retail_context;
-        const bool retail = retail_snapshot || retail_map || mode == L"--retail-offline";
+        const bool retail = retail_snapshot || retail_map || mode == L"--retail-offline" || retail_private;
         const bool disc_interactive = mode == L"--run-offline";
-        const bool interactive = disc_interactive || mode == L"--retail-offline";
+        const bool interactive = disc_interactive || mode == L"--retail-offline" || retail_private;
         const bool import_catalogue = mode == L"--catalogue-import-probe";
         const bool silent_voice = mode == L"--catalogue-schema-probe" || import_catalogue;
         const bool advance_stages = mode == L"--map-probe-stages";
@@ -804,13 +827,50 @@ int wmain(int argc, wchar_t** argv) {
         limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         checked(SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits)), "Set job cleanup");
         const bool debug = retail_debug || mode == L"--debug";
-        auto child = launch(sid, exe, L"", debug, retail ? client_folder : L"");
+        std::unique_ptr<loopback_bridge::HostForwarder> forwarder;
+        if (retail_private && !forwards.empty()) {
+            forwarder = std::make_unique<loopback_bridge::HostForwarder>(sid, forwards);
+            forwarder->start();
+            std::wstring ports = L"--loopback-bridge " + std::to_wstring(GetCurrentProcessId());
+            for (const auto forward : forwards) ports += L" " + std::to_wstring(forward.container_port);
+            auto bridge = launch(sid, own_path, ports);
+            if (!AssignProcessToJobObject(job, bridge.hProcess)) {
+                TerminateProcess(bridge.hProcess, 1); throw std::runtime_error("Assign bridge job failed");
+            }
+            ResumeThread(bridge.hThread);
+            const bool bridge_exited = WaitForSingleObject(bridge.hProcess, 1000) == WAIT_OBJECT_0;
+            CloseHandle(bridge.hThread); CloseHandle(bridge.hProcess);
+            checked(!bridge_exited, "Container loopback bridge exited during startup");
+            std::cout << "Container loopback bridge running; the client still has no network capability." << std::endl;
+        }
+        if (retail_private) std::wcout << L"Private client arguments: " << client_arguments << std::endl;
+        auto child = launch(sid, exe, client_arguments, debug, retail ? client_folder : L"");
         child_process = child.hProcess; child_thread = child.hThread;
         if (!AssignProcessToJobObject(job, child.hProcess)) {
             TerminateProcess(child.hProcess, 1); throw std::runtime_error("Assign child job failed");
         }
         ResumeThread(child.hThread);
         std::cout << "Offline client PID=" << child.dwProcessId << std::endl;
+        std::unique_ptr<std::jthread> tls_patch_thread;
+        if (retail_private && !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0)) {
+            // Apply the bgs TLS acceptance patch in the background so the
+            // interactive client keeps starting while we wait for the packed
+            // image to decrypt the verify site. In-memory only; disk unchanged.
+            const HANDLE patch_process = child.hProcess;
+            tls_patch_thread = std::make_unique<std::jthread>([patch_process]() {
+                PROCESS_BASIC_INFORMATION basic{};
+                using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+                const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
+                if (!query || query(patch_process, ProcessBasicInformation, &basic, sizeof(basic), nullptr) < 0) {
+                    std::cout << "bgs TLS patch: image lookup failed; client left unpatched." << std::endl; return;
+                }
+                uint64_t image = 0;
+                if (!ReadProcessMemory(patch_process, reinterpret_cast<char*>(basic.PebBaseAddress) + 0x10, &image, sizeof(image), nullptr) || !image) {
+                    std::cout << "bgs TLS patch: image base unavailable; client left unpatched." << std::endl; return;
+                }
+                retail_tls_patch::apply(patch_process, image);
+            });
+        }
         if (retail_map && !retail_debug) {
             PROCESS_BASIC_INFORMATION basic{};
             using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);

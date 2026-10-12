@@ -123,3 +123,123 @@
 - Retained an independent native kind-13 metadata request through the original aligned allocation/control-block/constructor/submission sequence. The internal client kind is not a network opcode. Original submission consumes a second reference; the retained reference preserves the result for read-only inspection. No reply, payload or completion flag is supplied by this project.
 - Native async submission is accepted with gate value 1. The request completes with result flag 0, queue-reset marker 0 and a null response-data pointer. The context remains unready, its cache is empty and the service's native initialization terminal flag is 1. Next work is the actual metadata provider/session path; submission/completion is not private-backend or gameplay success.
 - Added native SDK identity/reference/flag/empty-data/error-result checks. Corrected the async gate RVA during local research before publication by evaluating the original RIP-relative operand. Full CTest suite passes 12/12 and the world-profile target now exercises nine synthetic cases. The game archive/executable remain unchanged and all owned test jobs ended.
+
+## 2026-10-12 — Retail login architecture reverse-engineered (static, from title-screen dump)
+
+Analyzed the unpacked in-memory image recovered from `_retail_/startup-wait.dmp`
+(the on-disk EXE is packed; the dump holds the decrypted image at base
+`0x7ff794400000`). Read-only static analysis with capstone/pefile; no client
+bytes were modified and nothing proprietary was committed.
+
+**Two independent TLS stacks:**
+- **bgs RPC** (the `*.actual.battle.net:1119` login connection the client makes
+  FIRST): statically-linked **OpenSSL** (`3rdparty\cross_ssl\src\openssl\openssl_impl.cpp`,
+  "OpenSSL Solution Initialized", `SSL_CTX_new`, `ssl_ctx_make_profiles`). Trust is
+  driven by a **ServerInfo** structure, not a user CA store.
+- **web-auth HTTPS**: **libcurl 7.52.1 + schannel** (Windows cert store). This leg
+  CAN be satisfied by trusting our own CA in the Windows user Root store (the
+  Plasmawatch README's documented step); it needs no patch.
+
+**ServerInfo / cert pinning (the bgs blocker).** The title-screen heap held the
+signed bundle `{"Created":1612222344,"Certificates":[25],"PublicKeys":[25],
+"SigningCertificates":[10],"RootCAPublicKeys":[10]}` followed by a 256-byte
+RSA-2048 signature. Pinned URIs: `us/eu/kr/cn.actual.battle.net`, `*.bgs.battle.net`,
+`*.dev.battle.net`, `*.integration.blizzard.com`, test/loc variants. `PublicKeys`
+entries carry `ShaHashPublicKeyInfo` (SHA-256 of the server SPKI). The bundle
+loader (image `0x7ff79656aa24`) deserializes keys `PublicKeys` /
+`ShaHashPublicKeyInfo` / `SigningCertificates` / `RootCAPublicKeys`; the signature
+is checked against a trust anchor not present in the file, so the bundle is not
+forgeable and we will not attempt to forge it.
+
+**bgs TLS profile config keys** (parsed into a hash-map dispatch at `0x796292c43`):
+`Options, VerifyMode, Certificate, PrivateKey, ServerInfoFile, ChainCA{Path,File},
+VerifyCA{Path,File}, RequestCAFile, ClientCA{File,Path}, DHParameters, …`. These
+describe how a profile is built but, for the client→server leg, trust resolves
+through the signed ServerInfo rather than a locally settable CA file.
+
+**Empirical gate.** Prior session presented a valid CA-signed cert with
+`IP:127.0.0.1` SAN on the host loopback; the client sent its ClientHello
+(293 bytes, TLS 1.3, no SNI) and closed after receiving ServerHello+cert — i.e.
+it rejected our cert at the bgs leg. This is consistent with ServerInfo-pinned
+trust that our CA cannot satisfy.
+
+**Conclusion / plan.** A no-patch path exists only for the web-auth leg (trust our
+CA). The bgs leg requires a minimal in-memory patch of the client's own TLS
+verification result (same WriteProcessMemory technique the launcher and
+`retail_world_probe.h` already use; the Plasmawatch OverLauncher does the
+equivalent for the beta client). Remaining ladder after trust is established:
+reimplement a private bnet login RPC (TLS + length-prefixed protobuf header:
+service hash / method id / token) to answer Logon → web_auth_url → token →
+reach the main menu; maps/heroes/matchmaking/6v6 remain long-horizon research.
+Tooling note: capstone/pefile/numpy were installed only into the session
+scratchpad, not the repo.
+
+### bgs TLS verify patch point located (candidate)
+
+Static RE of the decrypted image mapped the `cross_ssl` post-handshake
+verification. Three independent gates exist: X509 chain/CA verify
+(`ssl_cert_chain_bundle_verification_failed`), public-key pinning
+(`ssl_public_key_pinning_check_failed` reporter at image `0x7ff79657b9e0`),
+and CN/SAN hostname match (predicate `0x7ff796770c80`, consumed by the
+hostname verifier that logs `common_name=` / "Could not validate common name").
+
+The post-handshake **verdict aggregator** is `0x7ff79676f140` (RVA `0x236f140`):
+it returns `ebx`, where **0 = accept**, 2 or 1 = reject (set on sub-check
+failure). It is invoked immediately after the "Finished SSL Handshake" log in
+the handshake state machine, and its result propagates to the connection code.
+
+**Primary candidate patch** (RUNTIME / in-memory only; the on-disk exe is
+packed, so apply after decryption via WriteProcessMemory as the launcher
+already does):
+- RVA `0x236f1e6`, bytes `8B C3` (`mov eax, ebx`) → `31 C0` (`xor eax, eax`):
+  forces the aggregator to return 0 (accept) regardless of sub-check results.
+
+Fallbacks if the aggregator is not the sole gate (pin/chain run inside the
+OpenSSL verify callback during the handshake): neutralize each predicate —
+hostname `0x7ff796770c80`, pin path `0x7ff79657b9e0`, chain-verify (xref
+`0x7ff79657c359`). All RVAs are relative to image base `0x7ff794400000`.
+
+NOT YET TESTED against a live handshake. Patching our own client's cert
+verification to trust our own loopback server is the established private-server
+technique (cf. Plasmawatch OverLauncher for the beta); we are not forging
+Blizzard's ServerInfo signature. Next: apply the patch in the launcher, present
+our cert on the bridged bgs port, run the client, and confirm the handshake
+completes and a bgs RPC arrives.
+
+### Empirical bgs TLS test — in-handshake rejection, external patch insufficient
+
+Built an end-to-end test harness: `--retail-private` now runs a background
+in-memory patch thread (`retail_tls_patch.h`, opt-out `OW1_SKIP_TLS_PATCH`),
+`tools/bnet-probe.py` is an observing OpenSSL TLS server (our own 127.0.0.1
+cert) that logs the client's first bgs RPC frame, and `Start-PrivateClient.ps1`
+bridges container 1119 -> host 21119. Full build + 12/12 CTest pass; the
+launcher restores folder ACLs on client exit (verified clean).
+
+Two client runs (patched launcher). Each time the client, as the TLS *client*,
+sent only its ClientHello (293 B), received our ServerHello+Certificate
+(~1303 B), then closed before its own Finished — the probe logs
+`UNEXPECTED_EOF_WHILE_READING`. So the certificate is rejected **inside** the
+handshake by the client's OpenSSL cert-verify callbacks (chain + public-key
+pinning), not by the post-handshake hostname/verdict path.
+
+First patch attempt targeted the post-handshake verdict aggregator
+(`0x236f1e6`); the launcher reported it "did not decrypt within timeout" —
+correct, because that code only runs after a completed handshake. Retargeted to
+the two in-handshake verify-callback returns (chain `0x217c3a9`, pin
+`0x217bb53`, both `mov eax,ebx` 8B C3 -> `xor eax,eax` 31 C0). Second run: BOTH
+required sites also "did not decrypt within timeout", although the handshake ran
+twice. The bytes at those `.text` RVAs in the *live* process do not match the
+title-screen dump.
+
+**Conclusion:** the retail client protects/decrypts code on demand, so these
+verify functions are not stably decrypted in-place at their dump RVAs; external
+`WriteProcessMemory` polling cannot reliably patch them (the earlier WMI-site
+patch at `0x415eae` worked only because that site is stably decrypted). The
+right mechanism is an **in-process hook via an injected DLL** — fitting, since
+this repo is a Prometheus (injected-DLL) fork. From inside the process the
+verify code is decrypted and executing, so a hook on the OpenSSL verify
+callback / `X509_verify_cert` result, or forcing `SSL_VERIFY_NONE` at SSL_CTX
+setup, is reachable. The static RVAs and verify-function map above remain valid
+inputs for that DLL. Deferred pending direction: injected-DLL hook is a larger,
+dual-use-sensitive step and gates everything after it (login service, menu,
+maps, 6v6).
