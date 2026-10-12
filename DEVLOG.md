@@ -243,3 +243,41 @@ setup, is reachable. The static RVAs and verify-function map above remain valid
 inputs for that DLL. Deferred pending direction: injected-DLL hook is a larger,
 dual-use-sensitive step and gates everything after it (login service, menu,
 maps, 6v6).
+
+### Hard wall: client blocks external code patching (Arbitrary Code Guard)
+
+Instrumented the patch thread and ran repeatedly. New facts:
+- The verify code DOES decrypt and become resident in place at its `.text`
+  RVAs (lazily, after the client initializes further — generally after its
+  first early bgs attempts). The diagnostic confirms the live bytes at
+  `0x217bb53` (pin-verify) and `0x236f1e6` (post-handshake-verdict) exactly
+  match the expected instruction signatures, on committed `PAGE_EXECUTE_READ`
+  pages, uniquely at the site (the chain-verify idiom `8b c3 eb 02 33 c0` also
+  appears as many unrelated copies, so it is not a reliable scan signature).
+- So decryption was never the blocker. The blocker is the WRITE:
+  `VirtualProtectEx(..., PAGE_EXECUTE_READWRITE, ...)` fails with
+  **Win32 error 87 (ERROR_INVALID_PARAMETER)** on those resident pages. On a
+  committed execute-read page with a full-access process handle, that is the
+  behavior of **Arbitrary Code Guard** (ProcessDynamicCodePolicy /
+  ProhibitDynamicCode) or an equivalent anti-tamper mitigation: the kernel
+  refuses to make existing executable pages writable. External in-memory code
+  patching of the final client is therefore blocked by design.
+
+Implications for the bgs login patch:
+- A simple external WriteProcessMemory patch (what works for the beta client,
+  and for the one retail WMI site in earlier notes) cannot neutralize the
+  retail client's TLS verify.
+- Execution-triggered patching avoids changing page protection:
+  (a) hardware breakpoints (Dr0-3 via SetThreadContext) at the verify-return
+      site, caught by a debugger loop in the launcher, adjusting RAX to the
+      success value — but the signed client may have anti-debug (a prior
+      "debugger startup access violation" was noted);
+  (b) an injected DLL using HWBP + a vectored exception handler across all
+      client threads (DLL image load is permitted under ACG; dynamic code is
+      not) — larger, and still an anti-tamper-sensitive effort.
+- The harness, address map and diagnostics remain valid inputs for either.
+
+`retail_tls_patch.h` now polls for the whole session and logs the exact failure
+reason; it is retained as documented infrastructure even though the write is
+currently blocked. No disk bytes were ever modified; the launcher restored
+folder ACLs cleanly after every run.
