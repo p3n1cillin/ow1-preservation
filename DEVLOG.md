@@ -512,3 +512,19 @@ by the measured policy result below. The private TLS handshake remains blocked.
   immediate close on our grant comes from this handler's own logic.
 - Next: finish reversing 0x00e2ebe0 to determine the exact LogonResult the accept
   path needs (and what [rbp+0x48] / the 0x35 branch require) vs. the disconnect.
+
+## 2026-10-12 — OnLogonComplete(error_code=0) is accepted by the handler
+
+- Finished reversing the handler at rva 0x00e2ebe0. Flow for our grant:
+  parse LogonResult (ok) -> status gate [arg+0x48]==0 (ok; we send no status) ->
+  store account_id into auth object [r14+0x60] and battle_tag into [r14+0xd0] ->
+  error_code switch. The switch is error telemetry only; every case (incl. the
+  error_code==0 branch at 0x00e2f11a, report id 0x10069) ends at the quiet tail
+  0x00e2f2e1 (destruct + ret). No branch in this handler disconnects.
+- Conclusion: the client ACCEPTS OnLogonComplete(error_code=0) and records our
+  account/battletag. The post-grant close is therefore DOWNSTREAM of the handler
+  (the client's logged-in flow proceeding and then failing/finishing), not a
+  rejection of the grant. Routing, encoding, and acceptance are all confirmed.
+- Next: trace what the client does after the handler returns (the logged-in
+  phase) to see which further backend step it needs before the main menu, and
+  whether it keeps or drops the bgs connection.
