@@ -129,7 +129,29 @@ struct PrimarySubmission {
     }
 };
 
-void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe, bool resource_probe, bool loading_context_probe) {
+uint64_t find_context_service(HANDLE process, uint64_t image, uint64_t context) {
+    const auto root = read_child<uint64_t>(process, image + 0x2f586e0);
+    const auto operand = read_child<uint64_t>(process, image + 0x2ee4bd0);
+    if (!root || root >= 0x800000000000 || root % 8) throw std::runtime_error("Final context root bounds");
+    const auto array = read_child<uint64_t>(process, root + 0x140) ^ (0x4e3494c633194824ULL - operand);
+    if (!array || array >= 0x800000000000 || array % 8) throw std::runtime_error("Final context array bounds");
+    uint64_t slots[256]{}, found = 0; SIZE_T count = 0;
+    if (!ReadProcessMemory(process, reinterpret_cast<void*>(array), slots, sizeof(slots), &count) || count != sizeof(slots))
+        throw std::runtime_error("Final context component slots unavailable");
+    for (auto address : slots) {
+        if (!address || address >= 0x800000000000 || address % 8) continue;
+        uint64_t blob[0x1a8 / 8]{};
+        if (!ReadProcessMemory(process, reinterpret_cast<void*>(address), blob, sizeof(blob), &count) || count != sizeof(blob)) continue;
+        if (blob[0] != image + 0x2611278 || (blob[1] ^ 0xf3b530a5300e4c1aULL) != root
+            || blob[0x1a0 / 8] != context) continue;
+        if (found && found != address) throw std::runtime_error("Ambiguous final context service");
+        found = address;
+    }
+    if (!found) throw std::runtime_error("Final current context service unavailable");
+    return found;
+}
+
+void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe, bool tick_probe, bool context_probe, bool context_tick, bool loader_probe, bool resource_probe, bool loading_context_probe, bool metadata_probe) {
     guard(process, image, 0xb4a5c2, {0x48,0x8d,0x05,0xbf,0xb7,0xb0,0x01,0x48,0x89,0x03});
     guard(process, image, 0xb4b5cd, {0xc6,0x41,0x18,0x02});
     guard(process, image, 0xb52b88, {0x48,0x8b,0x79,0x20,0x48,0x85,0xff});
@@ -200,6 +222,19 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             || count != 32 || memcmp(native_empty_context, original_defaults + 0x18, 32))
             throw std::runtime_error("Final native default loading context differs");
     }
+    if (metadata_probe) {
+        guard(process, image, 0x6855ca, {0x48,0x8b,0x05,0x0f,0x31,0x8d,0x02});
+        guard(process, image, 0x6855e3, {0x48,0x2b,0x1d,0xe6,0xf5,0x85,0x02});
+        guard(process, image, 0x681870, {0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x74,0x24,0x18});
+        guard(process, image, 0x6818ad, {0x80,0xba,0x69,1,0,0,0});
+        guard(process, image, 0x682250, {0x48,0x8b,0xc4,0x55,0x41,0x55,0x41,0x56,0x41,0x57});
+        guard(process, image, 0x68225e, {0x4c,0x8b,0xba,0x58,1,0,0});
+        guard(process, image, 0x1866230, {0x48,0x83,0xec,0x28,0xba,0x10,0,0,0});
+        guard(process, image, 0x681909, {0x48,0x8d,0x05,0x30,0x4e,0xfd,0x01});
+        guard(process, image, 0x81c1e0, {0x33,0xd2,0x66,0xc7,0x41,0x10,0x0d,0});
+        guard(process, image, 0x8217f0, {0x48,0x89,0x5c,0x24,0x10,0x56,0x48,0x83,0xec,0x20});
+        guard(process, image, 0x821820, {0x83,0x3d,0xa1,0xd1,0x73,0x02,0});
+    }
     const auto remote = reinterpret_cast<uint64_t>(VirtualAllocEx(process, nullptr, context_probe ? 65536 : 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     if (!remote) throw std::runtime_error("Final callback allocation failed");
     constexpr unsigned code_offset = 256, config_offset = 2048, unwind_offset = 128, table_offset = 160;
@@ -264,6 +299,24 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
             const auto relative = static_cast<int32_t>(code.size() - at - 4); memcpy(code.data() + at, &relative, 4);
         }
     }
+    if (metadata_probe) {
+        // Retain an independent native kind-13 request so an asynchronous
+        // failure remains inspectable after the service drops its reference.
+        // Follow its original aligned-allocation/control-block/constructor
+        // sequence. No request payload, completion or response is supplied.
+        emit({0x48,0xb9}); value(remote + 200); emit({0xc6,0x01,1,0xb9,0x58,1,0,0});
+        emit({0x48,0xb8}); value(image + 0x1866230); emit({0xff,0xd0,0x48,0xb9}); value(remote + 240);
+        emit({0x48,0x89,0x01,0x48,0x85,0xc0,0x0f,0x84}); const auto no_request = code.size(); value(int32_t{0});
+        emit({0x48,0xba}); value(image + 0x2656740); emit({0x48,0x89,0x10,0xc7,0x40,0x08,2,0,0,0,0xc7,0x40,0x0c,1,0,0,0});
+        emit({0x48,0x8d,0x48,0x10,0x48,0xb8}); value(image + 0x81c1e0); emit({0xff,0xd0});
+        emit({0x48,0xb9}); value(remote + 248); emit({0x48,0x89,0x01,0x48,0xba}); value(remote + 3072);
+        emit({0x48,0x89,0x02,0x48,0xb9}); value(remote + 240); emit({0x48,0x8b,0x01,0x48,0x89,0x42,0x08});
+        emit({0x48,0xb8}); value(image + 0x2f5e9c8); emit({0x8b,0x00,0x48,0xb9}); value(remote + 224);
+        emit({0x89,0x01,0x89,0x41,0x04,0xc7,0x41,0x08,1,0,0,0});
+        emit({0x48,0xb9}); value(remote + 3072); emit({0x48,0xb8}); value(image + 0x8217f0); emit({0xff,0xd0,0x48,0xb9}); value(remote + 201);
+        emit({0xc6,0x01,1,0x88,0x41,0x01});
+        const auto relative = static_cast<int32_t>(code.size() - no_request - 4); memcpy(code.data() + no_request, &relative, 4);
+    }
     emit({0x48,0xb9}); value(world); emit({0x48,0xba}); value(remote + config_offset);
     emit({0x48,0xb8}); value(image + request_api); emit({0xff,0xd0});
     emit({0x48,0xb9}); value(world); emit({0x48,0x8b,0x41,0x20});
@@ -283,6 +336,19 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
         emit({0x48,0x89,0x41,0x40,0xc6,0x41,0x48,1});
     }
     const auto pump = code.size();
+    if (metadata_probe) {
+        // The verified service pointer is published by the host after native
+        // context activation. These original handlers use RDX as their service
+        // argument and do not consume the incoming RCX. No replies are forged.
+        emit({0x48,0xb8}); value(remote + 208); emit({0x48,0x8b,0x10,0x48,0x85,0xd2,0x0f,0x84});
+        const auto no_service = code.size(); value(int32_t{0});
+        emit({0x48,0xb8}); value(image + 0x2f5e9c8); emit({0x8b,0x00,0x48,0xb9}); value(remote + 224); emit({0x89,0x01});
+        for (auto [function, counter] : {std::pair<uint64_t,unsigned>{0x681870,216}, {0x682250,220}}) {
+            emit({0x48,0xb8}); value(remote + 208); emit({0x48,0x8b,0x10,0x33,0xc9,0x48,0xb8}); value(image + function);
+            emit({0xff,0xd0,0x48,0xb8}); value(remote + counter); emit({0xff,0x00});
+        }
+        const auto relative = static_cast<int32_t>(code.size() - no_service - 4); memcpy(code.data() + no_service, &relative, 4);
+    }
     std::vector<size_t> outside_loading;
     if (context_tick) {
         if (resource_probe) {
@@ -447,6 +513,14 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
                     << read_child<uint64_t>(process, remote + 176) << std::dec
                     << " validated=" << unsigned(read_child<unsigned char>(process, remote + 195))
                     << " activated=" << unsigned(read_child<unsigned char>(process, remote + 193)) << std::endl;
+            if (metadata_probe) {
+                if (!read_child<unsigned char>(process, remote + 194) || !read_child<unsigned char>(process, remote + 193))
+                    throw std::runtime_error("Native context activation required for metadata probe");
+                const auto service = find_context_service(process, image, read_child<uint64_t>(process, remote + 176));
+                if (!WriteProcessMemory(process, reinterpret_cast<void*>(remote + 208), &service, sizeof(service), &count) || count != sizeof(service))
+                    throw std::runtime_error("Final metadata service diagnostic publication failed");
+                std::cout << "Native metadata service verified for original initialization/processing handlers." << std::endl;
+            }
             if (tick_probe) {
                 replace_callback(process, world, remote + dispatch_offset, image + vtable);
                 std::cout << "Original final world tick restored after native submission." << std::endl;
@@ -478,6 +552,10 @@ void run(HANDLE process, uint64_t image, DWORD primary_thread, bool worker_probe
                 << " calls_from_2=" << read_child<uint32_t>(process, remote + 80)
                 << " calls_from_3=" << read_child<uint32_t>(process, remote + 84)
                 << " calls_from_4=" << read_child<uint32_t>(process, remote + 88) << std::endl;
+        if (metadata_probe && n % 20 == 19)
+            std::cout << "Native metadata handlers returned initialization=" << read_child<uint32_t>(process, remote + 216)
+                << " processing=" << read_child<uint32_t>(process, remote + 220)
+                << " retained_request_submitted=" << unsigned(read_child<unsigned char>(process, remote + 202)) << std::endl;
     }
     if (tick_probe && !submitted && WaitForSingleObject(process, 0) == WAIT_TIMEOUT)
         replace_callback(process, world, remote + dispatch_offset, image + vtable);

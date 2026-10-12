@@ -68,4 +68,11 @@ updates, with highest returned state 4 and readiness still zero. The separate
 no-context run now stops after native rejection, verified after three updates.
 Neither result is a gameplay acceptance test; see FINAL_RETAIL.md.
 
+The PracticeMetadata run also verifies original handler execution and a retained
+native SDK request. Submission and completion occur, but response data is absent
+and the context stays unready. Synthetic coverage verifies SDK native identity,
+reference lifetime bounds, unqueried/incomplete results, completed empty results
+and conditional error-code reporting. Internal SDK kinds are not wire-format
+tests or evidence of private-server communication.
+
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.

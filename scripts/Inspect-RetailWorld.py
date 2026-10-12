@@ -39,6 +39,11 @@ GUARDS = {
     0x60e6ef: bytes.fromhex('488bb958010000'),        # native metadata lookup count
     0x60e0bb: bytes.fromhex('488d05b6310002488901'),  # context service vtable
     0x60e0aa: bytes.fromhex('48b81a4c0e30a530b5f3'),  # decoded component owner identity
+    0x821820: bytes.fromhex('833da1d1730200'),        # native async submission gate
+    0x681ac3: bytes.fromhex('41c6866901000001'),      # queue-refusal terminal flag
+    0x81c1e2: bytes.fromhex('66c741100d00'),          # internal metadata request kind 13
+    0x81c1eb: bytes.fromhex('488d05d6c6df01'),        # original request object's vtable
+    0x681909: bytes.fromhex('488d05304efd01'),        # original shared control block
 }
 
 
@@ -103,7 +108,10 @@ def loading_context_service(reader, image, base, context_pointer):
                                'current_context_matches': current == context_pointer,
                                'previous_context_matches': previous == context_pointer,
                                'cached_metadata_entries': cached,
-                               'registered_context_change_subscribers': subscribers}
+                               'registered_context_change_subscribers': subscribers,
+                               'metadata_initialization_terminal_flag_raw': blob[0x169],
+                               'pending_metadata_action': f'{struct.unpack_from("<Q", blob, 0x118)[0]:x}',
+                               'native_async_submission_gate_counter': struct.unpack_from('<i', image, 0x2f5e9c8)[0]}
     if len(candidates) != 1: raise ValueError('Requires one verified native context service')
     return next(iter(candidates.values()))
 
@@ -111,7 +119,7 @@ def loading_context_service(reader, image, base, context_pointer):
 def callback_metadata(reader, address, world, image_base=None, image=None):
     """Optional author-written FRP1 diagnostics; never infer these from game data."""
     if address % 4096: raise ValueError('Callback metadata allocation alignment')
-    blob = reader.memory(address, 200)
+    blob = reader.memory(address, 256)
     if blob[60:64] != b'FRP1' or blob[128:136] != bytes.fromhex('0107020007011b00'):
         raise ValueError('Callback metadata identity differs')
     begin, end, unwind = struct.unpack_from('<III', blob, 160)
@@ -162,6 +170,50 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
             loading_context['native_reports_ready'] = bool(context[0x98])
             if image is not None:
                 loading_context['native_service'] = loading_context_service(reader, image, image_base, context_pointer)
+    metadata_handlers = None
+    service_pointer, init_returns, process_returns = struct.unpack_from('<QII', blob, 208)
+    if service_pointer >= 0x800000000000 or init_returns > 20000 or process_returns > 20000:
+        raise ValueError('Metadata handler diagnostic bounds')
+    if service_pointer:
+        if (not loading_context or not loading_context['native_service']
+                or int(loading_context['native_service']['address'], 16) != service_pointer):
+            raise ValueError('Metadata handler service identity differs')
+        metadata_handlers = {'initialization_handlers_returned': init_returns,
+                             'processing_handlers_returned': process_returns}
+    elif init_returns or process_returns:
+        raise ValueError('Metadata handlers require verified service')
+    sdk_request = None
+    if any(flag > 1 for flag in blob[200:203]): raise ValueError('Retained SDK request flag bounds')
+    control_pointer, action_pointer = struct.unpack_from('<2Q', blob, 240)
+    if any(pointer >= 0x800000000000 for pointer in (control_pointer, action_pointer)):
+        raise ValueError('Retained SDK request pointer bounds')
+    if blob[202] and not blob[201]: raise ValueError('Retained SDK submission result requires a call')
+    if blob[201] and not control_pointer: raise ValueError('Retained SDK submission requires an object')
+    if blob[200]:
+        sdk_request = {'allocation_attempted': True, 'submission_accepted': bool(blob[202]) if blob[201] else None,
+                       'internal_kind': None, 'completed': None, 'queue_reset_marker_raw': None,
+                       'result_flag_raw': None, 'response_data_present': None, 'error_code_raw': None}
+        gate_last, gate_first, gate_recorded = struct.unpack_from('<3I', blob, 224)
+        if gate_recorded > 1: raise ValueError('Retained SDK submission gate observation bounds')
+        sdk_request['submission_gate_before_call'] = gate_first if gate_recorded else None
+        sdk_request['submission_gate_latest'] = gate_last if gate_recorded else None
+        if control_pointer:
+            if image_base is None or control_pointer % 16 or action_pointer != control_pointer + 16:
+                raise ValueError('Retained SDK request allocation identity')
+            control = reader.memory(control_pointer, 16)
+            vft, strong, weak = struct.unpack('<QII', control)
+            action = reader.memory(action_pointer, 0x148)
+            if (vft != image_base + 0x2656740 or not 0 < strong <= 1000000 or not 0 < weak <= 1000000
+                    or struct.unpack_from('<Q', action)[0] != image_base + 0x26188c8 or action[0x10] != 13):
+                raise ValueError('Retained SDK request native identity differs')
+            sdk_request.update({'internal_kind': action[0x10], 'completed': bool(action[0x130]),
+                                'queue_reset_marker_raw': action[0x131], 'result_flag_raw': action[0x11],
+                                'response_data_present': bool(struct.unpack_from('<Q', action, 0x138)[0])
+                                                         if action[0x130] and not action[0x11] else None,
+                                'error_code_raw': struct.unpack_from('<I', action, 0x140)[0]
+                                                  if action[0x130] and action[0x11] else None})
+    elif control_pointer or action_pointer or blob[201]:
+        raise ValueError('Retained SDK request allocation attempt required')
     return {'address': f'{address:x}', 'completion': completion, 'entered': entered,
             'native_request_submitted': completion == 2,
             'request_matches_world': native_request == int(world['request_descriptor_pointer'], 16),
@@ -172,7 +224,9 @@ def callback_metadata(reader, address, world, image_base=None, image=None):
             'native_header_resource_request_attempted': bool(blob[72]),
             'native_header_resource_request_entry': f'{resource_entry:x}',
             'native_update_observation': update_observation,
-            'native_loading_context': loading_context}
+            'native_loading_context': loading_context,
+            'native_metadata_handlers': metadata_handlers,
+            'retained_sdk_metadata_request': sdk_request}
 
 
 def inspect(executable, dump_path):

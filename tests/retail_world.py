@@ -85,7 +85,7 @@ class WorldTests(unittest.TestCase):
             with self.assertRaises(ValueError): world.inspect(executable, Path(folder) / 'absent.dmp')
 
     def test_callback_metadata_distinguishes_unqueried_and_available(self):
-        address = 0x24000000; blob = bytearray(200)
+        address = 0x24000000; blob = bytearray(256)
         blob[60:64] = b'FRP1'; blob[128:136] = bytes.fromhex('0107020007011b00')
         struct.pack_into('<III', blob, 160, 256, 1000, 128)
         blob[56] = 255
@@ -131,7 +131,7 @@ class WorldTests(unittest.TestCase):
             finally: blob[offset] = saved
 
     def test_native_loading_context_verifies_identity_and_reads_readiness(self):
-        address = 0x24000000; context_pointer = 0x28000000; blob = bytearray(200)
+        address = 0x24000000; context_pointer = 0x28000000; blob = bytearray(256)
         blob[60:64] = b'FRP1'; blob[128:136] = bytes.fromhex('0107020007011b00')
         struct.pack_into('<III', blob, 160, 256, 1500, 128)
         blob[56] = 255; blob[192:196] = bytes((1, 1, 1, 1))
@@ -180,6 +180,32 @@ class WorldTests(unittest.TestCase):
             finally: blob[:] = saved
         other = 0x2d000000; memory.data[other] = blob[:]; struct.pack_into('<Q', slots, 127 * 8, other)
         with self.assertRaises(ValueError): world.loading_context_service(memory, image, BASE, context)
+
+    def test_retained_sdk_request_separates_submission_completion_and_data(self):
+        address, control_pointer = 0x24000000, 0x2e000000
+        action_pointer = control_pointer + 16; blob = bytearray(256)
+        blob[60:64] = b'FRP1'; blob[128:136] = bytes.fromhex('0107020007011b00')
+        struct.pack_into('<III', blob, 160, 256, 1800, 128)
+        blob[56] = 255; blob[200:203] = bytes((1, 1, 1))
+        struct.pack_into('<2Q', blob, 240, control_pointer, action_pointer)
+        control = bytearray(struct.pack('<QII', BASE + 0x2656740, 1, 1))
+        action = bytearray(0x148); struct.pack_into('<Q', action, 0, BASE + 0x26188c8); action[0x10] = 13
+        memory = Memory({address: blob, control_pointer: control, action_pointer: action})
+        captured = {'request_descriptor_pointer': '0'}
+        result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
+        self.assertTrue(result['submission_accepted']); self.assertFalse(result['completed'])
+        self.assertIsNone(result['response_data_present']); self.assertIsNone(result['error_code_raw'])
+        action[0x130] = 1
+        result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
+        self.assertTrue(result['completed']); self.assertFalse(result['response_data_present'])
+        action[0x11] = 1; struct.pack_into('<I', action, 0x140, 51)
+        result = world.callback_metadata(memory, address, captured, BASE)['retained_sdk_metadata_request']
+        self.assertIsNone(result['response_data_present']); self.assertEqual(result['error_code_raw'], 51)
+        for buffer, offset, value in [(control, 0, 0), (control, 8, 0), (action, 0, 0), (action, 0x10, 12), (blob, 200, 0), (blob, 201, 2)]:
+            saved = buffer[offset]; buffer[offset] = value
+            try:
+                with self.assertRaises(ValueError): world.callback_metadata(memory, address, captured, BASE)
+            finally: buffer[offset] = saved
 
 
 if __name__ == '__main__': unittest.main()

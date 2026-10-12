@@ -2,7 +2,7 @@
 param(
     [string]$ClientFolder = (Join-Path $env:LOCALAPPDATA 'OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch'),
     [string]$BuildRoot = (Join-Path $env:LOCALAPPDATA 'OW1-preservation-build'),
-    [ValidateSet('Startup', 'PracticeRequest', 'PracticeLoad', 'PracticeResources', 'PracticeContext')]
+    [ValidateSet('Startup', 'PracticeRequest', 'PracticeLoad', 'PracticeResources', 'PracticeContext', 'PracticeMetadata')]
     [string]$Mode = 'Startup'
 )
 $ErrorActionPreference = 'Stop'
@@ -20,6 +20,7 @@ $option = switch ($Mode) {
     'PracticeLoad' { '--retail-map-loader-probe' }
     'PracticeResources' { '--retail-map-resource-probe' }
     'PracticeContext' { '--retail-map-loading-context-probe' }
+    'PracticeMetadata' { '--retail-map-metadata-probe' }
 }
 $logName = if ($Mode -eq 'Startup') { 'retail-interactive' } else { "retail-$Mode" }
 $process = Start-Process -FilePath $launcher -ArgumentList ('"{0}" {1}' -f $clientExe, $option) `

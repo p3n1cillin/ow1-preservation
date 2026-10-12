@@ -344,3 +344,53 @@ Local evidence: `final-retail-practice-update-trace-single.json`,
 `final-retail-practice-context-service.json` and the corresponding
 `retail-PracticeResources-update-*.log` / `retail-PracticeContext.log` files.
 The context diagnostic saves `retail-map-loading-context-probe.dmp` outside Git.
+
+## Native metadata processing and retained request — 2026-10-12
+
+`PracticeMetadata` activates the same native default context, discovers its
+verified service, and invokes the original metadata initialization/processing
+handlers on the owned primary thread. The request fields, metadata records,
+world states and native readiness flags are not filled by this adapter.
+
+```powershell
+.\scripts\Start-RetailClient.ps1 -Mode PracticeMetadata
+```
+
+A separate retained request follows the native aligned allocation,
+shared-control-block and request-constructor sequence. The original async
+submission API consumes a second reference; the diagnostic retains one so the
+native completion result remains inspectable. Its internal kind is 13, as in
+the original metadata initializer. **This is an internal client identifier,
+not a demonstrated network message opcode.** The adapter supplies no reply or
+completion flag and does not consume or export response payloads.
+
+The two-minute captured run establishes:
+
+- The async submission gate is 1, including immediately before the retained
+  request's submission. The native submission API returns true.
+- The retained request's completion flag becomes true, with result flag 0 and
+  queue-reset marker 0. Its response-data pointer is null. There is no native
+  error-code value to report for this result.
+- Both native metadata handlers return 432 times in the dump. The world update
+  returns 433 times and still returns at state 4 in immediate observations.
+- The context remains current, its readiness stays zero, and the metadata cache
+  stays empty. The service's initialization terminal flag is 1 and its pending
+  metadata action has been cleared.
+
+This narrows the next investigation to the metadata provider/session path,
+which returns no usable response data in the isolated standalone launch. It
+does not demonstrate a private-backend reply, a working login, an original
+wire protocol, or a completed map. No socket capability was granted and no
+production credentials were entered. SDK submission/completion alone is not
+metadata or gameplay success.
+
+The read-only inspector validates the retained native control/object identities,
+reference counts and internal kind. It distinguishes unsubmitted, incomplete,
+empty-data and error-code results. Only flags, counters, identities and data
+presence are reported; response/identifier bytes stay local.
+
+Local evidence: `final-retail-practice-metadata-service.json`,
+`final-retail-practice-sdk-metadata.json`, `retail-PracticeMetadata.log` and
+`retail-map-metadata-probe.dmp` outside Git. The pre-retention comparison is
+`retail-PracticeMetadata-service-baseline.log` /
+`retail-map-metadata-service-baseline.dmp`.
