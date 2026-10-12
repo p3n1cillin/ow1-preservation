@@ -55,7 +55,7 @@ class WorldTests(unittest.TestCase):
         for offset, value in [(0, 0), (8, 0), (0x10, 0), (0x20, 0x0800000000000165)]:
             memory = self.fixture(); struct.pack_into('<Q', memory.data[OBJECT], offset, value)
             with self.assertRaises(ValueError): world.world_state(memory, OBJECT, self.image, BASE)
-        memory = self.fixture(); memory.data[OBJECT][0x18] = 10
+        memory = self.fixture(); memory.data[OBJECT][0x18] = 11
         with self.assertRaises(ValueError): world.world_state(memory, OBJECT, self.image, BASE)
         memory = self.fixture(); memory.data[OWNER] = bytes(8)
         with self.assertRaises(ValueError): world.world_state(memory, OBJECT, self.image, BASE)
@@ -65,10 +65,19 @@ class WorldTests(unittest.TestCase):
     def test_descriptor_is_pointer(self):
         memory = self.fixture(); descriptor = 0x22000000
         struct.pack_into('<Q', memory.data[OBJECT], 0x20, descriptor)
-        memory.data[descriptor] = struct.pack('<I', 0x688)
+        memory.data[descriptor] = bytearray(0x150)
+        struct.pack_into('<I', memory.data[descriptor], 0, 0x688)
         report = world.world_state(memory, OBJECT, self.image, BASE)
         self.assertFalse(report['idle_without_request'])
         self.assertEqual(report['request_descriptor_first_u32'], 0x688)
+        self.assertFalse(report['request_loading_context_present'])
+        memory.data[descriptor][0x18] = 1
+        report = world.world_state(memory, OBJECT, self.image, BASE)
+        self.assertTrue(report['request_loading_context_present'])
+        memory.data[OBJECT][0x18] = 10
+        self.assertEqual(world.world_state(memory, OBJECT, self.image, BASE)['state'], 10)
+        memory.data[descriptor] = memory.data[descriptor][:4]
+        with self.assertRaises(ValueError): world.world_state(memory, OBJECT, self.image, BASE)
 
     def test_unrelated_executable_rejected_before_dump(self):
         with tempfile.TemporaryDirectory(prefix='ow1-world-test-') as folder:

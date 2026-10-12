@@ -248,7 +248,8 @@ The native resource reference remains alive until this owned job ends.
 
 The initial loading-handler experiment returned 216 callbacks and survived
 two minutes at state 3. The subsequent full original-world-update experiment
-returned 214 updates and also survived two minutes. It reaches state 3 but
+logged 214 returned updates (215 in the later dump) and also survived two
+minutes. It reaches state 3 but
 can return to state 2 and retry. Further loading completion is unverified.
 A directly captured game window was black; activation still failed with
 `GetCursorPos ... Access is denied (0x80070005)` despite the unlocked desktop.
@@ -270,7 +271,16 @@ state (or explicitly unqueried), whether this experiment submitted a native
 resource request, and its returned entry pointer. These measurements establish
 the header-loading prerequisite, not complete map dependency readiness.
 
+The guarded read-only loading report also records the native state-3 gate
+counter and whether the descriptor's opaque 32-byte loading context is present.
+The captured counter is `0` and that context is all zero. Later native loading
+examines this context, but its format and required session relationship remain
+unverified. The report exposes presence only, never its bytes. Next work is
+the native loading/session setup beyond the header, rather than assuming all
+dependencies are ready or filling unknown context fields with fabricated data.
+
 Local evidence: `final-retail-practice-load-state.json`,
 `final-retail-practice-resource-handlers.json`,
 `final-retail-practice-resource-request.json` and the corresponding
 `retail-PracticeLoad.log` / `retail-PracticeResources*.log` files.
+The additional loading report is `final-retail-practice-loading-context.json`.

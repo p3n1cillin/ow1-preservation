@@ -30,6 +30,9 @@ GUARDS = {
     0xb52b88: bytes.fromhex('488b79204885ff'),          # idle reads request POINTER
     0xb52bc3: bytes.fromhex('8b07'),                   # dereferences descriptor index
     0xb4cd59: bytes.fromhex('488b05417b390248b9967bc2674456fd4d'),
+    0xb4ccd4: bytes.fromhex('833d6d6b7402007f43'),   # native state-3 gate
+    0xb50053: bytes.fromhex('4883c118'),              # later loader examines request +18
+    0xb510c3: bytes.fromhex('c647180a'),              # native terminal unload state 10
 }
 
 
@@ -56,12 +59,15 @@ def world_state(reader, address, image, base):
     if struct.unpack('<Q', reader.memory(owner, 8))[0] != base + OWNER_VTABLE:
         raise ValueError('World owner identity differs')
     state = blob[0x18]
-    if state > 9: raise ValueError('Unknown native world state')
+    if state > 10: raise ValueError('Unknown native world state')
     request, load_timer, stall_timer = struct.unpack_from('<3Q', blob, 0x20)
     if request and (request >= 0x800000000000 or request % 8): raise ValueError('Request descriptor address bounds')
-    request_index = struct.unpack('<I', reader.memory(request, 4))[0] if request else None
+    descriptor = reader.memory(request, 0x38) if request else None
+    request_index = struct.unpack_from('<I', descriptor)[0] if descriptor else None
     return {'address': f'{address:x}', 'owner': f'{owner:x}', 'state': state,
             'request_descriptor_pointer': f'{request:x}', 'request_descriptor_first_u32': request_index,
+            # Report presence only; never expose the opaque 32-byte context.
+            'request_loading_context_present': bool(any(descriptor[0x18:0x38])) if descriptor else None,
             'load_timer': load_timer, 'stall_timer': stall_timer,
             'idle_without_request': state == 2 and request == 0}
 
@@ -139,6 +145,7 @@ def inspect(executable, dump_path):
         if len(callbacks) > 1: raise ValueError('Ambiguous callback metadata')
         return {'build': '1.74.0.0.104319', 'read_only': True, 'native_instruction_guards_verified': True,
                 'captured_module': module, 'world': objects[0], 'rejected_pointer_candidates': rejected,
+                'native_loading_gate_counter': struct.unpack_from('<i', image, 0x3293848)[0],
                 'probe_callback_metadata': callbacks[0] if callbacks else None,
                 'scope': 'Captured world/owner identity and state only; map/session/controller initialization unverified.'}
     finally: dump.close()
