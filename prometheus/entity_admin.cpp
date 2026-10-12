@@ -571,18 +571,20 @@ void PrometheusSystem::state_replicator_do() {
 			switch (update->type) {
 			case state_replicator::MsgBase::MessageType::ChangeHero: {
 				auto msg = dynamic_cast<state_replicator::ChangeHeroMessage*>(update.get());
-				if (msg->player_id == state_replicator::local_playerid)
+				if (msg->player_id == state_replicator::get_local_playerid())
 					continue;
 				auto player = _awful_server_entities.find(msg->player_id);
+				auto hero = stu_resources::GetByID(msg->heroid);
+				if (!hero) { printf("Unknown remote hero resource\n"); continue; }
+				auto gameplay = hero->to_editable().get_argument_resource("m_gameplayEntity");
+				if (!gameplay) { printf("Remote hero has no gameplay entity\n"); continue; }
+				auto model_entid = gameplay->resource_id;
 				if (player != _awful_server_entities.end()) {
 					_game_ea->delEnt(player->second.first);
 					_game_ea->delEnt(player->second.second);
 				}
-				auto hero = stu_resources::GetByID(msg->heroid);
-				owassert(hero);
-				auto model_entid = hero->to_editable().get_argument_resource("m_gameplayEntity")->resource_id;
 				player_spawner spawn(model_entid);
-				spawn.controller_info.heroid = model_entid;
+				spawn.controller_info.heroid = msg->heroid;
 				spawn.controller_info.load_2f_33 = false;
 				spawn.controller_info.set_localent = false;
 				spawn.model_info.skin_theme_id = msg->skinid;
@@ -592,26 +594,27 @@ void PrometheusSystem::state_replicator_do() {
 																   break;
 			case state_replicator::MsgBase::MessageType::JoinInstance: {
 				auto msg = dynamic_cast<state_replicator::JoinInstanceMessage*>(update.get());
-				if (msg->player_id == state_replicator::local_playerid)
+				if (msg->player_id == state_replicator::get_local_playerid())
 					continue;
 				printf("Player joined: %s (%s)\n", msg->player_id.c_str(), msg->name.c_str());
 			}
 																	 break;
 			case state_replicator::MsgBase::MessageType::LeaveInstance: {
 				auto msg = dynamic_cast<state_replicator::LeaveInstanceMessage*>(update.get());
-				if (msg->player_id == state_replicator::local_playerid)
+				if (msg->player_id == state_replicator::get_local_playerid())
 					continue;
 				auto player = _awful_server_entities.find(msg->player_id);
 				if (player != _awful_server_entities.end()) {
 					_game_ea->delEnt(player->second.first);
 					_game_ea->delEnt(player->second.second);
+					_awful_server_entities.erase(player);
 				}
-				printf("Player left: %s (%s)\n", msg->player_id.c_str());
+				printf("Player left: %s\n", msg->player_id.c_str());
 			}
 																	  break;
 			case state_replicator::MsgBase::MessageType::PositionUpdate: {
 				auto msg = dynamic_cast<state_replicator::PositionUpdateMessage*>(update.get());
-				if (msg->player_id == state_replicator::local_playerid)
+				if (msg->player_id == state_replicator::get_local_playerid())
 					continue;
 				MovementState state = msg->data.get<MovementState>();
 				if (state.command_frame == -1)
@@ -619,6 +622,7 @@ void PrometheusSystem::state_replicator_do() {
 				auto player = _awful_server_entities.find(msg->player_id);
 				if (player != _awful_server_entities.end()) {
 					auto comp12 = player->second.second->getById<Component_12_STUMovementStateComponent>(0x12);
+					if (!comp12) continue;
 					auto result = comp12->PasteMovementState(&state);
 					//printf("%p (%d) %d - %f %f %f\n", comp12, result, state.command_frame, state.absolute_position.X, state.absolute_position.Y, state.absolute_position.Z);
 				}
@@ -641,7 +645,7 @@ void PrometheusSystem::state_replicator_do() {
 		}
 		if (local_model) {
 			auto comp15 = local_model->getById<Component_15_STUCharacterMoverComponent>(0x15);
-			state_replicator::emplace_positon_update(&comp15->movement_state_2);
+			if (comp15) state_replicator::emplace_positon_update(&comp15->movement_state_2);
 		}
 	}
 	else {
@@ -649,6 +653,7 @@ void PrometheusSystem::state_replicator_do() {
 			_game_ea->delEnt(ent.second.first);
 			_game_ea->delEnt(ent.second.second);
 		}
+		_awful_server_entities.clear();
 	}
 }
 

@@ -405,3 +405,15 @@ FodyWeavers.xsd
 
 vcpkg_installed/
 output/
+build/
+client-data/
+game-files/
+*.patched.exe
+*.dmp
+*.iso
+*.7z
+*.cmf
+*.apm
+*.blte
+*.idx
+__pycache__/

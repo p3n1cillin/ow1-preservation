@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+project(ow1_offline_launch LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+add_executable(ow1-offline-launch main.cpp)
+target_link_libraries(ow1-offline-launch PRIVATE userenv advapi32 ws2_32 dbghelp d3d11 dxgi psapi ole32 oleaut32 wbemuuid bcrypt)

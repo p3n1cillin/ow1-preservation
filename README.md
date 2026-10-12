@@ -1,4 +1,33 @@
-# Prometheus <!-- omit in toc -->
+# OW1 Preservation <!-- omit in toc -->
+
+Open-source Overwatch 1 preservation research and private-server tooling,
+based on [Prometheus](https://github.com/saturn-xvi/prometheus). Licensed under
+AGPL-3.0; upstream attribution and source history are retained. Original game
+files are supplied separately. **Playable final-retail private matches are not
+implemented yet.**
+
+The active target is the supplied final OW1 build **1.74.0.0.104319**, from
+`Overwatch1.74.0.0.104319.7z`. The old 1.0.1 ISO is no longer available or
+required for current development. Disc and beta code/notes remain historical
+references; the regression fixtures do not require that ISO.
+
+This preservation branch builds the beta extension and adds a standalone movement relay. **It does not yet provide a playable original OW1 private match.** Source builds and synthetic networking tests pass. The supplied disc client renders its original title/login screen offline. A separate experimental adapter reaches native world-loaded state and renders partial Hanamura geometry beneath a loading overlay, with speech omitted; no controllable hero or completed game session is verified. See [disc runtime instructions](DISC_RUNTIME.md) and [adapter evidence](DISC_ADAPTER.md).
+
+The supplied final retail build `1.74.0.0.104319` is now extracted and fingerprinted. Its unmodified process survives isolated startup, and the user confirms its title/login screen; selected original manifests and 130 bundled map headers are hash-verified. Final gameplay remains unverified. See [final-retail evidence and launch instructions](FINAL_RETAIL.md).
+
+Final native research now publishes a client-owned Practice Range request and verifies the header in the native resource index. Repeated original world/loading callbacks remain at idle state 2; no final map, hero or private session is verified. The launch script exposes bounded `PracticeRequest` and `PracticeLoad` diagnostics alongside normal startup.
+
+Build on Windows with Visual Studio 2022 C++ tools, Windows SDK 10.0.26100.0, CMake and .NET 8:
+
+```powershell
+.\scripts\Build.ps1
+```
+
+See [testing and outputs](TESTING.md), [architecture](ARCHITECTURE.md), [research](RESEARCH.md), [client compatibility](COMPATIBILITY.md), [feature status](FEATURE_MATRIX.md), [roadmap](ROADMAP.md), [development log](DEVLOG.md) and [licenses](LEGAL_AND_LICENSES.md).
+
+Final retail target: **1.74.0.0.104319**. The requested BlizzGet attempt could not retrieve its build configuration; [exact metadata, endpoint results and reproduction commands](CLIENT_ACQUISITION.md) are recorded. The existing fixed-offset beta DLL is not a retail adapter. The sections below retain upstream beta usage/internals documentation and are not local runtime verification.
+
+Update 2026-10-11: the supplied ISO contains signed x64 build **1.0.1.27578**. [Disc inspection and fingerprints](ISO_INSPECTION.md) are recorded. [Offline runtime investigation](DISC_RUNTIME.md) records reconstructed storage and verified title startup; [the separate adapter](DISC_ADAPTER.md) records the unresolved map-loading investigation.
 
 Hey and welcome, thanks for stopping by!
 - [1. Usage](#1-usage)
@@ -27,7 +56,7 @@ Hey and welcome, thanks for stopping by!
 
 # 1. Usage
 
-If you havent already, download the 0.8 beta from [archive.org](https://archive.org/details/overwatch-beta-0-8-0-24919) and extract the files somewhere.
+Use an authorized, complete original beta `0.8.0.24919` backup outside this source repository. No client files are bundled. Establish its exact executable fingerprint and patch compatibility before following the upstream runtime procedure below; this session did not validate it.
 * ⚠️ Make sure that you don't download any malicious executable and verify that GameClientApp.exe is signed by Blizzard. The signature will get broken after applying the patcher.
 * You can safely remove the BlizzardError directory.
 
@@ -36,7 +65,7 @@ If you havent already, download the 0.8 beta from [archive.org](https://archive.
 * Download a release.zip. Extract all files to the game directory.
 * Execute patcher.exe. It will ask for an input GameClientApp.exe, select the one you have downloaded and verified.
   * The patcher will write a GameClientApp.patched.exe file into the same directory. The only thing this patched executable does is load inject.dll before running the game code itself.
-  * You only need to do this once, this patch is version-independent.
+  * The patch and DLL contain fixed beta offsets. Compatibility with other versions is unverified.
 * Rename prometheus.dll into inject.dll
 * Congratulations, you're done :) Have a cookie 🍪
 

@@ -1,0 +1,100 @@
+# Development log
+
+## 2026-10-11 — User-supplied ISO inspection
+
+- Inspected the supplied 5.18 GB ISO using read-only archive listing, then an experimental ISO9660/DD-v1 reader. No mounting, installer execution, game launch or patching.
+- Verified the disc index hash against `disc.id`; scanned all 64,883 archive record headers. Skipped 64,826 encrypted first chunks; decoded supported metadata and executable records only. Parsed the 14-entry install manifest.
+- Recovered signed x64 `Overwatch.exe` to an external local cache. Size/content MD5 match the install manifest. SHA256 `8d33644f844b81e830c12749371c80a83d26f81b186265897ca5d67f6e7e665d`; numeric PE version is `1.0.1.27578` despite empty version strings. Confirmed numeric version with pefile and .NET independently.
+- Extended executable inspection to include numeric fixed version; added bounded BLTE/install parsing and synthetic regression checks. This client is an additional static-analysis candidate, not compatible with the existing beta hooks and not the final retail target. Full offline installation, encrypted assets and runtime behavior remain unverified.
+- Rebuilt the standalone targets and reran CTest: 4/4 passed, including the new disc-inspection checks and existing socket/PE tests. No proprietary payload was staged in Git.
+
+## 2026-10-10 — Preservation foundation
+
+- Inspected the empty Windows/network-share workspace and the complete project directive. No repository-specific agent instructions were found. Cloned Prometheus recursively at `ad1fea7e6c04c9959c7115cb8ecd9c79c93c1ccb`; created branch `preservation-foundation`.
+- Inspected Prometheus game initialization, STU/entity/movement/serialization, debug tools, network callbacks and fixed-offset patcher. Evaluated mandatory Login-Server and OW1-Emulator sources plus OWLib, Plasmawatch lobby/launcher, issues/PRs and sampled forks. Rejected unsupported assumptions of runtime/version compatibility.
+- Established a local build cache because Windows denied executing tools from the mapped share. Used the pinned vcpkg checkout `11bbc873e00e9e58d4e9dffb30b7a5493a030e0b` and manifest baseline `c5ff0f76a2212d49e92f02b510cc7509e7e119ef`. Initial vcpkg bootstrap/download attempts on the share were unsuccessful; the local executable/dependency installation succeeded.
+- Built the upstream Release/x64 DLL and .NET 8 patcher. Recorded existing warnings and kept launch/map/hero behavior unverified because no client files were present.
+- Implemented a reusable validated BSON demo protocol, pure relay core and standalone listener. Added connection-owned IDs, state ordering, latest-hero cache, late-join snapshots, disconnect cleanup, room/input/rate/queue limits and JSON diagnostics. This is a movement relay, not match authority.
+- Added regression tests and a dedicated-process integration harness with two-way movement values, reconnect, 12 real sockets and rejected malformed/excess participants. Fixed a test readiness callback and Windows bcrypt link dependency discovered by compilation/testing.
+- Started the client WebSocket worker; synchronized identity/hero/connection state; added bounded receive queue and disconnect controls; shared the embedded relay core; fixed stale entity removal, controller hero ID and missing log argument; guarded absent resources/components. Skip uninitialized movement and movement before a selected hero. Client changes compiled successfully but were not exercised in-game.
+- Added read-only PE/version/hash/signature inspection and synthetic malformed-file checks. No original client was patched, loaded or executed.
+- At the user's request, cloned BlizzGet in an external research folder, inspected its NGDP implementation and compiled a headless probe. Found archived final build metadata `1.74.0.0.104319` / config `786a31729ba1c684a5c80fbaf7cb92b8`. Final config lookup returned 403; tested alternatives returned 404. Current and older PTR control configs returned 200. No game data or substitute build was downloaded.
+- Added a reproducible probe build using external BlizzGet source; compiled/reran the committed probe and reproduced the 403. External source redistribution permissions are not established, so no linked binary/source was vendored.
+- Added `Build.ps1`, CI build/test configuration and required research/status/architecture/license documents. Resolved a Windows network ownership issue by reading a detached vcpkg worktree's revision without changing Git's global trust settings. Full build workflow passed locally; CTest 3/3 passed. CI configuration has not run remotely.
+- Remaining blocker: compatible authorized game files and verified byte/profile checks. Next acceptance target: original beta launch, one hero/map and visible two-client movement; retail adaptation and synchronized combat/objectives remain future work.
+
+## 2026-10-11 — User request: get the supplied disc running
+
+- Recovered and hash-checked all 14 install files to local cache. Rebuilt five encoded CASC segments/16 indices with all 64,883 disc records and verified their EKeys. Generated clearly labeled inferred configuration; encrypted payloads remain unchanged.
+- Built external CascLib `38a34665624b8775bb875274b36191b21c38d97b` and verified ROOT, executable and English application/speech manifests by original content MD5. The native game still cannot initialize its resources; this reader check does not establish playable content.
+- Built a bounded offline diagnostic launcher. Real zero-capability AppContainer probe denies TCP with WSAEACCES; DACLs restored/profile removed afterward. Added exact SHA256/instruction guards for an opt-in in-memory WMI fallback. Original executable remains unchanged and signed.
+- Isolated unmodified startup crashes at RVA 0x415EBB after WMI services are denied. Workaround reaches an original Overwatch Mgr 13 resource-error dialog. Full local memory diagnostics identified missing `cache/casc/shmem.lock`; creating the cache fixes that particular error, but not resource-manager initialization. No original menus/maps/heroes/gameplay verified. Beta DLL was not injected.
+- Root CMake now includes launcher and safeguards tests. CTest 6/6 passed, including published Jenkins answers/index framing, real network isolation, DACL restoration and unknown-build refusal. See DISC_RUNTIME.md for reproduction and limitations.
+
+## 2026-10-11 — Native disc title-screen startup
+
+- Captured native diagnostics identified required build-table columns and missing archive-envelope integrity fields. Corrected metadata, index byte order/allocation and seeded Jenkins/offset checksums; encrypted BLTE payloads remain unchanged.
+- Both the repaired installation and a fresh ISO reconstruction rendered the original animated title/login screen with network denied. CascLib named-file verification passed after native startup; fresh captured diagnostics contain the expected no-server downloader failure. Login, maps, controllable heroes and private gameplay remain unverified.
+- Added bounded dump inspection, format/bounds regression tests and `--run-offline`, which keeps the original window open until user exit with the same AppContainer isolation and scoped cleanup. The executable on disk retains its verified SHA256.
+- MSVC Release build and seven CTest targets pass; proprietary assets, dumps and logs stay outside Git.
+
+## 2026-10-11 — Disc package graphs and native world-loaded milestone
+
+- Added a read-only old APM/package inspector and synthetic bounds/gzip/hash tests. Base Hanamura (5 packages / 8,257 entries), Practice (6 / 11,270), global 29 (1,270 / 178,957) and Hanamura localized (8 packages) checks passed. Global localized checks found 10,293 unavailable entries; this client is not complete. Entries include duplicates.
+- Traced global pack readiness, optional speech rows, native loader work and resource dependencies. Confirmed absent global-29 English bundle and loose voice catalogue encoded records against the ISO index and encoding manifest. CDN probes returned no copy; no invented asset was written.
+- Added fingerprinted bounded disc probes: omit optional speech, preload common/map packages on the native game thread, explicitly request the missing voice catalogue through the native API. Native failure completes the unresolved dependency and permits world state 5 / the correct Hanamura GUID. Restoring the original map callback after submission is now automatic.
+- Visually observed Hanamura geometry behind the original loading overlay. The restored-callback probe survived five minutes at state 5 without a new crash report; no controllable hero, collision, combat, authenticated session or actual multiplayer was verified. One earlier run with a retained callback crashed at a call to zero; causation remains unresolved.
+- Added a separate native world-stage callback experiment based on upstream beta behavior. The disc raises assertion 3980(92)/3981/"2" before a playable transition. This diagnostic is not a successful game/session implementation; its post-startup deadline is one minute. No assertion or loader-ready flag was bypassed.
+- Rechecked the user-supplied NGDP archive and OWLib/TACTLib source. The exact final, 1.23 and disc config hashes returned 403/404 on tested paths, including ConfigPath; the source-built BlizzGet prerequisite probe again returned 403 for final OW1. No new client acquired. Current TACTLib's old-version rejection prevents direct use for this disc.
+- MSVC source build and eight CTest targets pass. Game files, local crash reports, screenshots returned by the UI tool, dumps and logs remain outside Git. The next native work is to identify required callback/session/controller initialization before advancing out of world-loaded state.
+- Subsequent exception-context inspection identifies the stage assertion's requested resource as Hanamura STU `0x04000000000001fa`; its native object is unavailable after the missing voice-catalogue dependency fails. Next work is optional voice-reference handling that preserves the map definition, or obtaining the original missing catalogue, before session/controller activation. Other locale manifests/package metadata did not yield an available alternative through the reconstructed storage.
+
+## 2026-10-12 — Missing catalogue audit and author-written schema prototype
+
+- Added a repeatable read-only audit of original EN/ISO/package data. Verified all 1,787 EN content-key pages / 191,194 mappings and the 64,883-entry original disc index. The 46,208-byte catalogue has one declared EKey, absent from the index.
+- Searched 5,034 English base/speech package rows, parsing 3,988 hash-verified metadata files; 47 metadata files remained unreadable. Only the missing loose record matched. No exact available duplicate was found; unreadable/external copies remain unknown.
+- Eighteen HTTPS CDN asset attempts returned no copy; certificate validation was retained. No matching hash-named file was found among 190 checked local cache files. These checks do not establish universal unavailability.
+- Derived the disc immutable-STU v3 VoiceSet schema from owned readable resources and authored a 96-byte empty candidate with no original mappings/audio. Unregistered-callback parsing/creation attempts crashed; exact failure sites were not captured. Added guarded Windows unwind registration; the subsequent native parser constructed the expected root and empty list successfully.
+- Added the separate `--catalogue-schema-probe`: verifies schema/instructions/object identity and original missing descriptor, then stops the isolated job. The candidate is not installed, no loader flags are fabricated and native map/gameplay integration remains unresolved. A successful schema probe is not a successful resource replacement or game session.
+- Source build and nine CTest targets pass, including new EN corruption/bounds checks and unknown-build rejection for the schema probe. Game files/payload samples/dumps/logs remain outside Git.
+
+## 2026-10-12 — Native silent catalogue import
+
+- Traced native memory import, work attachment/cancellation, STU ownership/destruction and descriptor completion. Added guarded `--catalogue-import-probe` with a client-allocated aligned 96-byte author-written buffer, native request/descriptor guards and callback unwind metadata. Completion/failure flags remain native.
+- Repeatedly observed a published catalogue object under the original GUID with flags `0xb1301`, size 96 and expected root vtable; the completed captured descriptor has no loader work. The helper verifies that the object is the exact newly allocated buffer's root. Original voice definitions/audio remain absent.
+- Initial one-minute runs, including an active-window check using computer-use, remain at world state 4 / loaded-map zero. Common package 79 has 1,070 queued work entries among 1,115 handles in one capture; target map/global STU descriptor GUIDs were not found in its bounded heap scan. No playable map/hero or stage advancement is claimed.
+- Independently read the queued common bundle CKey `6320cb843838297c27d1674a8d70420b` through offline CascLib: all 2,688,272 bytes match its MD5. Its native loading delay is not proof of missing data. Extended import-mode observation to the normal five-minute map window.
+- MSVC source build and nine CTest targets pass, including unknown-build rejection for the new mode. Diagnostic payloads/dumps/logs remain outside Git.
+- The extended five-minute native import run also stayed at state 4 / loaded-map zero. Its diagnostic deadline is a map-load failure, not a successful session. Original executable SHA256/signature and scoped ACL restoration were checked after ending the owned job. Next native work is the pending common-package task/reader queue; do not advance stages while map-definition availability remains unverified.
+
+## 2026-10-12 — Supplied final retail client
+
+- Inspected the supplied 104319 archive paths, recorded SHA256, and fully extracted all 672 files / 20 directories outside Git with 7-Zip integrity success. Verified signed x64 EXE, exact archived BuildConfig MD5/build-name, and CASC-versus-disk executable identity.
+- Added parent `_retail_` storage/metadata inspection and a guarded final startup fingerprint. Two unmodified network-isolated launches survived 60 seconds; scoped cleanup completed. Both native captures log offline DNS errors and the same `.build.info` path-normalization warning, even with root working directory. Final visual inspection failed twice with Windows access denial; no final title screen or gameplay is claimed.
+- Added .NET 8 metadata-only probe using the pinned external MIT TACTLib 104319 provider; no provider source/assets vendored. Original base and English text/speech CMFs hash-verified and decoded to 471,024 / 44,691 / 24,017 logical records. Bounds, wrong-build/hash, existing-output and decoded-entry rejection tests pass.
+- Added reproducible offline retail storage inspection. Enumerated 461,032 local CKeys; direct-match absence is explicitly not a missing-file claim because resources are bundled. Verified 41 bundles and 130 map-header payloads. One sampled encrypted bundle's key was unavailable; full asset completeness remains unknown.
+- Added an interactive unmodified retail launch mode/script and synthetic bundle-table bounds tests. MSVC build and 10 CTest targets pass. Updated acquisition, compatibility, feature, roadmap, license and testing records. Final resource/service/session/controller adaptation is the current priority; single-player and actual multiplayer remain unverified.
+- Saved the preceding disc experiment: explicit native global/map-definition requests returned failure flags `0x3b301` / null objects despite the published silent catalogue. The disc job was ended when the user paused for their final download. This does not establish an available or recreated map definition.
+
+- Started the interactive unmodified final client with the source-built helper: owned launcher PID 2768 / client PID 13096. Network denial verified before launch; the helper remains alive until client exit. UI outcome still requires observation because automation is denied access.
+
+## 2026-10-12 — User-confirmed final UI and map references
+
+- The user reports "Title or login screen" in response to the interactive startup question. Recorded this as user-observed evidence; automation still cannot inspect the window. Original final executable remains running under the owned offline helper. Login and gameplay remain unverified.
+- Inspected external OWLib's STU V2 field-bag/string/resource-reference readers and TACTLib's bundle lookup. Added a bounded metadata-only STU reader and final map-header inspector, with no native offsets or exported payloads. Parsed all 130 audited headers; all names and map references resolve in the base manifest.
+- Independently hash-verified Hanamura PvP and Practice Range map-root payloads (912 bytes each) inside separate bundles. These map roots are not STU V2 and remain unparsed; no map definition, world/entity initialization or full dependency completeness is claimed. Six other sampled bundles lacked keys; both selected roots were resolved.
+- Added synthetic malformed STU table/instance/field/string tests plus an independently evaluated CRC64 vector. Corrected the hand-written byte-swap test expectation after its first run failed; the original parser decoded all real references correctly. All 11 CTest targets then passed. Proprietary data/metadata reports remain outside Git.
+- Next priority: locate final native world/resource and session/controller entry points with verified instruction/profile evidence before requesting a map. The beta and disc profiles remain separate; there is still no final playable hero or actual multiplayer.
+
+
+## 2026-10-12 � Native retail request and repeatable diagnostics
+
+- Added a read-only dump inspector for the fingerprinted final world, its decoded owner, native state table and request descriptor. A descriptor pointer is distinguished from a resource GUID. Added malformed profile/object/owner/descriptor and author-written diagnostic metadata checks.
+- Directly observed the original 104319 title/login screen through computer-use. Later input returned Windows access denial despite the unlocked desktop. Added guarded process-local ShowIntro handling to make map diagnostics independent of intro keys; original files remain unchanged.
+- APC/worker/callback-table experiments did not publish a request. The primary-thread delay-return transport now registers unwind metadata, executes the native map API and restores the captured context. The native allocator publishes its own Practice descriptor with index 0x688; original world dispatch remains intact.
+- Added non-reentrant original-stack loading experiments. The final captured loading run returned 218 native handlers and reports the Practice header available in the native resource index. A separate full-world-update run returned 221 calls without a new crash. Both remain at idle state 2; no map, hero or private session is verified.
+- Recorded earlier scratch-stack single-step termination and a separate debugger startup access violation without treating either as a successful session or assigning an unproven internal cause.
+- Added repeatable PracticeRequest/PracticeLoad launch-script modes. Full CMake Release build and 12/12 CTest targets pass. Original executable SHA256 is unchanged and its Authenticode signature remains valid. All owned diagnostic jobs ended; game files, dumps and generated metadata stay outside Git.
+- Next native work is request/session/entity-admin initialization required by the idle handler, followed by actual map loading and controller/session integration. Native header recognition is verified; missing header data is not an evidenced explanation for the idle state.
+
+- The user has removed the old 1.0 ISO. Active development remains exclusively on supplied final retail 104319; old tools/notes are historical and synthetic disc tests do not require the ISO.

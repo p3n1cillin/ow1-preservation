@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(TACTLIB_SOURCE_DIR)/TACTLib/Core/Product/Tank/CMF/ProCMF_104319.cs" Link="External/ProCMF_104319.cs" />
+    <None Include="TACTLib-LICENSE" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CheckExternalSource" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(TACTLIB_SOURCE_DIR)/TACTLib/Core/Product/Tank/CMF/ProCMF_104319.cs')" Text="Set TACTLIB_SOURCE_DIR to the external pinned TACTLib checkout; provider source is not vendored." />
+  </Target>
+</Project>

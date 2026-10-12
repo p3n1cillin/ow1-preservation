@@ -341,6 +341,7 @@
     <ClCompile Include="serialization.cpp" />
     <ClCompile Include="Statescript.cpp" />
     <ClCompile Include="state_replicator.cpp" />
+    <ClCompile Include="..\server\relay.cpp" />
     <ClCompile Include="stringhash_library.cpp" />
     <ClCompile Include="STU.cpp" />
     <ClCompile Include="STU_Editable.cpp" />

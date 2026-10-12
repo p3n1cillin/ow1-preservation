@@ -1,0 +1,6 @@
+{
+  "name": "ow1-preservation-relay",
+  "version-string": "0.1.0",
+  "builtin-baseline": "c5ff0f76a2212d49e92f02b510cc7509e7e119ef",
+  "dependencies": ["nlohmann-json", "ixwebsocket"]
+}
