@@ -7,7 +7,8 @@ param(
     [string[]]$ClientArgs = @('--BNetServer=127.0.0.1:1119'),
     [string]$LogName = 'retail-private',
     [ValidateRange(0,3600)][int]$RunForSeconds = 0,
-    [string]$TrustCaCertificate
+    [string]$TrustCaCertificate,
+    [switch]$ObserveTls
 )
 $ErrorActionPreference = 'Stop'
 $launcher = Join-Path $BuildRoot 'relay\tools\offline-launch\Release\ow1-offline-launch.exe'
@@ -20,6 +21,7 @@ $arguments = @(('"{0}"' -f $clientExe), '--retail-private')
 foreach ($f in $Forward) { $arguments += @('--forward', $f) }
 if ($RunForSeconds) { $arguments += @('--run-for', $RunForSeconds) }
 if ($TrustCaCertificate) { $arguments += @('--trust-ca', ('"{0}"' -f [IO.Path]::GetFullPath($TrustCaCertificate))) }
+if ($ObserveTls) { $arguments += '--observe-tls' }
 $arguments += '--'
 $arguments += $ClientArgs
 $process = Start-Process -FilePath $launcher -ArgumentList $arguments -WorkingDirectory $ClientFolder -WindowStyle Hidden -PassThru `

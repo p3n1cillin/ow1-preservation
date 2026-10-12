@@ -75,6 +75,12 @@ foreach ($duration in @('0','3601','-1','NaN','99999')) {
         throw "Invalid private diagnostic duration accepted: $duration"
     }
 }
+$rejection = & $Launcher $Launcher --retail-private --observe-tls 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..180-second run*') { throw 'Unbounded TLS observation accepted' }
+$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=127.0.0.1:1119 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Retail launch only supports the fingerprinted final OW1 executable*') { throw 'TLS observation did not reject an unrelated executable' }
+$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=example.invalid:1119 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..180-second run*') { throw 'TLS observation accepted a different endpoint' }
 $certificateFixture = Join-Path ([IO.Path]::GetTempPath()) ('ow1-public-cert-test-' + [guid]::NewGuid() + '.pem')
 try {
     # Author-written framing fixture, not an actual certificate. No game call

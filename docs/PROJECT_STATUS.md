@@ -16,6 +16,10 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
 The immediate login frontier is the client's state after TLS 1.2 connects.
+The native socket succeeds with our CA and reports chain failure without it;
+both runs end with retained connection-job error 1016 (0x3F8), before any RPC.
+Its precise higher-level meaning remains unverified. Separate explicit CA input
+and higher-level trust handling still need integration with our own certificates.
 Default TLS negotiation still fails before completion; its cause is unverified.
 The original certificate-store API accepts our public CA in a bounded probe,
 but this does not make RPC/login work. Win32 87 on mapped-page writes persists;

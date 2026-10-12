@@ -76,6 +76,20 @@ login/session interfaces. Static bgs helpers are not proven OpenSSL handshake
 callbacks. A special mapped-loopback certificate case exists, but a matching
 CN certificate still yielded no RPC; bracketed mapped BNetServer yielded no TCP.
 Do not treat either experiment as a working pin solution.
+Latest observer: `-ObserveTls` uses bounded native object/map/reference guards
+and retains the original connection job (one strong reference until owned job
+exit). It samples original socket state +50 and job state/error +80/+88 without
+altering verdicts. With our CA, socket goes 1->2; without it, 1->3. Original
+callback code proves 2 = result-zero success, 3 = chain-result-2 failure.
+Both real TLS-1.2 runs finish with job state 2/error **1016 (0x3F8)** and no RPC.
+The higher-level enum/underlying verdict is not yet decoded; do not present 1016
+as a proven specific pin error. The socket still has a separate 17,289-byte CA
+input. Its original setter is vft +70 / RVA 216cd30 (concatenates 40-byte native
+string records); the second verifier 216cf80 uses this input via 236f030, instead
+of relying only on the SSL_CTX store. No setter has been invoked by this project.
+Debugger attachment twice ended the client with C0000005 and captured no verdict.
+The experimental source is preserved outside Git in `tls-debug-experiment`;
+no debugger option is shipped. Do not repeat attachment as a working technique.
 Independently trace native Hotfix/cache initialization. Never fabricate
 completion/readiness/state flags as gameplay success.
 

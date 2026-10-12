@@ -98,4 +98,13 @@ to the CA import. Private-launch ShowIntro skipping is recorded by the guarded
 native launcher. See the latest FINAL_RETAIL continuation for evidence and
 reproduction; final login/gameplay remain unverified.
 
+The latest rebuild and **13/13 CTest targets pass**, including the new observation
+CLI safeguards. The native comparison additionally captures socket 1->2 with our CA and
+1->3 without it, followed in both cases by retained job error 1016 (0x3F8).
+The original callback establishes success versus chain failure. Observation
+retains object lifetime only; no state/error/verdict flag is supplied. The CLI
+regression rejects unbounded observation, other endpoints and unrelated
+executables. Hardware-debugger experiments failed before any verdict and are
+not shipped. See the newest FINAL_RETAIL continuation for evidence limits.
+
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.

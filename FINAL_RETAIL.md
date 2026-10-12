@@ -522,3 +522,64 @@ hero or original private match is verified.
 After the completed runs, client-folder and launcher-file ACLs match the saved
 baseline exactly; the original executable SHA256 is unchanged and its signature
 remains Valid. All owned clients and diagnostic observers were stopped.
+
+## Continuation: native socket success and retained connection failure
+
+The new `-ObserveTls` mode finds one original TLS socket, validates its wrapper,
+transport and pending callback identities, then locates the corresponding
+connection job through the original guarded handle map. It bounds heap searches,
+bucket counts, chain traversal and observations. A brief owned-process pause
+validates the live job/control identities and retains one original strong
+reference until bounded job exit. This deliberately extends diagnostic object
+lifetime; it does not change state, error, readiness or verifier results.
+Socket sampling ends if its original identities disappear, while the retained
+job preserves the subsequent error for observation. No debugger attachment,
+callback replacement or original code patch is used by this mode.
+
+Two native TLS 1.2 runs establish the distinction:
+
+| Diagnostic | Native socket | Native connection job | RPC |
+|---|---|---|---|
+| Own public CA imported | 1 -> 2 | state 1/error 0 -> state 2/error 1016 | No header bytes |
+| No CA, no verifier patch | 1 -> 3 | state 1/error 0 -> state 2/error 1016 | No header bytes |
+
+The original callback writes socket state 2 only for result code zero; state 3
+requires the original chain-result code 2. Thus the CA import does resolve this
+native chain check, even though TLS handshake completion alone did not require
+it. Both runs still close with higher-level **1016 (0x3F8)**. The job state's
+enum and the precise underlying verdict that produces this error have not been
+decoded; do not describe the code as a proven pin failure or working login.
+
+The native socket keeps a separate 17,289-byte CA input. Original tracing shows
+its higher-level verifier uses that input, independently of the SSL_CTX store.
+An original virtual setter concatenates native certificate string records into
+the input; it has not been called by this project. This is the next trust path
+to investigate, together with the higher-level connection error handling.
+
+With the TLS 1.2 observer running and a diagnostic delay of 15 seconds:
+
+```powershell
+.\scripts\Start-PrivateClient.ps1 -RunForSeconds 60 -TrustCaCertificate "$env:LOCALAPPDATA\OW1-preservation-build\private-ca-probe\root.pem" -ObserveTls
+```
+
+Omit `-TrustCaCertificate` for the control. The observation mode itself skips the
+legacy verifier patch worker. For an unsigned source script on a UNC share,
+invoke it with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...`;
+this changes only that invocation's execution policy. Cutscenes skip as before.
+A 30-second server delay produced a timeout before receiving any server bytes
+in an earlier run, so do not treat that capture as certificate-verdict evidence.
+
+Two local hardware-debugger experiments exited C0000005 before any verdict
+observation. Existing debug registers were not overwritten. Their source is
+saved outside Git; no debugger mode is included in the shipped launcher. The
+exit's cause is unverified, and these runs provide no certificate diagnosis.
+
+Local evidence: `retail-private-ca-socket-observe.log` /
+`retail-private-ca-socket-observe.dmp`, `retail-private-ca-job-retained.log` /
+`retail-private-ca-job-retained.dmp`, `retail-private-no-ca-job-retained.log`,
+the timeout baseline and TLS observer logs under `private-ca-probe`, all outside
+Git. These checks establish native trust/error behavior, not authentication,
+a rendered final world or original private multiplayer.
+The final build and all 13 tests pass; the saved client-folder/launcher-file
+ACLs are restored exactly, original hash/signature are unchanged, and owned
+diagnostic processes/listeners have ended.

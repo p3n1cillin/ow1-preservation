@@ -1,5 +1,28 @@
 # Development log
 
+## 2026-10-12 — Native TLS socket and connection-job observation
+
+- Added bounded `-ObserveTls` / `--observe-tls` with original instruction,
+  socket/wrapper/transport/callback, handle-map and shared-control guards.
+  Retains one original connection-job reference until bounded process exit;
+  reports original state/error without rewriting verdicts or readiness.
+- Own-CA run captures socket 1->2, job 1/0->2/1016. No-CA/no-patch control
+  captures socket 1->3, job 1/0->2/1016. Both complete real TLS 1.2 and close
+  before an RPC header. Original callback tracing proves state 2 means result
+  zero and state 3 means chain-result 2; CA import fixes that lower chain check.
+- Traced the distinct 17,289-byte CA input and its original setter/secondary
+  verifier. No setter or original pin verdict has been changed. Exact meaning
+  and underlying cause of the higher-level 1016/0x3F8 failure remain unverified.
+- Two debugger-attachment experiments ended C0000005 before capturing a verdict.
+  Preserved experimental source locally and removed that option from the shipped
+  code. Switched to guarded native-state sampling; no attachment-cause claim.
+- A 30-second delayed server test closed before any server bytes; classified as
+  a timeout baseline, not a certificate-validation result. Final comparisons
+  use a 15-second delay. Private launches continue to skip the cutscene.
+- Final native build and all 13 CTest targets pass. Saved client-folder and
+  launcher-file ACLs match exactly after owned runs; original executable hash
+  and Valid signature are unchanged. Diagnostic observers are stopped.
+
 ## 2026-10-12 — Cutscene skipping, native CA import and TLS 1.2
 
 - Private launches automatically apply the existing guarded native ShowIntro

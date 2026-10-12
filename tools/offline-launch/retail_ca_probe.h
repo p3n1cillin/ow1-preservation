@@ -117,7 +117,7 @@ struct Pause {
             if (!stable) throw std::runtime_error("CA thread inventory did not stabilize; no mutation");
             for (auto [id, thread] : already_paused)
                 if (!suspension(thread)) throw std::runtime_error("CA original suspension changed; no mutation");
-            if (!already_paused.empty()) std::cout << "Native CA probe: preserved " << already_paused.size() << " already-suspended thread counts." << std::endl;
+            if (!already_paused.empty()) std::cout << "Owned-process pause: preserved " << already_paused.size() << " already-suspended thread counts." << std::endl;
         } catch (...) { resume(); throw; }
     }
     void resume() {

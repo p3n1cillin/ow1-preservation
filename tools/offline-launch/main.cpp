@@ -711,6 +711,7 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
 }
 #include "retail_world_probe.h"
 #include "retail_ca_probe.h"
+#include "retail_tls_observer.h"
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--child-probe") return network_probe();
@@ -721,11 +722,16 @@ int wmain(int argc, wchar_t** argv) {
     std::wstring client_arguments;
     DWORD private_run_ms = INFINITE;
     std::string trust_ca_pem;
+    bool observe_tls = false;
     const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
     if (retail_private) {
         try {
             int n = 3;
             for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) == L"--observe-tls") {
+                    if (observe_tls) throw std::runtime_error("Specify TLS observation once");
+                    observe_tls = true; continue;
+                }
                 if (std::wstring(argv[n]) == L"--trust-ca" && n + 1 < argc) {
                     if (!trust_ca_pem.empty()) throw std::runtime_error("Specify one public CA certificate");
                     const std::filesystem::path certificate = argv[++n];
@@ -765,6 +771,10 @@ int wmain(int argc, wchar_t** argv) {
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || client_arguments != L"--BNetServer=127.0.0.1:1119"))
                 throw std::runtime_error("CA probe requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
+            if (observe_tls && (private_run_ms == INFINITE || private_run_ms > 180000
+                || forwards.size() != 1 || forwards[0].container_port != 1119
+                || client_arguments != L"--BNetServer=127.0.0.1:1119"))
+                throw std::runtime_error("TLS observer requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
         } catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
         argc = 3;
     }
@@ -897,13 +907,13 @@ int wmain(int argc, wchar_t** argv) {
             retail_world_probe::skip_intro(child.hProcess, image);
         }
         std::unique_ptr<std::jthread> tls_patch_thread;
-        if (retail_private && (!trust_ca_pem.empty() || !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0))) {
+        if (retail_private && (observe_tls || !trust_ca_pem.empty() || !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0))) {
             // Run the chosen exact-build TLS diagnostic while the client starts.
             // The optional CA path calls the original certificate-store API;
             // the legacy path still attempts the guarded in-memory code patch.
             const HANDLE patch_process = child.hProcess;
             const auto primary_tid = child.dwThreadId;
-            tls_patch_thread = std::make_unique<std::jthread>([patch_process, primary_tid, trust_ca_pem](std::stop_token stop) {
+            tls_patch_thread = std::make_unique<std::jthread>([patch_process, primary_tid, trust_ca_pem, observe_tls](std::stop_token stop) {
                 PROCESS_BASIC_INFORMATION basic{};
                 using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
                 const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
@@ -914,9 +924,11 @@ int wmain(int argc, wchar_t** argv) {
                 if (!ReadProcessMemory(patch_process, reinterpret_cast<char*>(basic.PebBaseAddress) + 0x10, &image, sizeof(image), nullptr) || !image) {
                     std::cout << "bgs TLS patch: image base unavailable; client left unpatched." << std::endl; return;
                 }
-                if (trust_ca_pem.empty()) retail_tls_patch::apply(patch_process, image, stop);
-                else try { retail_ca_probe::run(patch_process, image, primary_tid, trust_ca_pem, stop); }
-                catch (const std::exception& error) { std::cout << "Native CA probe: " << error.what() << std::endl; }
+                try {
+                    if (!trust_ca_pem.empty()) retail_ca_probe::run(patch_process, image, primary_tid, trust_ca_pem, stop);
+                    if (observe_tls) retail_tls_observer::run(patch_process, image, stop);
+                    else if (trust_ca_pem.empty()) retail_tls_patch::apply(patch_process, image, stop);
+                } catch (const std::exception& error) { std::cout << "Private TLS diagnostic: " << error.what() << std::endl; }
             });
         }
         if (retail_map && !retail_debug) {
