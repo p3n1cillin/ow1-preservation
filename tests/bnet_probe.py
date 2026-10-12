@@ -4,18 +4,22 @@ import io
 from pathlib import Path
 import struct
 import unittest
+from unittest import mock
+import sys
 
 spec = importlib.util.spec_from_file_location('probe', Path(__file__).resolve().parents[1] / 'tools/bnet-probe.py')
 probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 
 
 class Fragmented:
-    def __init__(self, data): self.data = bytearray(data); self.closed = False
+    def __init__(self, data): self.data = bytearray(data); self.closed = False; self.sent = bytearray()
     def recv(self, size):
         chunk = bytes(self.data[:min(size, 1)]); del self.data[:len(chunk)]; return chunk
     def settimeout(self, _): pass
     def version(self): return 'TLSv1.2'
     def close(self): self.closed = True
+    def sendall(self, data): self.sent.extend(data)
 
 
 class ProbeTests(unittest.TestCase):
@@ -51,6 +55,42 @@ class ProbeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 probe.read_frame(Fragmented(struct.pack('>H', len(header)) + header))
         self.assertEqual(probe.read_frame(Fragmented(b'\0\x02\x08\0'))[2], 0)
+
+    def test_own_lobby_transport_fragmentation(self):
+        from panama_stream import Panama
+        keys = tuple(bytes([i])*64 for i in range(1,5))
+        cid = 123
+        client_random, server_random = bytes([5])*32, bytes([6])*32
+        challenge = bytes([7])*32
+        probe.REFERRALS[cid] = keys
+        try:
+            inbound_key = probe.lobby_hmac(keys[3], server_random, client_random)
+            payload = b'\x02SECRET123'  # author fixture; must be omitted from logs
+            framed = len(payload).to_bytes(3,'big') + payload
+            client = (probe.LOBBY_CLIENT_HELLO + struct.pack('<Q',cid) + client_random
+                      + struct.pack('<Q',1) + probe.lobby_hmac(keys[0], client_random, server_random)
+                      + Panama(inbound_key,inbound_key).apply(framed))
+            conn, log = Fragmented(client), io.StringIO()
+            credential = bytes([9])*256
+            with mock.patch.object(probe.os, 'urandom', side_effect=[challenge,server_random]), mock.patch.object(probe.time, 'sleep'):
+                probe.serve_lobby(conn, ('127.0.0.1',1), 1, log, credential=credential)
+            self.assertTrue(conn.closed)
+            self.assertIn('client_proof_valid=True', log.getvalue())
+            self.assertIn('body_bytes=10 first_byte=2', log.getvalue())
+            self.assertNotIn('SECRET', log.getvalue())
+            self.assertEqual(len(conn.sent), 17+65+32+292)
+            outbound_key = probe.lobby_hmac(keys[2], client_random, server_random)
+            packet = Panama(outbound_key,outbound_key).apply(conn.sent[-292:])
+            self.assertEqual(packet[:256], credential)
+            self.assertEqual(packet[256:], struct.pack('<QQQQI',1,1,cid,1,0))
+        finally:
+            probe.REFERRALS.pop(cid,None)
+
+    def test_lobby_frame_bounds_and_truncation(self):
+        for prefix in (b'\0\0\0', b'\xff\xff\xff'):
+            with self.assertRaises(ValueError): probe.read_lobby_frame(Fragmented(prefix))
+        for packet in (b'\0\0', b'\0\0\x02x'):
+            with self.assertRaises(EOFError): probe.read_lobby_frame(Fragmented(packet))
 
 
 if __name__ == '__main__': unittest.main()

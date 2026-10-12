@@ -226,10 +226,47 @@ client/server randoms.
 | 4 | S->C | challenge[32], difficulty u8, SR (65) |
 | 5 | C->S | nonce u64, HMAC-SHA256(k0, CR‖SR) (40) |
 | 6 | S->C | HMAC-SHA256(k1, SR‖CR) (32) |
-| 7 | S->C | 256-byte server credential, RSA-2048 e=65537 with a client-embedded modulus |
+| 7 | S->C | Panama-LE encrypted 292-byte packet: RSA credential[256], two identifiers[16] each, metadata uint32 |
 
 nonce: SHA-1(challenge‖nonce_le64) must have >= difficulty low-order zero bits.
 Session keys: HMAC-SHA256(k2, CR‖SR), HMAC-SHA256(k3, SR‖CR). Step 7's
-decrypted block holds the 19-byte server address (must match the peer) and an
-HMAC-SHA256 at +0xb0 under a client-embedded key. It requires Blizzard's private
-key; this project does not produce it.
+decrypted RSA block holds the 19-byte server address and an HMAC-SHA256 at +0xb0
+under a client-local integrity input. The input is extracted locally from an
+owned dump, never bundled in source. The original trusted modulus requires the
+original signing key. Our diagnostic instead installs our own public modulus
+and sends a credential issued with the matching own private key.
+
+## Own-key lobby handshake — native verification, 2026-10-13
+
+The wire credential and RSA integers are little-endian. Heap bignums use 74
+28-bit limbs for the 2048-bit modulus. The launcher verifies the original
+modulus against the client image before replacing its heap digits; its
+allocation, exponent, ownership and original verifiers remain intact.
+
+RSA plaintext: 256 bytes, tag at [176:208], HMAC-SHA256 over [0:176] followed
+by [208:256]. Address envelope: type byte 2, IPv4 bytes, port uint16 LE,
+then zero padding to 19 bytes. Remaining RSA payload bytes are zero in this
+experiment. The 36-byte transport suffix comprises two uint64 pairs and one
+uint32. Our server assigns (1,1), (cid,1), 0; their application semantics still
+need decoding.
+
+After the HMAC(k1) proof, **encryption is already enabled**. Client receive key
+= HMAC(k2, CR‖SR), client send key = HMAC(k3, SR‖CR). Each direction uses
+Panama-LE with key also used as the 32-byte IV, two pushes and 32 warm-up pulls.
+The server encrypts the entire 292-byte packet. Sending only 256 unencrypted
+bytes leaves the original transport waiting for its full packet.
+
+The Python implementation is checked against the public-domain
+[Crypto++ Panama implementation](https://github.com/weidai11/cryptopp/blob/master/panama.cpp)
+and [cipher vector](https://github.com/weidai11/cryptopp/blob/master/TestVectors/panama.txt).
+The native transport at RVA 1909547 explicitly waits for 0x124 (292) bytes.
+The native verifier path at e39066 performs the original RSA operation and
+e39080 checks integrity before e391b9 sets handshake state 6. Two real own-key
+runs reach state 6/connection phase 6 and transmit a post-handshake packet.
+The original-key control sends no such packet and closes upon our credential.
+
+Post-handshake transport is a continuing Panama stream over packets with a
+three-byte big-endian length prefix. The first captured body is 10 bytes and
+starts with byte 1. Its application schema/required reply remain unverified;
+the probe observes it and keeps the connection open until the client closes.
+No main menu, map, hero or gameplay is established by this handshake.

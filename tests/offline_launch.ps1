@@ -102,6 +102,23 @@ try {
     $rejection = & $Launcher $Launcher --retail-private --trust-ca $certificateFixture 2>&1
     if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*without private keys*') { throw 'Private-key-containing CA input accepted' }
 } finally { Remove-Item -LiteralPath $certificateFixture -Force }
+$modulusFixture = Join-Path ([IO.Path]::GetTempPath()) ('ow1-public-modulus-test-' + [guid]::NewGuid() + '.modulus')
+try {
+    [byte[]]$publicBytes = New-Object byte[] 256
+    $publicBytes[0] = 1; $publicBytes[255] = 128
+    [IO.File]::WriteAllBytes($modulusFixture, $publicBytes)
+    $rejection = & $Launcher $Launcher --retail-private --trust-lobby-key $modulusFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*requires bounded loopback*') { throw 'Unscoped lobby key installation accepted' }
+    $rejection = & $Launcher $Launcher --retail-private --trust-lobby-key $modulusFixture --trust-lobby-key $modulusFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Specify own lobby public modulus once*') { throw 'Duplicate lobby modulus accepted' }
+    $publicBytes[0] = 0
+    [IO.File]::WriteAllBytes($modulusFixture, $publicBytes)
+    $rejection = & $Launcher $Launcher --retail-private --trust-lobby-key $modulusFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*must be odd and exactly 2048 bits*') { throw 'Even lobby modulus accepted' }
+    [IO.File]::WriteAllBytes($modulusFixture, [byte[]]@(1,2,3))
+    $rejection = & $Launcher $Launcher --retail-private --trust-lobby-key $modulusFixture 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*exactly 256 little-endian bytes*') { throw 'Wrong-size lobby modulus accepted' }
+} finally { Remove-Item -LiteralPath $modulusFixture -Force }
 if ((Get-Acl -LiteralPath $Launcher).Sddl -ne $beforeFile -or
     (Get-Acl -LiteralPath $folder).Sddl -ne $beforeFolder) { throw 'Rejected patch changed ACL' }
 Write-Host 'Isolation, ACL restoration and unknown-build rejection passed.'

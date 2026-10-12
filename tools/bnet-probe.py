@@ -1,11 +1,14 @@
-"""Observing TLS server for the bgs login connection (private-server research).
+"""Loopback bgs observer/prototype server for private-server research.
 
 Completes a TLS handshake using our own local cert, then logs the Battle.net
 RPC framing the client sends: a 2-byte big-endian header length, a protobuf
 Header, then a body of the Header's declared size. It decodes only the generic
 protobuf wire structure (varints / length-delimited fields) so we can learn the
-service hash, method id and token the retail client uses. It sends nothing back,
-so it cannot complete a login; it exists to observe what to implement next.
+service hash, method id and token the retail client uses. WebSocket negotiation
+is supported. --serve additionally grants a local account and answers referral
+and lobby proofs. An explicit own key can issue a credential for the client's
+guarded -TrustLobbyKey diagnostic. Gateway application replies and main-menu
+access remain unimplemented/unverified.
 
 Run it on the host loopback port that the launcher's container bridge forwards
 to (default 21119 <- container 1119). Pair with Start-PrivateClient.ps1.
@@ -466,7 +469,22 @@ def lobby_hmac(key, *parts):
     return hmac.new(key, b"".join(parts), hashlib.sha256).digest()
 
 
-def serve_lobby(raw, addr, number, log, difficulty=0):
+class DecryptedConnection:
+    def __init__(self, raw, cipher):
+        self.raw, self.cipher = raw, cipher
+
+    def recv(self, size):
+        return self.cipher.apply(self.raw.recv(size))
+
+
+def read_lobby_frame(conn):
+    length = int.from_bytes(read_exact(conn, 3), 'big')
+    if not 0 < length <= MAX_BODY:
+        raise ValueError('invalid or oversized lobby packet')
+    return read_exact(conn, length)
+
+
+def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credential_delay=0):
     """Lobby (game-service gateway) handshake at the referral hostv4, as the
     client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
     are raw little-endian bytes, one per TCP send, with no framing:
@@ -476,21 +494,22 @@ def serve_lobby(raw, addr, number, log, difficulty=0):
     nonce is the client's proof of work (rva 0x00e38990): SHA-1(challenge|nonce)
     must have >= difficulty low zero bits. Session keys are then
     HMAC(k2, CR|SR) and HMAC(k3, SR|CR) (rva 0x00e39890). The client next
-    expects a 256-byte block checked with an RSA key embedded in the client
-    (rva 0x00e386a0); that is a Blizzard-signed server credential which this
-    preservation server cannot and does not produce, so we stop there."""
+    expects an encrypted 292-byte packet including an RSA credential. With an
+    explicit own key configured, issue our own credential for a diagnostic
+    client running -TrustLobbyKey; otherwise stop at that gate. Original
+    verifier code and results remain enabled."""
     def emit(line):
         line = f"{now()} lobby #{number}: {line}"
         print(line, flush=True); log.write(line + "\n"); log.flush()
 
     try:
         raw.settimeout(20)
-        hello = raw.recv(64)
+        hello = read_exact(raw, len(LOBBY_CLIENT_HELLO))
         if hello != LOBBY_CLIENT_HELLO:
             emit(f"unexpected greeting ({len(hello)} B, prefix {hello[:16].hex()})"); return
         raw.sendall(LOBBY_SERVER_HELLO)
         emit("client hello received; server hello sent")
-        m1 = raw.recv(256)
+        m1 = read_exact(raw, 40)
         if len(m1) != 40:
             emit(f"stage 1: expected 40 B (cid|client_random), got {len(m1)} B"); return
         cid = struct.unpack_from("<Q", m1)[0]
@@ -502,7 +521,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0):
         challenge, server_random = os.urandom(32), os.urandom(32)
         raw.sendall(challenge + bytes([difficulty]) + server_random)
         emit(f"stage 1: cid={cid} matches a referral; challenge sent (difficulty={difficulty})")
-        m3 = raw.recv(256)
+        m3 = read_exact(raw, 40)
         if len(m3) != 40:
             emit(f"stage 2: expected 40 B (nonce|proof), got {len(m3)} B"); return
         nonce = struct.unpack_from("<Q", m3)[0]
@@ -517,13 +536,37 @@ def serve_lobby(raw, addr, number, log, difficulty=0):
         if not proof_ok or zeros < difficulty:
             return
         raw.sendall(lobby_hmac(keys[1], server_random, client_random))
-        emit("stage 2: server proof sent; client now expects the 256-byte signed server "
-             "credential (embedded-RSA-verified), which we do not have. Observing.")
+        emit("stage 2: server proof sent; client now expects the signed server credential")
+        if credential is not None:
+            # Allow the guarded owned-process key installer to find the pipe.
+            # This is scheduling time for the experiment, not a protocol delay.
+            time.sleep(credential_delay)
+            from panama_stream import Panama
+            outbound_key = lobby_hmac(keys[2], client_random, server_random)
+            inbound_key = lobby_hmac(keys[3], server_random, client_random)
+            outbound = Panama(outbound_key, outbound_key)
+            inbound = Panama(inbound_key, inbound_key)
+            # The original transport requires a 292-byte decrypted packet:
+            # credential[256], two 128-bit identifiers, then uint32 metadata.
+            # These are our server's local identifiers; their downstream
+            # semantics are still being investigated.
+            packet = credential + struct.pack('<QQQQI', 1, 1, cid, 1, 0)
+            raw.sendall(outbound.apply(packet))
+            emit("own-key credential packet sent (292 B, Panama-LE); native verification remains enabled")
+        else:
+            emit("no own-key credential configured; observing at credential gate")
         raw.settimeout(60)
+        if credential is not None:
+            decrypted = DecryptedConnection(raw, inbound)
+            # Observe a persistent gateway session; reply only once the actual
+            # application message schema has been identified. Omit its bytes.
+            for _ in range(64):
+                payload = read_lobby_frame(decrypted)
+                emit(f"post-credential packet: body_bytes={len(payload)} first_byte={payload[0]} (remaining contents omitted)")
+            return
         data = raw.recv(4096)
-        emit(f"after server proof: client sent {len(data)} B" + (" (closed)" if not data else
-             f", prefix {data[:16].hex()}"))
-    except OSError as e:
+        emit(f"after server proof: client sent {len(data)} B" + (" (closed)" if not data else " (contents omitted)"))
+    except (OSError, EOFError, ValueError) as e:
         emit(f"connection error: {e}")
     finally:
         raw.close()
@@ -547,7 +590,17 @@ def main():
     ap.add_argument("--referral-host", default="127.0.0.1:1119",
                     help="hostv4 returned for the Balancer referral (ReferralInfo); "
                          "'' keeps the empty-response behaviour")
+    ap.add_argument("--lobby-private-key", help="operator's own RSA-2048/e=65537 PEM, outside Git")
+    ap.add_argument("--lobby-integrity-key", help="local 64-byte client integrity input, outside Git")
+    ap.add_argument("--lobby-credential-delay", type=int, choices=range(0,31), default=12,
+                    help="bounded scheduling delay for the owned client key installer (0..30 seconds)")
     args = ap.parse_args()
+    credential = None
+    if args.lobby_private_key or args.lobby_integrity_key:
+        if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or args.referral_host != '127.0.0.1:1119':
+            ap.error('own lobby credential requires --serve, both key inputs and the exact loopback referral')
+        from lobby_credential import load_key, load_integrity, build_credential
+        credential = build_credential(load_key(args.lobby_private_key), load_integrity(args.lobby_integrity_key))
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(args.cert, args.key)
@@ -586,8 +639,11 @@ def main():
                                else "closed without data" if first == b""
                                else f"non-TLS first byte 0x{first[0]:02x}"))
                     print(line, flush=True); log.write(line + "\n"); log.flush()
-                    target = serve_lobby if first == b"H" and args.serve else observe_raw
-                    threading.Thread(target=target, args=(raw, addr, accepted, log), daemon=True).start()
+                    if first == b"H" and args.serve:
+                        threading.Thread(target=serve_lobby,
+                            args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay), daemon=True).start()
+                    else:
+                        threading.Thread(target=observe_raw, args=(raw, addr, accepted, log), daemon=True).start()
                     continue
             try:
                 tls = ctx.wrap_socket(raw, server_side=True)

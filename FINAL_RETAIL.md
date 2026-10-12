@@ -583,3 +583,42 @@ a rendered final world or original private multiplayer.
 The final build and all 13 tests pass; the saved client-folder/launcher-file
 ACLs are restored exactly, original hash/signature are unchanged, and owned
 diagnostic processes/listeners have ended.
+
+## Current reproduction checkpoint — 2026-10-13
+
+Historical handshake-only/error-1016 descriptions above are superseded. Native
+local login and referral now work, and the own-key diagnostic lobby completes
+its credential handshake. Main-menu access and gameplay remain unverified.
+See docs/BGS_PROTOCOL.md for the observed transport and the current 10-byte
+application-message frontier.
+
+Requires Python `cryptography` for own-key loading/tests (`python -m pip install
+cryptography`). Supply your own RSA-2048/e=65537 private PEM outside Git. Export
+its modulus and the local client integrity input from an owned final-build dump:
+
+```powershell
+$local = Join-Path $env:LOCALAPPDATA 'OW1-preservation-build\private-mapped-ca'
+$dump = Join-Path $env:LOCALAPPDATA 'OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\startup-wait.dmp'
+python tools/lobby_credential.py --private-key "$local\lobby-key.pem" --public-modulus-out "$local\lobby-public.modulus" --integrity-dump "$dump" --integrity-out "$local\lobby-integrity.credential-key"
+```
+
+Outputs use exclusive creation: reuse existing matching files instead of
+rerunning that export over them. Cert CN/SAN must include `::ffff:127.0.0.1`
+(the original native expected peer name), while the client argument stays
+`--BNetServer=127.0.0.1:1119`. Use your own local CA and leaf chain/private key.
+Start exactly one host probe; stop it before starting a replacement:
+
+```powershell
+python tools/bnet-probe.py --cert "$local\server.pem" --key "$local\server-key.pem" --log "$local\observer.log" --tls-max 1.2 --handshake-delay 15 --serve --lobby-private-key "$local\lobby-key.pem" --lobby-integrity-key "$local\lobby-integrity.credential-key"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-PrivateClient.ps1 -RunForSeconds 60 -TrustCaCertificate "$local\root.pem" -ObserveTls -TrustSocketCa -TrustLobbyKey "$local\lobby-public.modulus"
+```
+
+Use separate shells for the server and launcher. The server delay gives the
+owned key installer time to find the pipe; it is not a protocol requirement.
+Expected native evidence: guarded heap key installed at state 4, then
+`native_handshake_state=6 native_connection_phase=6`. Expected server evidence:
+valid client proof and a 10-byte post-credential packet beginning with 1.
+The application reply is still missing; the client closes after about ten
+seconds. Original RSA/address/integrity checks execute unchanged, and the
+original executable on disk is untouched. This option applies to one lobby pipe
+per bounded run; subsequent retries need future integration.

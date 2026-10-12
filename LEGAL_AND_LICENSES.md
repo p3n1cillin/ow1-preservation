@@ -21,6 +21,8 @@ No Blizzard executable, CASC data, hero/map/audio content, credentials or privat
 | OWLib / TACTLib | MIT | External research; final manifest probe links the exact 104319 provider from external revision `388f8dd6a7e67a72904bab9b5bffaa163ecbe59c`. Provider not vendored; full notice included at `research-tools/final-manifest-probe/TACTLib-LICENSE` and copied beside built output. OWLib serialized STU format/reference algorithms are used by newly authored bounded metadata readers; full OWLib notice at `docs/licenses/OWLib.txt`. No assets vendored |
 | CascLib | MIT | External independent storage verification, revision `38a3466`; no DLL vendored. Envelope constants/format referenced by newly authored tools; full notice retained in `docs/licenses/CascLib.txt` |
 | Jenkins lookup3 | Public-domain algorithm, Bob Jenkins | Newly authored Python implementation; attribution in storage tool |
+| Panama / Crypto++ reference | Reference implementation placed in the public domain by Wei Dai | Independently formulated Python compatibility cipher; source attribution and public test-vector reference retained. No client cipher implementation or key bytes copied into source |
+| Python cryptography | Apache-2.0 or BSD-3-Clause | Optional own-key loading and credential regression dependency; installed externally, not vendored |
 | OW1-Emulator | BSD-2-Clause text | Inspected Workshop source only; no code imported |
 | Plasmawatch Login-Server / OverLauncher | No license found in inspected checkouts | No code, certs or keys imported |
 | BlizzGet | No license found in inspected checkout | External isolated local research; no source vendored and no linked binary distributed |

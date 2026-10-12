@@ -644,3 +644,53 @@ by the measured policy result below. The private TLS handshake remains blocked.
   to match the existing bignum layout.
 - Iterate the block's unknown payload/address fields via the client's own failure
   report codes (0x300xx emitted at each check), as with earlier stages.
+
+## 2026-10-13 — own-key lobby credential accepted; next application packet captured
+
+- Continued from Claude's commit 485f280 and its generated own RSA key. Added
+  `-TrustLobbyKey <public.modulus>` / `--trust-lobby-key`: exactly 256 LE public
+  modulus bytes, odd and 2048-bit. Requires existing bounded loopback CA/socket
+  diagnostics, which already require the exact final executable fingerprint.
+- Validated key-object vft 26569c8, owning pipe vft 2616130 and original function
+  guards. Native modulus is 74 28-bit limbs (allocation 75); exponent is 65537.
+  Under a balanced owned-process pause, compare the original heap limbs to the
+  original image modulus, write our limbs and read them back. Allocation,
+  ownership and verifiers are preserved. A failed installation rolls back.
+  This first version installs one pipe key per launch; retry integration is pending.
+- Own private key stays outside Git. `tools/lobby_credential.py` validates the
+  operator's RSA-2048/e=65537 key, exports only the public modulus and extracts
+  the client-local 64-byte integrity input from an exact guarded dump call-site.
+  No native key/constant bytes or client image are bundled in source.
+- Native transport correction: it waits for **292 decrypted bytes**, not 256.
+  After HMAC(k1), receive encryption is already active. Cipher is Panama-LE;
+  client receive key HMAC(k2,CR|SR), send key HMAC(k3,SR|CR), key also used as IV.
+  Independent Python implementation passes the public Crypto++ cipher vector.
+  The packet is RSA credential[256] + two 128-bit identifiers + uint32 metadata.
+  Current suffix is local server assignments (1,1),(cid,1),0; semantic decoding
+  remains pending. Signing and plaintext/tag layout pass an own-key roundtrip.
+- Native positive runs 2 and 3: CA and socket setter pass; our heap key is
+  installed at handshake state 4. Our encrypted credential makes the client
+  advance to **handshake state 6 / connection phase 6** through its original
+  RSA/integrity/address checks. Bridge lobby counts: 110 B client -> host,
+  406 B host -> client. The extra 13 client bytes decrypt to a 3-byte BE length
+  plus a **10-byte body starting with byte 1**.
+- Run 1 (256 raw bytes) timed out at the receive gate. Run 2's initial observer
+  closed after one read; run 3 keeps the gateway connection open and the CLIENT
+  closes about ten seconds after sending its first application packet. Required
+  response/schema remains unverified. No main menu, map, hero or game session.
+- Original-key native control: same server credential/cipher, no key install.
+  Client closes immediately upon each credential, sends only the original 97 B
+  handshake data, and retries referral. No post-credential application packet.
+  This supports that original verification is active and the own key is needed.
+- Local logs: retail-private-own-lobby-key1/2/3, original-lobby-key-control;
+  server logs under private-mapped-ca. Named dumps are preserved outside Git.
+  Key, integrity files and modulus files are ignored. Never publish scratch.
+- Next: decode the 10-byte gateway packet and required reply. Research call chain:
+  lobby success vft+a8 -> 7beff0 -> e3e160 -> 56b330 -> 563410 -> 55ff60 ->
+  562810 (connection negotiation emitter) -> 560d90; message constructors
+  56cb90/56cc50 and initial parser paths 560040/561890 are useful candidates.
+  These references are interface research, not a verified reply implementation.
+
+Validation checkpoint: all native targets build and 14/14 CTest targets pass.
+Client executable hash/signature and both saved ACLs remain unchanged. Owned
+clients/launchers/observers are stopped. Do not infer gameplay from this result.

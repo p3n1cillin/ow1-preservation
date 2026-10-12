@@ -15,6 +15,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install own-key credential test dependency
+        shell: pwsh
+        run: python -m pip install cryptography
       - name: Build source and run synthetic regression suite
         shell: pwsh
         run: ./scripts/Build.ps1 -BuildRoot "$env:RUNNER_TEMP/ow1-build"

@@ -711,6 +711,7 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
 }
 #include "retail_world_probe.h"
 #include "retail_ca_probe.h"
+#include "retail_lobby_key.h"
 #include "retail_tls_observer.h"
 
 int wmain(int argc, wchar_t** argv) {
@@ -724,11 +725,24 @@ int wmain(int argc, wchar_t** argv) {
     std::string trust_ca_pem;
     bool observe_tls = false;
     bool trust_socket_ca = false;
+    std::string lobby_public_modulus;
     const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
     if (retail_private) {
         try {
             int n = 3;
             for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) == L"--trust-lobby-key" && n + 1 < argc) {
+                    if (!lobby_public_modulus.empty()) throw std::runtime_error("Specify own lobby public modulus once");
+                    const std::filesystem::path path = argv[++n];
+                    if (!std::filesystem::is_regular_file(path) || std::filesystem::file_size(path) != 256)
+                        throw std::runtime_error("Lobby public modulus requires exactly 256 little-endian bytes");
+                    std::ifstream input(path, std::ios::binary);
+                    lobby_public_modulus.assign(std::istreambuf_iterator<char>(input), {});
+                    if (lobby_public_modulus.size() != 256 || !(static_cast<unsigned char>(lobby_public_modulus[0]) & 1)
+                        || !(static_cast<unsigned char>(lobby_public_modulus[255]) & 0x80))
+                        throw std::runtime_error("Lobby public modulus must be odd and exactly 2048 bits");
+                    continue;
+                }
                 if (std::wstring(argv[n]) == L"--trust-socket-ca") {
                     if (trust_socket_ca) throw std::runtime_error("Specify native socket CA installation once");
                     trust_socket_ca = true; continue;
@@ -783,6 +797,8 @@ int wmain(int argc, wchar_t** argv) {
                 throw std::runtime_error("TLS observer requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
             if (trust_socket_ca && (trust_ca_pem.empty() || !observe_tls))
                 throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
+            if (!lobby_public_modulus.empty() && !trust_socket_ca)
+                throw std::runtime_error("Lobby key installation requires bounded loopback --trust-socket-ca diagnostics");
         } catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
         argc = 3;
     }
@@ -921,7 +937,7 @@ int wmain(int argc, wchar_t** argv) {
             // the legacy path still attempts the guarded in-memory code patch.
             const HANDLE patch_process = child.hProcess;
             const auto primary_tid = child.dwThreadId;
-            tls_patch_thread = std::make_unique<std::jthread>([patch_process, primary_tid, trust_ca_pem, observe_tls, trust_socket_ca](std::stop_token stop) {
+            tls_patch_thread = std::make_unique<std::jthread>([patch_process, primary_tid, trust_ca_pem, observe_tls, trust_socket_ca, lobby_public_modulus](std::stop_token stop) {
                 PROCESS_BASIC_INFORMATION basic{};
                 using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
                 const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
@@ -934,7 +950,7 @@ int wmain(int argc, wchar_t** argv) {
                 }
                 try {
                     if (!trust_ca_pem.empty()) retail_ca_probe::run(patch_process, image, primary_tid, trust_ca_pem, stop);
-                    if (observe_tls) retail_tls_observer::run(patch_process, image, stop, primary_tid, trust_socket_ca ? trust_ca_pem : std::string{});
+                    if (observe_tls) retail_tls_observer::run(patch_process, image, stop, primary_tid, trust_socket_ca ? trust_ca_pem : std::string{}, lobby_public_modulus);
                     else if (trust_ca_pem.empty()) retail_tls_patch::apply(patch_process, image, stop);
                 } catch (const std::exception& error) { std::cout << "Private TLS diagnostic: " << error.what() << std::endl; }
             });
@@ -1075,7 +1091,7 @@ int wmain(int argc, wchar_t** argv) {
         }
         if (interactive) std::cout << (private_run_ms == INFINITE
             ? "Offline window stays open until you exit the client; authentication and gameplay are unavailable."
-            : "Private diagnostic is bounded; authentication and gameplay are unavailable.") << std::endl;
+            : "Private diagnostic is bounded; main-menu access and gameplay remain unverified.") << std::endl;
         const auto wait = debug ? WAIT_OBJECT_0 : WaitForSingleObject(child.hProcess, interactive ? private_run_ms : (probe_map || retail_map) ? 0 : 60000);
         if (wait == WAIT_OBJECT_0) {
             GetExitCodeProcess(child.hProcess, &code);

@@ -420,4 +420,6 @@ game-files/
 *.key
 *.p12
 *.pfx
+*.credential-key
+*.modulus
 __pycache__/

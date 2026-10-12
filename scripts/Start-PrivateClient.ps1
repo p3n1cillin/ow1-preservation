@@ -9,7 +9,8 @@ param(
     [ValidateRange(0,3600)][int]$RunForSeconds = 0,
     [string]$TrustCaCertificate,
     [switch]$ObserveTls,
-    [switch]$TrustSocketCa
+    [switch]$TrustSocketCa,
+    [string]$TrustLobbyKey
 )
 $ErrorActionPreference = 'Stop'
 $launcher = Join-Path $BuildRoot 'relay\tools\offline-launch\Release\ow1-offline-launch.exe'
@@ -24,6 +25,7 @@ if ($RunForSeconds) { $arguments += @('--run-for', $RunForSeconds) }
 if ($TrustCaCertificate) { $arguments += @('--trust-ca', ('"{0}"' -f [IO.Path]::GetFullPath($TrustCaCertificate))) }
 if ($ObserveTls) { $arguments += '--observe-tls' }
 if ($TrustSocketCa) { $arguments += '--trust-socket-ca' }
+if ($TrustLobbyKey) { $arguments += @('--trust-lobby-key', ('"{0}"' -f [IO.Path]::GetFullPath($TrustLobbyKey))) }
 $arguments += '--'
 $arguments += $ClientArgs
 $process = Start-Process -FilePath $launcher -ArgumentList $arguments -WorkingDirectory $ClientFolder -WindowStyle Hidden -PassThru `

@@ -108,3 +108,23 @@ executables. Hardware-debugger experiments failed before any verdict and are
 not shipped. See the newest FINAL_RETAIL continuation for evidence limits.
 
 Run `scripts/Inspect-Client.ps1 -Path <authorized-client-folder>` before any patching. Check the exact executable/build and signature on an untouched backup, ensure data is complete, and establish the patch profile described in ROADMAP. Then use a debugger and record startup/logging, map load, controllable hero, collision, two-client movement, latest selection on late join, cleanup/reconnect and repeated unload. Record each outcome separately. Until those steps succeed, do not label map/hero/client integration as verified.
+
+## 2026-10-13: own-key credential and encrypted lobby transport
+
+Rebuilt all native targets and **14/14 CTest targets pass**. Added own RSA
+roundtrip/address/tag checks, key type/size/exponent rejection, wrong-endian and
+tag tampering tests, the public Crypto++ Panama-LE cipher vector and fragmented
+stream checks. Seven probe fixtures cover one-byte TCP fragments through lobby
+proofs/encrypted credential delivery, directional key mapping, post-handshake
+24-bit packet limits/truncation and secret omission. CLI tests reject unscoped,
+duplicate, even and wrong-size lobby public modulus inputs. CI installs Python
+cryptography for these own-key fixtures; no native client/key is used by CI.
+
+Native evidence is separate: two own-key runs advance the original lobby
+handshake 4 -> 6 and connection phase 5 -> 6, then transmit a 10-byte framed
+application packet. The control with the original trusted modulus rejects our
+same credential and sends no post-handshake packet. Exact original executable
+SHA256/signature and saved client-folder/launcher-file ACLs remain unchanged;
+owned clients, launchers and observers were stopped. Main menu, rendered final
+map, controllable hero and private multiplayer remain unverified. The next
+required implementation is the gateway's application negotiation/reply.

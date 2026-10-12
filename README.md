@@ -19,15 +19,18 @@ Final native research publishes a client-owned Practice Range request, loads its
 header and activates a native default loading context. Immediate updates reach
 state 4; native readiness and cache initialization remain unresolved. The SDK
 kind-13 result is a local Hotfix-enumeration error, not an empty backend reply.
-The private loopback bridge now completes a real TLS 1.2 handshake with our
-observer. The client then closes before sending an RPC header; private login
-remains unresolved. Bounded diagnostics and corrected findings are recorded in
+The private loopback backend now serves real TLS/WebSocket RPC, a local login
+grant and a Balancer referral. With our public key installed in the owned
+diagnostic process, the native lobby verifies our credential and completes its
+encrypted handshake. The next gateway application exchange remains unresolved;
+main-menu access is unverified. Bounded diagnostics and findings are recorded in
 [FINAL_RETAIL](FINAL_RETAIL.md) and [project status](docs/PROJECT_STATUS.md).
 No rendered final map, hero or private session is verified.
 
 Build on Windows with Visual Studio 2022 C++ tools, Windows SDK 10.0.26100.0, CMake and .NET 8:
 
 ```powershell
+python -m pip install cryptography
 .\scripts\Build.ps1
 ```
 

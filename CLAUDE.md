@@ -39,75 +39,60 @@ No Internet/LAN capabilities are granted. Bounded runs stop owned jobs, save
 a local dump and restore scoped ACLs. Wait for launcher exit before checking
 restoration or rebuilding its executable.
 
-## Real frontier, 2026-10-12
+## Real frontier, 2026-10-13
 
-- Original final title/login was user-confirmed. Automated capture has been
-  unreliable; do not claim a rendered world from a native loading state.
-- Practice header loading and native default-context activation work. Immediate
-  updates return state 4, but the context stays unready and its cache is empty.
-- **SDK result correction:** kind 13 is local Hotfix-directory enumeration.
-  Flag 1 = success, 0 = structured error. Captured status/tag/code = 3/2/-1
-  at action +18/+19/+20. +138/+140 are successful data/count fields. Earlier
-  empty-backend-reply/error-at-+140 claims are superseded.
-- **Latest TLS evidence supersedes the previous handshake-only failure:** the
-  observer with `--tls-max 1.2` completes native TLS, both with and without CA
-  import. The peer closes before the first two RPC-header-length bytes. No RPC
-  or working private authentication has been captured. Default TLS negotiation
-  still closes during handshake; its exact failure has not been decoded.
-- Private launches automatically disable the guarded native ShowIntro option.
-  Do not ask the user to dismiss the cutscene for these runs.
-- New opt-in `-TrustCaCertificate <public-root.pem>` calls the original PEM /
-  X509_STORE_add_cert / X509-free functions on the guarded primary transport.
-  Native parsed/inserted/unwind results are 1/1/1, about 3 seconds into the probe.
-  Retains the SSL_CTX until bounded job exit; it does not change verifier code,
-  TLS roles/modes, host trust or client files. Requires a 1..180-second run and
-  the exact port-1119 loopback endpoint. Preserve original thread suspend counts.
-- Candidate TLS writes fail Win32 87 on execute-read MEM_MAPPED pages.
-  **ACG is not established:** queried dynamic-code policy flags are 0, including
-  after failures. Do not repeat the old diagnosis or assume injection fixes
-  the mapping constraints. Generic short pattern matches are not proof of
-  relocated functions. No alternate full-page copies were found in the dump.
-- The original final executable hash/signature remain unchanged. No final map,
-  controllable hero, authoritative match or 6v6 matchmaking is verified.
+- Final 1.74.0.0.104319 client reaches real TLS 1.2, WebSocket RPC, local
+  'Pro' account login and Balancer referral. Use mapped-loopback cert CN/SAN
+  `::ffff:127.0.0.1`, CA import and native socket CA setter; keep BNetServer IPv4.
+  Earlier handshake-only/error-1016 descriptions are historical, superseded.
+- Own-key lobby credential now passes the ORIGINAL native RSA/address/HMAC
+  checks. `-TrustLobbyKey <public.modulus>` installs exactly one guarded heap
+  RSA-2048/e=65537 modulus per launch; original allocation/ownership remain.
+  Requires bounded loopback `-TrustCaCertificate -ObserveTls -TrustSocketCa`.
+- Lobby server sends a **Panama-LE encrypted 292-byte packet**, comprising
+  credential[256], two 128-bit identifiers, one uint32. Client receive key is
+  HMAC(k2,CR|SR), send key HMAC(k3,SR|CR); key also serves as IV. Native transport
+  at RVA 1909547 waits for 0x124 bytes. Sending only 256 raw bytes times out.
+- Positive runs 2/3 reach native handshake state 6 / connection phase 6 and
+  send 13 encrypted bytes. These decode to a 3-byte BE length plus a 10-byte
+  body starting with 1. Run 3 keeps the connection open; the client closes
+  about ten seconds later. Required application reply/schema remains unknown.
+- Control without our heap key closes immediately upon the same own credential,
+  sends no post-handshake packet and retries referral. Original checks stay on.
+  Main menu, persistent gateway session, rendered final map, controllable hero,
+  authoritative multiplayer and 6v6 are **not verified**.
+- Own private key, public modulus, local integrity input, certs and dumps stay
+  outside Git. Own key copied from Claude's package cache to this app's local
+  `OW1-preservation-build/private-mapped-ca/lobby-key.pem`. Corresponding
+  `lobby-public.modulus` and `lobby-integrity.credential-key` are prepared there.
+  Never publish the 64-byte client-local integrity constant or proprietary image.
+- `tools/lobby_credential.py` prepares local inputs and verifies own RSA roundtrip.
+  `tools/panama_stream.py` independently implements Panama-LE and passes the
+  public Crypto++ reference vector. Framing tests include one-byte TCP fragments,
+  directional cipher mapping and omission of message/session contents.
+- Native logs/dumps: retail-private-own-lobby-key1/2/3 and
+  retail-private-original-lobby-key-control. Server logs under private-mapped-ca.
+  Stop previous probe on 21119 before any run; exclusive socket bind prevents
+  accidental sharing. Wait for owned client exit before rebuilding/testing ACLs.
+- Private launches automatically disable the guarded ShowIntro option: skip the
+  cutscene ourselves. Visual capture has been unreliable; native state does not
+  establish a rendered world. No debugger attachment mode is shipped.
+- Map track: original Practice header loads, default loading context activates,
+  updates return state 4, but readiness/cache remain zero. SDK kind 13 is LOCAL
+  Hotfix enumeration, with structured error status/tag/code 3/2/-1 at +18/+19/+20.
+  +138/+140 are successful data/count. Never fabricate completion/readiness flags.
+- Original final executable hash/signature are unchanged. Candidate mapped-page
+  code writes fail Win32 87; ACG is not established (policy flags zero). Don't
+  repeat failed hardware-debugger experiments as working diagnosis.
 
-**2026-10-12 breakthrough:** with a mapped-loopback server cert (CN/SAN
-`::ffff:127.0.0.1`), our CA via `-TrustSocketCa` and TLS 1.2, the client opens a
-WebSocket (`v1.rpc.battle.net`) and sends its first real RPC:
-ConnectionService (hash 0x65446991) method 1 Connect. See DEVLOG. Next: reply
-with a demonstrated ConnectResponse; isolate which cert/CA step is required.
-
-**Later 2026-10-12:** login works ('Pro' game account), the Balancer referral is
-answered with ReferralInfo (k0..k3, cid, hostv4), and the probe serves the lobby
-TCP handshake through HMAC(k1). The client then waits for a 256-byte credential
-verified with an RSA key **embedded in the client** (Blizzard-signed; never forge).
-Going further needs an owner decision on making the owned process trust our key.
-See DEVLOG / docs/BGS_PROTOCOL.md. Stop the previous probe before every run.
-
-Previous next-steps: use TLS 1.2 to trace original post-handshake chain/hostname/pin verdicts
-and connection state, capture the real first RPC, then implement demonstrated
-login/session interfaces. Static bgs helpers are not proven OpenSSL handshake
-callbacks. A special mapped-loopback certificate case exists, but a matching
-CN certificate still yielded no RPC; bracketed mapped BNetServer yielded no TCP.
-Do not treat either experiment as a working pin solution.
-Latest observer: `-ObserveTls` uses bounded native object/map/reference guards
-and retains the original connection job (one strong reference until owned job
-exit). It samples original socket state +50 and job state/error +80/+88 without
-altering verdicts. With our CA, socket goes 1->2; without it, 1->3. Original
-callback code proves 2 = result-zero success, 3 = chain-result-2 failure.
-Both real TLS-1.2 runs finish with job state 2/error **1016 (0x3F8)** and no RPC.
-The higher-level enum/underlying verdict is not yet decoded; do not present 1016
-as a proven specific pin error. The socket still has a separate 17,289-byte CA
-input. Its original setter is vft +70 / RVA 216cd30 (concatenates 40-byte native
-string records); the second verifier 216cf80 uses this input via 236f030, instead
-of relying only on the SSL_CTX store. Opt-in `-TrustSocketCa` now invokes it: input becomes our 650-byte CA
-(verified byte-equal), socket still 1->2, job still 2/1016, no RPC. Original
-expected peer name is `::ffff:127.0.0.1` (post-chain mismatch is unproven).
-Check for stale probes on 21119 before runs; one contaminated a result.
-Debugger attachment twice ended the client with C0000005 and captured no verdict.
-The experimental source is preserved outside Git in `tls-debug-experiment`;
-no debugger option is shipped. Do not repeat attachment as a working technique.
-Independently trace native Hotfix/cache initialization. Never fabricate
-completion/readiness/state flags as gameplay success.
+Next: decode the 10-byte gateway application packet and required response.
+Research chain: lobby vft+a8 -> 7beff0 -> e3e160 -> 56b330 -> 563410 -> 55ff60
+-> 562810 negotiation emitter -> 560d90 serializer. Constructors 56cb90/56cc50,
+parser paths 560040/561890. These are research candidates, not verified replies.
+The 36-byte credential suffix is currently server-local (1,1),(cid,1),0;
+its downstream field semantics still need verification. Do not invent gameplay
+from handshake success. Refer to FINAL_RETAIL.md current reproduction checkpoint
+and docs/BGS_PROTOCOL.md for the tested protocol boundary.
 
 `server/` is a synthetic BSON movement relay, not final OW1's protocol.
 `prometheus/` is the fixed-offset beta DLL, not a retail adapter.

@@ -199,7 +199,7 @@ void install_ca(HANDLE process, uint64_t image, DWORD tid, const Socket& socket,
     throw std::runtime_error("TLS CA setter ended before guarded callback completion");
 }
 
-void run(HANDLE process, uint64_t image, std::stop_token stop, DWORD primary_tid = 0, const std::string& socket_ca = {}) {
+void run(HANDLE process, uint64_t image, std::stop_token stop, DWORD primary_tid = 0, const std::string& socket_ca = {}, const std::string& lobby_modulus = {}) {
     using retail_world_probe::guard;
     const auto deadline = GetTickCount64() + 45000;
     bool ready = false;
@@ -237,10 +237,27 @@ void run(HANDLE process, uint64_t image, std::stop_token stop, DWORD primary_tid
     }
     std::cout << "TLS observer: original job reference retained until bounded process exit." << std::endl;
     if (!socket_ca.empty()) install_ca(process,image,primary_tid,socket,retained,socket_ca);
+    const auto lobby_pipe = lobby_modulus.empty() ? 0 : retail_lobby_key::run(process, image, lobby_modulus, stop);
+    bool lobby_live = lobby_pipe != 0; uint32_t previous_lobby = UINT32_MAX;
     uint32_t previous = UINT32_MAX; unsigned observations = 0;
     uint32_t previous_job = UINT32_MAX, previous_error = UINT32_MAX;
     bool socket_live = true;
     while (!stop.stop_requested() && WaitForSingleObject(process, 1) == WAIT_TIMEOUT) {
+        if (lobby_live) {
+            try {
+                if (read_child<uint64_t>(process, lobby_pipe) != image + retail_lobby_key::pipe_vtable)
+                    throw std::runtime_error("original lobby pipe identity ended");
+                const auto state = read_child<uint32_t>(process, lobby_pipe+0x80);
+                if (state > 6) throw std::runtime_error("native lobby handshake state bounds");
+                if (state != previous_lobby) {
+                    std::cout << "Lobby observer: native_handshake_state=" << state
+                              << " native_connection_phase=" << read_child<uint32_t>(process,lobby_pipe+0x70) << std::endl;
+                    previous_lobby = state;
+                }
+            } catch (const std::exception& error) {
+                lobby_live = false; std::cout << "Lobby observer: " << error.what() << std::endl;
+            }
+        }
         try {
             const auto job = retained;
             if (read_child<uint64_t>(process, job.address) != image + 0x29a5fa8
