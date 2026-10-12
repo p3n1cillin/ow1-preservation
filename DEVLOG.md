@@ -391,3 +391,18 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - Updated persistent status, roadmap and handoff records. Private TLS acceptance
   and native Hotfix/cache initialization remain unresolved; final map/hero/login
   and original authoritative multiplayer are not verified.
+
+## 2026-10-12 — original socket CA setter (`-TrustSocketCa`)
+
+- Added opt-in `--trust-socket-ca` (requires `--trust-ca` and `--observe-tls`).
+  A guarded primary-thread callback calls the original socket setter vft +70 /
+  RVA 216cd30 with one 40-byte native string record, then reads the original
+  peer-name getter 21e2fa0. No verifier code, verdict or client file is changed.
+- Clean run (single listener; an earlier run was contaminated by a stale probe
+  on 21119 serving a different CA's certificate and showed socket 1->3):
+  setter guard/result 1/1, CA input 17,289 -> 650 bytes and byte-equal to our
+  public CA. Socket 1->2 (chain success), TLS 1.2 established, job ends 2/1016,
+  peer closes before the 2-byte RPC header length. No RPC was captured.
+- The original expected peer name is `::ffff:127.0.0.1`. Our certificate has
+  CN `ow1-preservation.test` and SAN IP 127.0.0.1/localhost. A hostname/pin
+  mismatch after chain success is a **hypothesis only**; 1016 is still undecoded.

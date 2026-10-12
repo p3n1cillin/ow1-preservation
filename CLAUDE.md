@@ -86,7 +86,10 @@ The higher-level enum/underlying verdict is not yet decoded; do not present 1016
 as a proven specific pin error. The socket still has a separate 17,289-byte CA
 input. Its original setter is vft +70 / RVA 216cd30 (concatenates 40-byte native
 string records); the second verifier 216cf80 uses this input via 236f030, instead
-of relying only on the SSL_CTX store. No setter has been invoked by this project.
+of relying only on the SSL_CTX store. Opt-in `-TrustSocketCa` now invokes it: input becomes our 650-byte CA
+(verified byte-equal), socket still 1->2, job still 2/1016, no RPC. Original
+expected peer name is `::ffff:127.0.0.1` (post-chain mismatch is unproven).
+Check for stale probes on 21119 before runs; one contaminated a result.
 Debugger attachment twice ended the client with C0000005 and captured no verdict.
 The experimental source is preserved outside Git in `tls-debug-experiment`;
 no debugger option is shipped. Do not repeat attachment as a working technique.
