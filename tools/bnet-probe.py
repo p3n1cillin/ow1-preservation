@@ -14,7 +14,7 @@ import argparse
 import datetime
 import socket
 import ssl
-import struct
+import base64, hashlib, struct
 import threading
 import time
 
@@ -73,6 +73,23 @@ def decode_header(buf):
     return fields
 
 
+def read_ws_message(conn):
+    """Return one reassembled client data message (unmasked), or None on close."""
+    parts = []
+    while True:
+        b0, b1 = read_exact(conn, 2)
+        op, ln = b0 & 0x0F, b1 & 0x7F
+        if ln == 126: ln = struct.unpack(">H", read_exact(conn, 2))[0]
+        elif ln == 127: ln = struct.unpack(">Q", read_exact(conn, 8))[0]
+        if ln > MAX_BODY + 65536: raise ValueError("oversized WebSocket frame")
+        mask = read_exact(conn, 4) if b1 & 0x80 else b"\x00\x00\x00\x00"
+        data = bytes(c ^ mask[i % 4] for i, c in enumerate(read_exact(conn, ln)))
+        if op == 8: return None
+        if op in (9, 10): continue
+        parts.append(data)
+        if b0 & 0x80: return b"".join(parts)
+
+
 def read_frame(conn):
     hlen = struct.unpack(">H", read_exact(conn, 2))[0]
     fields = decode_header(read_exact(conn, hlen))
@@ -93,7 +110,42 @@ def handle(conn, addr, log):
     emit(f"{stamp} bgs TLS connection established from {addr}; version={conn.version()}")
     try:
         conn.settimeout(20)
-        hlen, fields, body_size = read_frame(conn)
+        first = read_exact(conn, 2)
+        if first == b"GE":
+            # HTTP (e.g. WebSocket upgrade). Log the request line and header
+            # names only; header values may carry cookies or tokens.
+            data = first
+            while b"\r\n\r\n" not in data and len(data) < 16384:
+                chunk = conn.recv(4096)
+                if not chunk: break
+                data += chunk
+            head = data.split(b"\r\n\r\n", 1)[0].decode("latin-1").split("\r\n")
+            headers = {h.split(":", 1)[0].strip().lower(): h.split(":", 1)[1].strip() for h in head[1:] if ":" in h}
+            proto = headers.get("sec-websocket-protocol", "")
+            emit(f"{stamp} HTTP request ({len(data)} B): {head[0]!r}; header names={sorted(headers)}; protocol={proto!r}")
+            key = headers.get("sec-websocket-key")
+            if headers.get("upgrade", "").lower() != "websocket" or not key:
+                return
+            accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+            reply = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accept
+            if proto: reply += "\r\nSec-WebSocket-Protocol: " + proto.split(",")[0].strip()
+            conn.sendall((reply + "\r\n\r\n").encode())
+            emit(f"{stamp} WebSocket upgrade accepted")
+            payload = read_ws_message(conn)
+            if payload is None:
+                emit(f"{stamp} WebSocket closed before a data message"); return
+            hlen = struct.unpack_from(">H", payload)[0]
+            fields = decode_header(payload[2:2 + hlen])
+            desc = ", ".join(f"f{k}=" + str([f"bytes({len(v)})" if isinstance(v, bytes) else v for v in values])
+                             for k, values in sorted(fields.items()))
+            emit(f"{stamp} WS bgs header ({hlen} B): {desc}; message bytes={len(payload)} (body omitted)")
+            return
+        hlen = struct.unpack(">H", first)[0]
+        fields = decode_header(read_exact(conn, hlen))
+        sizes = fields.get(5, [0])
+        if len(sizes) != 1 or not isinstance(sizes[0], int) or not 0 <= sizes[0] <= MAX_BODY:
+            raise ValueError("invalid or oversized body length")
+        read_exact(conn, sizes[0]); body_size = sizes[0]
         desc = ", ".join(f"f{k}=" + str([f"bytes({len(v)})" if isinstance(v, bytes) else v for v in values])
                          for k, values in sorted(fields.items()))
         emit(f"{stamp} Header ({hlen} B): {desc}; body bytes={body_size} (omitted)")

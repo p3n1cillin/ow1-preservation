@@ -70,7 +70,13 @@ restoration or rebuilding its executable.
 - The original final executable hash/signature remain unchanged. No final map,
   controllable hero, authoritative match or 6v6 matchmaking is verified.
 
-Next: use TLS 1.2 to trace original post-handshake chain/hostname/pin verdicts
+**2026-10-12 breakthrough:** with a mapped-loopback server cert (CN/SAN
+`::ffff:127.0.0.1`), our CA via `-TrustSocketCa` and TLS 1.2, the client opens a
+WebSocket (`v1.rpc.battle.net`) and sends its first real RPC:
+ConnectionService (hash 0x65446991) method 1 Connect. See DEVLOG. Next: reply
+with a demonstrated ConnectResponse; isolate which cert/CA step is required.
+
+Previous next-steps: use TLS 1.2 to trace original post-handshake chain/hostname/pin verdicts
 and connection state, capture the real first RPC, then implement demonstrated
 login/session interfaces. Static bgs helpers are not proven OpenSSL handshake
 callbacks. A special mapped-loopback certificate case exists, but a matching

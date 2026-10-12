@@ -406,3 +406,22 @@ by the measured policy result below. The private TLS handshake remains blocked.
 - The original expected peer name is `::ffff:127.0.0.1`. Our certificate has
   CN `ow1-preservation.test` and SAN IP 127.0.0.1/localhost. A hostname/pin
   mismatch after chain success is a **hypothesis only**; 1016 is still undecoded.
+
+## 2026-10-12 — mapped-loopback certificate: first real RPC captured
+
+- Server certificate (ours, signed by our local CA, outside Git) with
+  CN `::ffff:127.0.0.1` and SAN IP `::ffff:127.0.0.1`, IP 127.0.0.1,
+  DNS `::ffff:127.0.0.1`, DNS localhost. Run: `-TrustCaCertificate <ca> -ObserveTls
+  -TrustSocketCa`, probe `--tls-max 1.2`, single listener on 21119.
+- Native socket 1->2. The client then sends an HTTP WebSocket upgrade:
+  `GET / HTTP/1.1`, `Sec-WebSocket-Protocol: v1.rpc.battle.net`. The client sends
+  no raw bgs frame first; the earlier "N bytes missing" errors were the probe
+  reading `GE` as a header length.
+- `tools/bnet-probe.py` now accepts the upgrade (logs request line, header names
+  and the protocol value only) and decodes the first WebSocket binary message:
+  bgs header 11 B: service_id 0, method_id 1, token 0, service hash
+  1698982289 (0x65446991), 72-byte message (body omitted). That hash matches the
+  public bgs `ConnectionService`, method 1 = `Connect`. The decoding is from the
+  observed bytes; no response was sent, so the client tears down (job 3).
+- Not yet run: certificate-variant isolation (which SAN/CN entry is required)
+  and the `-TrustSocketCa`-off control. No login, session or gameplay is verified.
