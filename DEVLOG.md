@@ -482,3 +482,16 @@ by the measured policy result below. The private TLS handshake remains blocked.
   Client/login state machine in the image to find the exact post-Logon sequence
   the client requires (e.g. a server-pushed web-auth URL + VerifyWebCredentials,
   or a prerequisite OnServerStateChange), then implement that sequence.
+
+## 2026-10-12 — client waits for server-driven login completion
+
+- `--no-grant` (ack Logon, no OnLogonComplete, 40s observe): after the Logon ack
+  the client stays connected and, ~21s later, sends ConnectionService.KeepAlive
+  (method 5, empty) and keeps waiting. It does NOT open CEF or start web-auth on
+  its own. So the server is expected to drive login completion.
+- Sending OnLogonComplete causes an immediate close (vs. surviving 21s+ without).
+  Routing (hash/method) and LogonResult encoding are verified, so the client
+  actively rejects the completion's VALUES or a missing prerequisite callback.
+- Resolving this by guessing is exhausted; next is reading the AuthenticationClient
+  method-5 handler in the client image. Added tools/offline-launch/re/mdump.py to
+  read VAs out of the minidump for disassembly.

@@ -249,7 +249,7 @@ def describe(fields):
                      for k, values in sorted(fields.items()))
 
 
-def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001"):
+def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_grant=False):
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
 
     def emit(line):
@@ -310,6 +310,10 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001"):
                     # connection, or sends another RPC.
                     ws_send(conn, frame([enc_v(1, RESPONSE_SERVICE), enc_v(3, token)], b""))
                     emit(f"{now()}   -> Logon acknowledged (empty NoData response)")
+                    if no_grant:
+                        conn.settimeout(40)
+                        emit(f"{now()}   (no-grant mode: observing what the client does next for up to 40s)")
+                        continue
                     # Grant the session by calling the client's AuthenticationClient
                     # listener: OnLogonComplete(LogonResult{error_code=0, ...}). The
                     # service is addressed by hash (fixed32, field 11), as the client
@@ -352,6 +356,7 @@ def main():
                     help="limit the observer's TLS version for native compatibility diagnostics")
     ap.add_argument("--serve", action="store_true",
                     help="answer ConnectionService.Connect and keep observing the follow-on RPC sequence")
+    ap.add_argument("--no-grant", action="store_true", help="ack Logon but do not send OnLogonComplete; observe the client's next move")
     ap.add_argument("--battle-tag", default="Preservation#1001",
                     help="identity granted to the client on login (served to OnLogonComplete)")
     args = ap.parse_args()
@@ -379,7 +384,7 @@ def main():
                 line = f"{datetime.datetime.now().isoformat(timespec='seconds')} TLS handshake FAILED from {addr}: {e}"
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue
-            threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag), daemon=True).start()
+            threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag, args.no_grant), daemon=True).start()
 
 
 if __name__ == "__main__":
