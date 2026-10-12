@@ -611,3 +611,36 @@ by the measured policy result below. The private TLS handshake remains blocked.
   a new one fail instead of silently sharing port 21119 (this contaminated run 3).
   Always stop the previous probe before a run.
 - Not verified: main menu, lobby session, map, heroes or matchmaking.
+
+## 2026-10-12 — lobby credential decoded; key-trust swap approved, keypair generated
+
+- User approved making the owned diagnostic client trust OUR RSA key for the
+  lobby credential (not forging Blizzard's), analogous to -TrustSocketCa.
+- Credential verifier fully reversed (rva 0x01908fe0). The 256-byte RSA-recovered
+  plaintext block layout: [0x00..0x13) 19 B server address struct (parsed by
+  0x0041a940, a type-tagged address reader); [0x13..0xAF) 156 B + [0xAF] 1 B
+  payload; [0xB0..0xD0) 32 B HMAC-SHA256 tag (the compared value, memcmp 0x184f590);
+  [0xD0..0xFF) 47 B + [0xFF] 1 B payload. HMAC covers everything except the tag,
+  keyed by a 64-byte client-embedded constant at rva 0x0278cf30 (value captured
+  in scratch; it is integrity, NOT the authenticity gate).
+- The authenticity gate is RSA: client reads a 256-byte wire ciphertext, computes
+  C^e mod N (public op rva 0x024d3510) to recover the block. Embedded public key:
+  modulus 256 B at rva 0x026779d0, exponent 3 B at rva 0x026779c4 = 010001.
+  **Both modulus and exponent are LITTLE-ENDIAN** byte arrays (bignum loader
+  0x024d32d0 builds the integer LSB-first: modulus as big-endian is even/2044-bit,
+  as little-endian it is a proper odd 2048-bit modulus). The key object is built
+  per pipe by ctor 0x024d34c0 from those static bytes into a heap bignum; the
+  pipe holds the key object pointer at pipe+0x28.
+- Generated our own RSA-2048 keypair at
+  %LOCALAPPDATA%\OW1-preservation-build\private-tls\lobby_key.pem (+ lobby_pub.pem).
+  Private key stays there, never committed.
+- Plan (next session): (A) probe builds the credential — fill the block, place the
+  HMAC tag with the embedded key, sign C = block^d mod N_ours, send 256 bytes
+  little-endian; validate offline with a harness that plays the client's exact
+  C^e-mod-N + field/HMAC checks. (B) launcher opt-in (e.g. -TrustLobbyKey) swaps
+  the client's trusted modulus with ours. Prefer the heap key-object mutation
+  (pipe+0x28) over a static .rdata write (.rdata is likely mapped execute-read;
+  image-page writes previously failed Win32 87). Our key must be 2048-bit, e=65537
+  to match the existing bignum layout.
+- Iterate the block's unknown payload/address fields via the client's own failure
+  report codes (0x300xx emitted at each check), as with earlier stages.
