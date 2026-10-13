@@ -8,6 +8,7 @@ from gateway_codec import decode, encode
 
 HELLO_SCHEMA = 0x3c7e3468
 WELCOME_SCHEMA = 0xf5ff548a
+PROFILE_SCHEMA = 0x1a9879a4
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
@@ -21,14 +22,19 @@ class InitialLobby:
         self.welcome_entry=hashes.index(WELCOME_SCHEMA)+1
         if len(hashes)>255: raise ValueError('unsupported extended protocol entries')
         self.sent=False
-        if initial_data not in (None,'keys','keys-hotfix','keys-hotfix-player'):
+        if initial_data not in (None,'keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings'):
             raise ValueError('unsupported initial-data experiment')
         self.initial_data=initial_data
         self.updates_sent=False
         self.initial_ids={None:(),'keys':(20504,),'keys-hotfix':(20504,20505),
-                          'keys-hotfix-player':(20504,20505,20502)}[initial_data]
+                          'keys-hotfix-player':(20504,20505,20502),
+                          'keys-hotfix-player-settings':(20504,20505,20502,20802)}[initial_data]
         for mid in self.initial_ids:
-            if (WELCOME_SCHEMA,mid) not in messages:raise ValueError('initial-data schema missing')
+            if (self.schema_of(mid),mid) not in messages:raise ValueError('initial-data schema missing')
+
+    @staticmethod
+    def schema_of(mid):
+        return PROFILE_SCHEMA if 20800<=mid<20826 else WELCOME_SCHEMA
 
     def receive(self, packet):
         if packet[:2]!=bytes((self.hello_entry,0)):return None
@@ -60,8 +66,12 @@ class InitialLobby:
             # 20502 runs the native player-record initialization handler.
             # The two identities are the same local experiments as 20500;
             # unverified counters/flags stay zero and the name is our own tag.
+            # 20802 (account preferences, handler 0x7793a0) is sent with every
+            # list empty and every flag/byte at its zero default.
             values={0x78:{0:self.identity,0x10:{0:1001,8:1<<56},0x40:self.name}} if mid==20502 else {}
-            body=encode(self.messages[WELCOME_SCHEMA,mid],values)
-            packets.append((mid,bytes((self.welcome_entry,mid-20500))+body))
+            schema=self.schema_of(mid)
+            body=encode(self.messages[schema,mid],values)
+            base=20800 if schema==PROFILE_SCHEMA else 20500
+            packets.append((mid,bytes((self.hashes.index(schema)+1,mid-base))+body))
         self.updates_sent=True
         return tuple(packets)

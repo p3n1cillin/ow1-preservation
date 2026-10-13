@@ -703,8 +703,9 @@ def main():
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
     ap.add_argument("--lobby-login-schema", help="opt-in experimental 20500 reply using the numeric lobby login schemas")
-    ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player'),
-                    help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502); requires login schemas")
+    ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings'),
+                    help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502) "
+                         "and default account preferences (20802); requires login schemas")
     ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
                     help="reply to the client's bootstrap offer: 'ack' sends empty message id 3, "
                          "which the 104319 client accepts (negotiated state, id-4 heartbeats); "
@@ -730,8 +731,10 @@ def main():
         if (0x3c7e3468,21800) not in login_messages or (0xf5ff548a,20500) not in login_messages:
             ap.error('initial lobby reply requires hello and identity reply schemas')
         if args.lobby_initial_data:
-            initial_ids=(20504,) if args.lobby_initial_data=='keys' else (20504,20505,20502) if args.lobby_initial_data=='keys-hotfix-player' else (20504,20505)
-            if any((0xf5ff548a,mid) not in login_messages for mid in initial_ids):
+            from lobby_service import InitialLobby
+            initial_ids={'keys':(20504,),'keys-hotfix':(20504,20505),'keys-hotfix-player':(20504,20505,20502),
+                         'keys-hotfix-player-settings':(20504,20505,20502,20802)}[args.lobby_initial_data]
+            if any((InitialLobby.schema_of(mid),mid) not in login_messages for mid in initial_ids):
                 ap.error('initial data requires each selected notification schema')
     if args.lobby_private_key or args.lobby_integrity_key:
         if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or args.referral_host != '127.0.0.1:1119':

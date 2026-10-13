@@ -152,6 +152,15 @@ class ProbeTests(unittest.TestCase):
         expected=bytes((83,2))+struct.pack('<QQQQQQQII',1001,GAME_ACCOUNT_HIGH,1001,1<<56,0,0,0,0,0)+b'Preservation#1001\0'
         self.assertEqual(packet,expected)
         self.assertEqual(decode(messages[WELCOME_SCHEMA,mid],packet[2:])[0x78][0],identity)
+        from lobby_service import PROFILE_SCHEMA
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix-player-settings')
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        notifications=service.initial_notifications()
+        self.assertEqual([mid for mid,_ in notifications],[20504,20505,20502,20802])
+        # Default preferences on the profile protocol entry, delta 2: six empty
+        # vectors (24 B), bit-packed flag groups and bytes (15 B + 6 B), then an
+        # empty trailing vector after its flushed flag byte (5 B).
+        self.assertEqual(notifications[-1][1],bytes((hashes.index(PROFILE_SCHEMA)+1,2))+bytes(50))
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message

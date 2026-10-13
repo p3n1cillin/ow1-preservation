@@ -1097,3 +1097,19 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   world request.
 - `tools/retail_login_state.py --world-state` reports the state name and a
   pending-request boolean only. 16 probe fixtures; all 14 CTest targets pass.
+
+## 2026-10-13 — default account preferences (20802) experiment
+
+- Added opt-in `--lobby-initial-data keys-hotfix-player-settings`: after
+  codex's 20504/20505/20502 it sends 20802 (profile protocol 0x1a9879a4, entry
+  9, delta 2) with every list empty and every flag/byte at zero. Exported its
+  numeric descriptor into protocol/lobby-login-104319.json (no payloads). The
+  handler 0x7793a0 applies the preference blocks (+0x108/+0x10d); it is not
+  log-only. Fixture checks the 52-byte packet independently (16 probe tests).
+- Native run settings2 (150 s): accepted, heartbeats continue. New client
+  behaviour: message 58400 (protocol 0x692c511b, entry 37; one {u64,u64,u32}
+  record, 26 B) every ~30 s after the preferences arrive, plus the existing
+  60002 and 42600 polls. No reply sent for 58400.
+- Dump: world-state manager still WAITING with no pending world request, so
+  preferences alone do not start the menu world. An earlier attempt reused a
+  stale probe (port guard refused the new one); that run is discarded.
