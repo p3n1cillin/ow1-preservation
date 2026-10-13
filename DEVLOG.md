@@ -940,3 +940,36 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   message schema (docs/BGS_PROTOCOL.md). The remaining unknown is one message's
   byte framing. No gateway session, main menu, map, hero or matchmaking is
   verified; none should be claimed.
+
+## 2026-10-13 — gateway codec reversed; bootstrap negotiation completes live
+
+- Re-read the send path from 0x00560fb6: it writes the protocol entry byte
+  (entry[0], bootstrap = 1), an optional per-entry header (0x00561e90; empty for
+  bootstrap), then 0x00568690 in mode 1 writes ONE byte = message id - the
+  protocol's m_messageBase and calls the compact binary walker 0x005652b0. The
+  "named/trace" walk is only mode 2. So the captured offer `01 00 | 01000000 |
+  9421d811` is entry 1, id 1, u32 count, u32 hash; it was never a u16 id.
+- Compact encoding (writer 0x005652b0, reader 0x005670e0 via decoder
+  0x00567de0 from receive path 0x00561ff0): no tags or length prefixes, nested
+  structs inline, vectors as u32 count + elements, type 0 bit-packed bool,
+  types 6/7 u32 (m_untrustedServer is 4 bytes), type 8 u64, type 12/13
+  NUL-terminated strings. Receive framing (0x0041a100) confirmed as 3-byte BE
+  length from the reader itself.
+- The handlers depend on ctx+0x84 bit 0 (a caller argument to init 0x00560560):
+  id 2 (0x00560040) disconnects when it is clear; id 3 (0x00560370) is accepted
+  in state 3 when it is clear and moves to negotiated state 5. Per-state timers
+  (0x00560b50 / 0x005609c0): states 1-4 expire into shutdown (the old ~10 s
+  close); state 5 expiry sends an id-4 heartbeat.
+- Live runs (own key, CA + socket CA, bounded): decoded id 2 (`01 01` + seq/src +
+  one bootstrap record, 43 B; `--gateway-reply id2`) still closes immediately,
+  as the bit-0 check predicts. Empty id 3 `01 02` (`--gateway-reply ack`, now the
+  default) negotiates: the client sends `01 03` heartbeats every 5 s, the probe
+  echoes them, and lobby #2 stays open 112 s (22 heartbeats) until the bounded
+  run ends. Earlier notes that `01 02` "failed the same way" were wrong.
+- New frontier: ~60 s after negotiation, with lobby #2 still up, the client
+  asks for another Balancer referral and opens lobby #3 (also negotiates; the
+  own key was accepted again). The upper lobby layer is waiting for something
+  after the negotiated event (0x00562600 event 0). Probe now logs each gateway
+  packet's entry byte and message delta only. Unit tests: 10 pass.
+- Still unverified: application lobby session, main menu, map, heroes,
+  matchmaking.

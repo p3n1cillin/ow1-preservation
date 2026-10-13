@@ -16,10 +16,13 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
 Current frontier: after the encrypted lobby credential is accepted, the client
-sends a three-byte big-endian packet length and a **10-byte body beginning with
-1**. It closes about ten seconds later without a gateway application reply.
-Decode this application exchange before inventing responses or claiming menu
-access. The two 128-bit identifiers and trailing uint32 in the credential
+sends a 10-byte bootstrap negotiation offer. Replying with the empty
+completion message `01 02` (live-verified 2026-10-13) puts the gateway into
+its negotiated state: the client heartbeats every 5 s and keeps the lobby open
+for the whole bounded run. About 60 s later it nevertheless requests a new
+referral and opens another lobby, so an application-level exchange after
+negotiation is still missing. Decode it before inventing responses or
+claiming menu access. The two 128-bit identifiers and trailing uint32 in the credential
 envelope are server-assigned experiment values; downstream semantics remain
 unverified.
 

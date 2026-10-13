@@ -55,8 +55,15 @@ restoration or rebuilding its executable.
   at RVA 1909547 waits for 0x124 bytes. Sending only 256 raw bytes times out.
 - Positive runs 2/3 reach native handshake state 6 / connection phase 6 and
   send 13 encrypted bytes. These decode to a 3-byte BE length plus a 10-byte
-  body starting with 1. Run 3 keeps the connection open; the client closes
-  about ten seconds later. Required application reply/schema remains unknown.
+  body starting with 1: the bootstrap negotiation offer `01 00 | u32 1 |
+  0x11d82194` (entry byte, message id - base, u32 hash vector).
+- GATEWAY NEGOTIATION SOLVED (2026-10-13, retail-ack run): reply `01 02`
+  (empty message id 3; `bnet-probe.py --gateway-reply ack`, the default). The
+  client (ctx+0x84 bit 0 clear) enters negotiated state 5 and sends `01 03`
+  heartbeats every 5 s; the probe echoes them and the lobby stays open until
+  the bounded run ends (112 s, 22 heartbeats). id-1 echo and decoded id-2
+  replies close immediately (role/bit-0 checks). Wire format and native RVAs:
+  docs/BGS_PROTOCOL.md "Gateway negotiation messages".
 - Control without our heap key closes immediately upon the same own credential,
   sends no post-handshake packet and retries referral. Original checks stay on.
   Main menu, persistent gateway session, rendered final map, controllable hero,
@@ -85,10 +92,13 @@ restoration or rebuilding its executable.
   code writes fail Win32 87; ACG is not established (policy flags zero). Don't
   repeat failed hardware-debugger experiments as working diagnosis.
 
-Next: decode the 10-byte gateway application packet and required response.
-Research chain: lobby vft+a8 -> 7beff0 -> e3e160 -> 56b330 -> 563410 -> 55ff60
--> 562810 negotiation emitter -> 560d90 serializer. Constructors 56cb90/56cc50,
-parser paths 560040/561890. These are research candidates, not verified replies.
+Next: ~60 s after negotiation the client, with lobby #1 still up, asks for a
+new Balancer referral and opens another lobby. Find what the upper lobby layer
+awaits after the negotiated event (0x00562600 event 0; listener registered via
+0x00561240 at ctx+0x70; context created from 0x00563410/0x00563c3b) and which
+protocol entries/schemas it then uses. Gateway codec: send 0x00560d90 ->
+0x00568690 -> 0x005652b0; receive 0x00561ff0 -> 0x00567de0 -> 0x005670e0;
+per-state timers 0x00560b50/0x005609c0. Do not invent application replies.
 The 36-byte credential suffix is currently server-local (1,1),(cid,1),0;
 its downstream field semantics still need verification. Do not invent gameplay
 from handshake success. Refer to FINAL_RETAIL.md current reproduction checkpoint

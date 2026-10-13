@@ -115,6 +115,18 @@ class ProbeTests(unittest.TestCase):
                          b'\x01\x00'+struct.pack('<II',1,123))
         with self.assertRaises(ValueError): gateway.catalogue_offer(b'\x01\x00'+struct.pack('<II',1,123))
 
+    def test_gateway_negotiation_reply(self):
+        import gateway_protocol as gateway
+        offer = b'\x01\x00' + struct.pack('<II',1,gateway.BOOTSTRAP_HASH)
+        reply = gateway.negotiation_reply(offer, 0x1122, 0x33)
+        self.assertEqual(reply, b'\x01\x01' + struct.pack('<QQI', 0x1122, 0x33, 1)
+                         + struct.pack('<IIIII', gateway.BOOTSTRAP_HASH, 1, 5, 3, 0) + b'\x00')
+        self.assertEqual(len(reply), 2 + 20 + 21)
+        with self.assertRaises(ValueError):
+            gateway.negotiation_reply(b'\x01\x00'+struct.pack('<II',1,123), 0, 0)
+        with self.assertRaises(ValueError):
+            gateway.negotiation_reply(offer, 0, 0, ((gateway.BOOTSTRAP_HASH,1,5,7,0,b''),))
+
     def test_gateway_catalogue_bounds(self):
         import gateway_protocol as gateway
         catalogue = {'build':104319, 'protocols':[dict(schema_hash=123,first_id=100,end_id=102,flags=2,group=13)]}

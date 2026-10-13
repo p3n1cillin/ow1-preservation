@@ -560,7 +560,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
         raw.settimeout(60)
         if credential is not None:
             decrypted = DecryptedConnection(raw, inbound)
-            from gateway_protocol import offer_response, catalogue_offer, frame as gateway_frame, parse_offer, heartbeat_response
+            from gateway_protocol import offer_response, catalogue_offer, negotiation_reply, frame as gateway_frame, parse_offer, heartbeat_response
             offered = False
             bootstrap_channel = None
             captured = 0
@@ -584,7 +584,9 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                     captured += 1
                     if captured >= capture_count:
                         packet_capture = None
-                emit(f"post-credential packet: body_bytes={len(payload)} first_byte={payload[0]} (remaining contents omitted)")
+                emit(f"post-credential packet: body_bytes={len(payload)} first_byte={payload[0]}"
+                     + (f" message_delta={payload[1]}" if len(payload) > 1 else "")
+                     + " (remaining contents omitted)")
                 if not offered:
                     bootstrap_channel = payload[0]
                     if gateway_reply == 'probe':
@@ -632,6 +634,12 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         label, response = candidates[_GW_PROBE_INDEX % len(candidates)]
                         _GW_PROBE_INDEX += 1
                         emit(f"gateway PROBE candidate [{label}] -> {response.hex()}")
+                    elif gateway_reply == 'id2':
+                        # Decoded responder reply: id 2 with the server's 128-bit
+                        # peer identity as {seq,src} (copied whole into ctx+0x20 by
+                        # 0x00561180) and the bootstrap protocol record.
+                        response = negotiation_reply(payload, (peer_group<<40)|1, 1)
+                        emit(f"gateway id-2 reply sent ({len(response)} B) -> {response.hex()}")
                     else:
                         builder = catalogue_offer if gateway_reply == 'offer' else offer_response
                         response = builder(payload, gateway_hashes) if gateway_hashes is not None else builder(payload)
@@ -681,10 +689,12 @@ def main():
     ap.add_argument("--lobby-peer-group", type=int, choices=(0,13), default=0,
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
-    ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe"), default="offer",
-                    help="state-2 reply to the client's bootstrap offer: 'offer' mirrors a "
-                         "catalogue offer (hash list, what the native parser consumes); 'ack' "
-                         "sends the 2-byte acknowledgement (prior unverified hypothesis)")
+    ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
+                    help="reply to the client's bootstrap offer: 'ack' sends empty message id 3, "
+                         "which the 104319 client accepts (negotiated state, id-4 heartbeats); "
+                         "'offer' (id-1 echo), 'id2' (decoded responder record reply, only valid "
+                         "for a ctx+0x84 bit-0 peer) and 'probe' are diagnostic controls that the "
+                         "client rejects")
     args = ap.parse_args()
     credential = None
     gateway_hashes = None

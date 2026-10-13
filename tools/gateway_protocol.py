@@ -1,8 +1,10 @@
 """Bounded, demonstrated engine gateway negotiation for final OW1 104319.
 
-Bootstrap message id 1 carries protocol hash 0x11d82194. A one-byte version
-delta selects versions 1..4. Version 1 is a little-endian uint32 hash vector;
-version 3 acknowledges negotiation. No game state or account bytes are bundled.
+Bootstrap protocol 0x11d82194 has message ids 1..4 (m_messageBase 1). Each
+packet is a protocol entry byte, then one byte (message id - 1), then the body.
+id 1 is the initiator's uint32 hash vector, id 2 the responder's record reply,
+id 3 the initiator's empty completion and id 4 an empty heartbeat. No game
+state or account bytes are bundled.
 """
 import struct
 import json
@@ -55,9 +57,11 @@ def offer_response(packet, allowed=(BOOTSTRAP_HASH,)):
     # operations are separate from the catalogue/transport handshake.
     if hashes != allowed:
         raise ValueError('gateway offer includes an unsupported protocol')
-    # The initiating mode-1 peer waits in state 3 for version 3. The native
-    # mode-2 responder validates this hash list and emits that empty ack;
-    # reflecting the version-1 offer back selects the wrong role handler.
+    # Reply with empty message id 3 (delta 2). The 104319 lobby client
+    # initiates with ctx+0x84 bit 0 clear, so its id-3 handler 0x00560370
+    # accepts id 3 in state 3 and enters negotiated state 5 (live-verified:
+    # the client then sends id-4 heartbeats every 5 s). id 2 is only taken
+    # when bit 0 is set (0x00560040), and id 1 needs the responder role.
     return bytes((packet[0],2))
 
 
@@ -66,13 +70,45 @@ def catalogue_offer(packet, allowed=(BOOTSTRAP_HASH,)):
     offer carrying the same resolvable protocol hash list. The client's state-2
     receiver (rva 0x00560040 -> 0x00561890 -> per-record 0x00561730) parses an
     incoming record vector and validates each schema hash against its local
-    catalogue (0x00569a70); a 2-byte ack has no records for it to parse. The
-    wire form mirrors the offer: channel, version 0, uint32 count, uint32 hashes.
+    catalogue (0x00569a70). This sends message id 1, which a mode-1
+    initiator rejects (0x005601e0 needs the responder role); kept only as a
+    diagnostic control. Live result: the client disconnects immediately.
     """
     hashes = parse_offer(packet)
     if hashes != allowed:
         raise ValueError('gateway offer includes an unsupported protocol')
     return bytes((packet[0], 0)) + struct.pack('<I', len(hashes)) + struct.pack(f'<{len(hashes)}I', *hashes)
+
+
+# Bootstrap protocol record as registered by the client (catalogue group 0):
+# m_protocolCRC, m_messageBase, m_messageMax, m_protocolFlags,
+# m_untrustedServer, m_protocolName.
+BOOTSTRAP_RECORD = (BOOTSTRAP_HASH, 1, 5, 3, 0, b'')
+
+
+def negotiation_reply(packet, seq, src, records=(BOOTSTRAP_RECORD,)):
+    """Responder id-2 message for the client's id-1 offer.
+
+    Wire form reversed from the native binary (mode-1) serializer: send path
+    0x00560d90 writes the protocol entry byte, 0x00568690 writes one byte
+    (message id - m_messageBase), then 0x005652b0 walks the field table with
+    no tags or length prefixes: nested structs inline, repeated fields as a
+    uint32 count + elements, type-6/7 as uint32, type-8 as uint64 and type-12
+    strings NUL-terminated (0x00567020 writes strlen+1 bytes). id-2 (field
+    table 0x02cf0180) is {seq:u64, src:u64} then a record vector (0x02cf0380).
+    Only a context with ctx+0x84 bit 0 set accepts id 2; the 104319 lobby
+    client does not (it disconnects on this reply; use offer_response).
+    """
+    hashes = parse_offer(packet)
+    if tuple(record[0] for record in records) != hashes:
+        raise ValueError('gateway reply records must match the offered protocols')
+    body = bytearray((packet[0], 2 - 1))
+    body += struct.pack('<QQI', seq, src, len(records))
+    for crc, base, maximum, flags, untrusted, name in records:
+        if b'\0' in name or flags & 4:
+            raise ValueError('gateway record name/flags unsupported (binary mode only)')
+        body += struct.pack('<IIIII', crc, base, maximum, flags, untrusted) + name + b'\0'
+    return bytes(body)
 
 
 def heartbeat_response(packet, channel=1):

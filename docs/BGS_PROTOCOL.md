@@ -267,51 +267,58 @@ The original-key control sends no such packet and closes upon our credential.
 
 Post-handshake transport is a continuing Panama stream over packets with a
 three-byte big-endian length prefix. The first captured body is 10 bytes and
-starts with byte 1. Its application schema/required reply remain unverified;
-the probe observes it and keeps the connection open until the client closes.
-No main menu, map, hero or gameplay is established by this handshake.
+starts with byte 1: the bootstrap negotiation offer, decoded below together
+with its verified `01 02` reply. No main menu, map, hero or gameplay is
+established by this handshake.
 
-## Gateway negotiation messages (post-credential, decoded)
+## Gateway negotiation messages (post-credential, decoded and live-verified)
 
 After the secure channel (peer+0x1053=1) the client runs a message-based
-negotiation over the Panama stream (3-byte BE length frames; reader rva
-0x0041a100). Each message body begins with a **u16 little-endian message id**;
-the dispatcher rva 0x0055e980 routes by id to a handler, and the id is also the
-message's descriptor field (reader rva 0x00565260):
+negotiation over the Panama stream. Frames are a 3-byte big-endian length then
+the body, in both directions (reader rva 0x0041a100). Every body is:
 
-| id | handler rva | role |
+| bytes | meaning | native |
 |---|---|---|
-| 1 | 0x005601e0 | offer (sent by the initiator; handler requires peer mode 2, a responder) |
-| 2 | 0x00560040 | the message a mode-1 initiator consumes in state 3 (-> sends id 3, state 5) |
-| 3 | 0x00560370 | final/ack (states 3/4) |
-| 4 | 0x0055e9e3 | — |
+| 1 | protocol entry byte (bootstrap = 1); receiver requires `entry < count` and `entry[0] == byte` | send 0x00560fb6 / receive 0x00561ff0 |
+| 0+ | per-entry header (flags at entry+8: optional u32, then 1/2/4/8/16-byte routing value); empty for bootstrap | 0x00561e90 / 0x00561c50 |
+| 1 | message id − m_messageBase (bootstrap base 1) | 0x00568690 / 0x00567de0 |
+| n | fields from the message's field table, compact binary (mode 1) | writer 0x005652b0 / reader 0x005670e0 |
 
-The client is a **mode-1 initiator** (peer+0x1c==1): it sends id 1 (its offer)
-and waits in state 3 for the server's **id 2**. Captured id-1 offer (10 B):
-`01 00 | 01 00 00 00 | 94 21 d8 11` = id 1, record count 1 (u32), one record =
-the single schema hash 0x11d82194 (id-1's record field is type 6, a vector of
-fixed32).
+Compact binary field encoding (entry byte +1 = mode 1; mode 2 is a named/trace
+form via 0x003f52e0): no tags or length prefixes; nested structs inline;
+repeated fields as u32 count + elements (reader bounds count by remaining
+bytes); type 0 is a bit-packed bool; types 1-3 = 1 B, 4-5 = 2 B, 6-7 = 4 B
+(including `m_untrustedServer`), 8-9 = 8 B; type 12/13 strings NUL-terminated
+(writer 0x00567020 emits strlen+1 bytes); type 14 nested (sub-table).
 
-Message field layouts come from per-id field tables (id1 0x02cf0120, id2
-0x02cf0180, id3 0x02cf0030, id4 0x02cf0080). The **id-2** message (field table
-0x02cf0180) has two fields: a `{seq:u64, src:u64}` header (nested type 0x02cefb60,
-fields literally named `seq`/`src`) at object offset 0x78, then a repeated record
-at 0x88 whose element (field table 0x02cf0380) is:
+Bootstrap protocol 0x11d82194, message ids 1..4 (dispatcher 0x0055e980):
 
-| field | type | wire |
-|---|---|---|
-| m_protocolCRC | 6 | u32 |
-| m_messageBase | 6 | u32 |
-| m_messageMax | 6 | u32 |
-| m_protocolFlags | 6 | u32 |
-| m_untrustedServer | 7 | bool |
-| m_protocolName | 12 | string |
+| id | wire prefix | handler | meaning |
+|---|---|---|---|
+| 1 | `01 00` | 0x005601e0 | initiator offer: u32 count + u32 schema hashes; handler needs the responder role (ctx+0x1c == 2) |
+| 2 | `01 01` | 0x00560040 | responder record reply `{seq:u64, src:u64}` + record vector (table 0x02cf0380: CRC, base, max, flags, untrusted u32, name NUL-terminated); only accepted when ctx+0x84 bit 0 is set |
+| 3 | `01 02` | 0x00560370 | empty completion: bit 0 clear → accepted in state 3; bit 0 set → state 4; then state 5 (negotiated) |
+| 4 | `01 03` | 0x0055e9e3 | empty heartbeat; receiver records ctx+0x40 = now |
 
-The primitive serializer (rva 0x00561e90) writes values **raw/inline, fixed
-width, no tags or length prefixes** (type bits 0x10/0x20/0x40/0x80/0x100 →
-1/2/4/8/16 bytes). String (type 12) and nested/vector framing use separate
-routines and are **not yet confirmed**; inline encodings of the id-2 body with
-u32/u16/u8 string-length prefixes were all rejected by the client (immediate
-close), so the exact string/nested framing is the remaining unknown for a
-working id-2 reply. No gateway session, menu, map, hero or gameplay is
-established.
+Captured client offer (10 B): `01 00 | 01 00 00 00 | 94 21 d8 11`. Earlier
+notes that read `01 00` as a u16 message id were wrong.
+
+Timers (0x00560b50 / expiry 0x005609c0, seconds from a config struct): in
+states 1-4 expiry calls shutdown 0x00561350 (the ~10 s close seen with no or
+wrong reply); in state 5 expiry sends an id-4 heartbeat and checks the peer's
+heartbeat age.
+
+**Live result (2026-10-13, retail-ack run).** The 104319 lobby client is a
+mode-1 initiator with ctx+0x84 bit 0 clear, so the correct reply to its offer
+is the empty id 3, `01 02`. With that reply the lobby connection stays
+negotiated: the client sends `01 03` every 5 s, the probe echoes it, and the
+connection stays open until the bounded run ends (lobby #2: 112 s, 22
+heartbeats). Replies of id 1 (echo), the decoded id 2 (`01 01` + 41 B) and the
+earlier u16-id candidates all close immediately: id 2 hits the bit-0 check in
+0x00560040 and id 1 the role check in 0x005601e0.
+
+Still open: about 60 s after negotiation, while the first lobby stays up, the
+client asks GameUtilities for another Balancer referral and opens a second
+lobby. The upper layer is therefore still waiting for an application-level
+message after the negotiation event (0x00562600 event 0). No main menu,
+map, hero or gameplay is established.
