@@ -909,3 +909,34 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   and record the id-2 message it serializes and sends on the wire. That yields the
   exact bytes without guessing or in-process code injection. Still unverified:
   gateway session, main menu, map, heroes, matchmaking.
+
+## 2026-10-13 — mode-flip capture assessed as unreliable; id-2 encoding blocked by safe tooling
+
+- Specified the gateway context fully: created/initialised by 0x00560560 (called
+  from 0x00563ca5 inside the receive setup 0x00563410), which hardcodes the role
+  ctx+0x1c=1 (initiator), sets ctx+0x84=mode flag, ctx+0x88/0x8c, and builds the
+  first message via 0x00561d60. The context is registered into the gateway peer
+  object and is locatable by signature (ctx+0x1c in {1,2}, ctx+0x8c=0x1000000,
+  ctx+0x88 in {0x18800,0x1000000}, message object at ctx+0x78) with the
+  lobby-key installer's scan pattern.
+- However the mode-flip capture (set ctx+0x1c=2 so the client acts as a responder
+  and serialises a real id-2 we can record) is **not reliable** with polling-only
+  instrumentation: 0x00560560 (role set) and the emit path 0x0055ff60 (which reads
+  ctx+0x1c and sends the offer, advancing to state 3) run back-to-back in the same
+  call chain, so there is no observable window to interpose the write. Flipping the
+  role afterwards does not help because the id-1 handler 0x005601e0 also requires
+  state==2, so a late flip would have to overwrite the live state machine
+  (ctx+0x18) as well — invasive and crash-prone, and debugger/HWBP single-stepping
+  of the serialiser crashes the client (established earlier).
+- Conclusion: with the project's safe tooling (bounded ReadProcessMemory polling +
+  guarded heap writes, no debugger), the exact id-2 wire framing cannot be
+  captured or cleanly reversed; the serialiser is obfuscated and interleaves a
+  named trace serialiser (0x00568690) with the compact wire writer (0x00561e90),
+  and neither the wire field-walker nor the string/nested framing could be pinned.
+  The negotiation layer is blocked here.
+- Everything up to this point stands and is reproducible: TLS, login, Balancer
+  referral, lobby handshake, own-key credential, Panama cipher both directions,
+  the 3-byte gateway framing, the full message dispatch map and the complete id-2
+  message schema (docs/BGS_PROTOCOL.md). The remaining unknown is one message's
+  byte framing. No gateway session, main menu, map, hero or matchmaking is
+  verified; none should be claimed.
