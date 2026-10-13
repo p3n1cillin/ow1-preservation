@@ -21,11 +21,13 @@ def local_referral():
 
     Outer +0x78 false skips the native conditional payload transform. Host
     +0x2e and port +0x2c are traced by the original '%s:%d' formatter/parser.
-    The instance id, +0x10, token and two byte vectors are server-local inputs.
+    The connection callback parses +0x6e as another IPv4:port endpoint, not a
+    token. Both address forms target the owned loopback listener. The instance
+    id, +0x10 and two byte vectors are server-local inputs.
     +0x28=2 matches the tested job-creation profile; its meaning is unverified.
     """
     record={0:{0:1,8:1},0x10:secrets.randbelow(2**31-1)+1,0x28:2,0x2c:1119,
             0x2e:signed_chars(b'127.0.0.1',64),
-            0x6e:signed_chars(secrets.token_hex(16).encode('ascii'),64),
+            0x6e:signed_chars(b'127.0.0.1:1119',64),
             0xae:list(secrets.token_bytes(32)),0xce:list(secrets.token_bytes(32))}
     return {0x78:False,0x80:record}

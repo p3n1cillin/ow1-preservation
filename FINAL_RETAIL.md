@@ -685,8 +685,19 @@ then select Training -> Practice Range. The probe answers the observed 24000
 request with a 242-byte plain 20600 referral to mapped loopback 127.0.0.1:1119.
 All session inputs are generated locally. The original handler creates an
 instance-referral job; it does not advance the visible entering screen in the
-tested runs. The complete queue/game-assignment sequence and game transport
-remain unverified. The default launcher does not enable this experiment.
+tested runs. The complete queue/game-assignment sequence and authenticated game
+transport remain unverified. The default launcher does not enable this experiment.
+
+The second referral string is also an IPv4:port endpoint; an earlier random
+token there was incorrect. For the original client's datagram connection attempt,
+start `python tools/instance_probe.py --run-for 180 --log .local/runs/instance.jsonl`
+before launching, and add `-UdpForward 1119:21120` to Start-PrivateClient.ps1.
+Keep the normal TCP `1119:21119` lobby forward and the bounded launch. Our
+receive-only observer saw 39 native 34-byte packets after Practice Range in
+`instance-udp1`; it sends no replies. This verifies outbound traffic only.
+The UDP diagnostic preserves packet boundaries (<=4096 bytes), accepts one
+container-loopback source port and grants no Internet/LAN capability. Its
+parameters are optional; normal menu play is unchanged.
 
 Independent queue-notification controls use
 `--lobby-queue-schema protocol/queue-104319.json --lobby-queue-reply <23300..23333>`.

@@ -1315,3 +1315,24 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - All 14 CTest targets pass (24 probe fixtures), including every exported queue
   layout's empty-body roundtrip, malformed Training requests, experiment scope,
   fixed endpoint/session-input generation and read-only diagnostic guards.
+
+## 2026-10-13 — original-client UDP instance traffic reaches private observer
+
+- Corrected a referral field interpretation: nested +0x6e is parsed as
+  IPv4:port by ConnectToInstance, not a token. Both address forms now target
+  our own loopback endpoint. Traced the original transport selector to its
+  datagram path without overriding native state or verification.
+- Added explicit bounded UDP forwarding through the existing restricted pipe
+  alongside TCP. Fixed loopback destination, one source port, 4096-byte bound,
+  packet boundary preservation and shutdown; no network capabilities granted.
+- Native instance-udp1 reaches menu/Training via Computer Use and answers
+  Practice request 24000 with corrected 20600. Observer receives 39 packets of
+  34 bytes; bridge independently reports outbound 39/inbound 0. No replies sent.
+  The entering overlay clears back to Training after the attempt; final world
+  WAITING/no request. Handshake reply, authenticated instance, map and hero
+  remain pending. The older expected second-TCP-session path is a hypothesis,
+  superseded for this observed instance attempt by actual UDP evidence.
+- Added a receive-only size/count observer and native boundary/source/size/frame
+  regression tests. All 16 CTest targets pass, including isolation and ACL tests.
+  Original client hash/signature and baseline ACLs unchanged; owned processes
+  and diagnostic listeners stopped. No client bytes or local secrets published.

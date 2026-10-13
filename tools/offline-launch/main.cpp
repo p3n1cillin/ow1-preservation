@@ -720,6 +720,7 @@ int wmain(int argc, wchar_t** argv) {
     if (argc >= 4 && std::wstring(argv[1]) == L"--loopback-bridge") return loopback_bridge::run_container(argc, argv);
     // --retail-private [--forward PORT[:HOSTPORT]]... [-- CLIENT_ARGS...]
     std::vector<loopback_bridge::Forward> forwards;
+    std::vector<loopback_bridge::Forward> datagram_forwards;
     std::wstring client_arguments;
     DWORD private_run_ms = INFINITE;
     std::string trust_ca_pem;
@@ -777,7 +778,14 @@ int wmain(int argc, wchar_t** argv) {
                     private_run_ms = value * 1000;
                     continue;
                 }
-                if (std::wstring(argv[n]) != L"--forward" || n + 1 >= argc) throw std::runtime_error("Expected --forward PORT[:HOSTPORT] or --");
+                if (std::wstring(argv[n]) == L"--udp-forward" && n + 1 < argc) {
+                    auto forward = loopback_bridge::parse_forward(argv[++n]);
+                    forward.datagram = true;
+                    if (!datagram_forwards.empty() || forward.container_port != 1119)
+                        throw std::runtime_error("UDP diagnostic requires one port-1119 loopback forward");
+                    datagram_forwards.push_back(forward); continue;
+                }
+                if (std::wstring(argv[n]) != L"--forward" || n + 1 >= argc) throw std::runtime_error("Expected --forward/--udp-forward PORT[:HOSTPORT] or --");
                 forwards.push_back(loopback_bridge::parse_forward(argv[++n]));
             }
             for (++n; n < argc; ++n) {
@@ -787,6 +795,9 @@ int wmain(int argc, wchar_t** argv) {
                 client_arguments += argument.find(L' ') == std::wstring::npos ? argument : L"\"" + argument + L"\"";
             }
             const bool exact_loopback = client_arguments == L"--BNetServer=127.0.0.1:1119";
+            if (!datagram_forwards.empty() && (private_run_ms == INFINITE || private_run_ms > 180000
+                || forwards.size() != 1 || forwards[0].container_port != 1119 || !exact_loopback))
+                throw std::runtime_error("UDP diagnostic requires a 1..180-second run and the existing port-1119 TCP loopback forward");
             if (!trust_ca_pem.empty() && (private_run_ms == INFINITE || private_run_ms > 180000
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || !exact_loopback))
@@ -900,10 +911,11 @@ int wmain(int argc, wchar_t** argv) {
         const bool debug = retail_debug || mode == L"--debug";
         std::unique_ptr<loopback_bridge::HostForwarder> forwarder;
         if (retail_private && !forwards.empty()) {
+            forwards.insert(forwards.end(), datagram_forwards.begin(), datagram_forwards.end());
             forwarder = std::make_unique<loopback_bridge::HostForwarder>(sid, forwards);
             forwarder->start();
             std::wstring ports = L"--loopback-bridge " + std::to_wstring(GetCurrentProcessId());
-            for (const auto forward : forwards) ports += L" " + std::to_wstring(forward.container_port);
+            for (const auto forward : forwards) ports += (forward.datagram ? L" udp:" : L" ") + std::to_wstring(forward.container_port);
             auto bridge = launch(sid, own_path, ports);
             if (!AssignProcessToJobObject(job, bridge.hProcess)) {
                 TerminateProcess(bridge.hProcess, 1); throw std::runtime_error("Assign bridge job failed");

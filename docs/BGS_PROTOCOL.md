@@ -491,6 +491,11 @@ experiment, not proof of the correct complete queue/game-allocation sequence.
 The original 20600 handler is 0x00775cd0 (dispatcher 0x007a99c0). Outer bool at
 +0x78 false skips its conditional record transform. Nested +0x2e is the fixed
 64-byte host and +0x2c the port used by the original `%s:%d` formatter/parser.
+Nested +0x6e is a second 64-byte **IPv4:port string**, not a random token.
+The connection callback 0x007daf70 -> 0x007cc690 (ConnectToInstance) passes
+the job's +8 string to 0x0041ef00 at 0x007ccbf6. That parser searches for ':',
+parses the port and resolves IPv4. Our earlier token hypothesis was incorrect;
+both endpoint forms now contain owned loopback 127.0.0.1:1119.
 
 The public probe's profile targets only mapped loopback 127.0.0.1:1119 and uses
 locally generated session inputs. `protocol/instance-104319.json` contains the
@@ -498,9 +503,30 @@ numeric layout. Handler -> 0x00e3e940 -> 0x00e1e6f0 creates a component-slot-120
 (vft 0x026775f0) referral job at +0x20. This was observed immediately after
 Practice Range in two bounded live runs. The original 0x00e3e700 consumer checks
 an initial integer, copies the parameter prefix and clears/frees the job.
-Job absence later does not establish rejection. The remaining field semantics,
-queue assignment and transport are unresolved. No extra TCP connection was
-observed; the final world state is WAITING/no request.
+Job absence later does not establish rejection. The remaining field semantics
+and queue assignment are unresolved. No extra TCP connection was observed in
+the early runs; the final world state was WAITING/no request.
+
+The original instance request path is 0x007cc690 -> 0x00c68980 -> 0x003fc550
+-> 0x003ff920. Runtime selector byte 0x02e2f308 is zero in the inspected run;
+this selects the alternate datagram peer path at 0x0040009d, rather than the
+per-peer TCP socket path. Do not overwrite the selector. The original bridge
+was TCP-only. An explicit `--udp-forward 1119:21120` now adds a datagram bridge
+using the same owner/AppContainer-restricted pipe and fixed loopback endpoints.
+It retains datagram boundaries with a two-byte LE length, caps packets at
+4096 bytes and admits one container-loopback source port per diagnostic run.
+It requires the existing TCP lobby forward and a 1..180-second run. Internet
+and LAN capabilities remain absent. This is a diagnostic, not multiplayer
+transport for multiple players.
+
+Native `instance-udp1`: after 24000 -> corrected 20600, the original client
+sends **39 datagrams of 34 bytes** through the UDP bridge to the private
+receive-only observer. No UDP protocol replies were sent. This verifies outbound
+native instance traffic, not a completed handshake or a loaded map. The UI
+first shows ENTERING PRACTICE RANGE, then returns to Training after the
+unanswered attempt. The final world state is WAITING/no pending request.
+`tools/instance_probe.py` reports packet sizes
+and counts only; it logs no payload, identifiers, keys or peer source ports.
 
 `protocol/queue-104319.json` holds all 34 queue-message layouts as numeric
 metadata only, compactly serialized within the existing size/field budget.

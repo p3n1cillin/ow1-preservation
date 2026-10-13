@@ -5,6 +5,8 @@ param(
     [string]$LogRoot,
     # Container-loopback port -> host-loopback port where the private service listens.
     [string[]]$Forward = @('1119:21119'),
+    # Optional bounded datagram diagnostic; also requires the TCP lobby forward.
+    [string]$UdpForward,
     [string[]]$ClientArgs = @('--BNetServer=127.0.0.1:1119'),
     [string]$LogName = 'retail-private',
     [ValidateRange(0,3600)][int]$RunForSeconds = 0,
@@ -25,6 +27,7 @@ if (!(Test-Path -LiteralPath $clientExe -PathType Leaf)) { throw 'Supply the ext
 # listed container-loopback ports are bridged, each to one host-loopback port.
 $arguments = @(('"{0}"' -f $clientExe), '--retail-private')
 foreach ($f in $Forward) { $arguments += @('--forward', $f) }
+if ($UdpForward) { $arguments += @('--udp-forward', $UdpForward) }
 if ($RunForSeconds) { $arguments += @('--run-for', $RunForSeconds) }
 if ($TrustCaCertificate) { $arguments += @('--trust-ca', ('"{0}"' -f [IO.Path]::GetFullPath($TrustCaCertificate))) }
 if ($ObserveTls) { $arguments += '--observe-tls' }

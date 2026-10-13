@@ -188,3 +188,31 @@ before application traffic and provide no referral acceptance/rejection evidence
 After the completed runs, the original EXE SHA256 and Authenticode signature
 remain unchanged/valid, both saved ACLs match exactly, and no owned game,
 launcher or port-21119 listener remains.
+
+## 2026-10-13: corrected instance endpoint and UDP loopback bridge
+
+All **16 CTest targets pass**, including the existing **24 bnet fixtures**,
+two receive-only observer fixtures and a native pipe/datagram transport fixture.
+The latter verifies bidirectional zero/one/33/4096-byte packet boundaries,
+embedded NULs, rejection of a second source port and oversized datagrams,
+recovery after rejected traffic, malformed frame rejection, partial pipe reads
+and bounded pump shutdown. Launcher guards reject unbounded, wrong-port and
+duplicate UDP forwards. Isolation and scoped ACL tests continue to pass.
+
+`instance-endpoint1` corrects the second referral string, which the original
+connection callback parses as IPv4:port rather than a token. TCP-only forwarding
+still observes no extra connection. Read-only native inspection identifies the
+alternate datagram path; no selector/verification/readiness flags are modified.
+
+`instance-udp1` adds the explicit 1119:21120 UDP bridge: after menu/Training input
+and 24000 -> 20600, the receive-only observer gets **39 datagrams, each 34 bytes**.
+Host bridge totals independently report 39 outbound and zero inbound datagrams.
+The client first shows ENTERING PRACTICE RANGE, then returns to Training after
+the unanswered attempt. Final dump: zero queue records, no referral job,
+world WAITING/no pending request. No authenticated game session or map/hero
+is claimed. Private logs/analysis stay in project .local/; dumps remain outside Git.
+
+After bounded shutdown, original EXE SHA256 matches and Authenticode remains
+Valid; both saved ACLs match exactly. Owned game/launcher processes and the
+TCP/UDP diagnostic listeners are gone. Source-only publication contains no
+packet payloads, credentials, keys, client assets or dumps.

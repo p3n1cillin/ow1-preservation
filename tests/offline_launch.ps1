@@ -75,6 +75,14 @@ foreach ($duration in @('0','3601','-1','NaN','99999')) {
         throw "Invalid private diagnostic duration accepted: $duration"
     }
 }
+foreach ($arguments in @(
+    @('--udp-forward','1119:21120'),
+    @('--udp-forward','1120:21120','--run-for','1'),
+    @('--udp-forward','1119:21120','--run-for','181'),
+    @('--udp-forward','1119:21120','--udp-forward','1119:21121','--run-for','1'))) {
+    $rejection = & $Launcher $Launcher --retail-private @arguments 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*UDP diagnostic requires*') { throw 'Invalid UDP diagnostic accepted' }
+}
 $rejection = & $Launcher $Launcher --retail-private --observe-tls 2>&1
 if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..180-second run*') { throw 'Unbounded TLS observation accepted' }
 $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=127.0.0.1:1119 2>&1

@@ -148,7 +148,13 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(host,b'127.0.0.1'+bytes(55))
         self.assertEqual((len(record[0xae]),len(record[0xce])),(32,32))
         self.assertTrue(1<=record[0x10]<2**31)
-        self.assertNotEqual(local_referral()[0x80][0x6e],record[0x6e])
+        # 0x007ccbf6 parses this string as IPv4:port. A random token leaves
+        # the zero-initialized connection address unusable.
+        endpoint=bytes(v&255 for v in record[0x6e])
+        self.assertEqual(endpoint,b'127.0.0.1:1119'+bytes(50))
+        fresh=local_referral()[0x80]
+        self.assertEqual(fresh[0x6e],record[0x6e])
+        self.assertNotEqual((fresh[0xae],fresh[0xce]),(record[0xae],record[0xce]))
         self.assertEqual(signed_chars(b'\xff',2),[-1,0])
         with self.assertRaises(ValueError):signed_chars(bytes(65),64)
         for broken in (b'',request[2:-1],request[2:]+b'x'):

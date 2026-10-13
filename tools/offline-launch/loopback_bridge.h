@@ -25,7 +25,7 @@
 
 namespace loopback_bridge {
 
-struct Forward { uint16_t container_port = 0, host_port = 0; };
+struct Forward { uint16_t container_port = 0, host_port = 0; bool datagram = false; };
 
 inline std::mutex log_mutex;
 template<typename... T> void log(const T&... parts) {
@@ -49,8 +49,9 @@ inline Forward parse_forward(const std::wstring& text) {
     return forward;
 }
 
-inline std::wstring pipe_name(DWORD owner_pid, uint16_t container_port) {
-    return L"\\\\.\\pipe\\ow1-bridge-" + std::to_wstring(owner_pid) + L"-" + std::to_wstring(container_port);
+inline std::wstring pipe_name(DWORD owner_pid, uint16_t container_port, bool datagram = false) {
+    return L"\\\\.\\pipe\\ow1-bridge-" + std::to_wstring(owner_pid) + L"-" + std::to_wstring(container_port)
+        + (datagram ? L"-udp" : L"");
 }
 
 // Copies bytes in both directions until either side ends. The pipe handle is
@@ -114,9 +115,13 @@ inline sockaddr_in loopback_address(uint16_t port) {
     return address;
 }
 
+} // namespace loopback_bridge
+#include "datagram_bridge.h"
+namespace loopback_bridge {
+
 // ---- Container half -------------------------------------------------------
 
-inline void container_connection(SOCKET client, std::wstring name, uint16_t port) {
+inline void container_connection(SOCKET client, std::wstring name, uint16_t port, bool datagram = false) {
     HANDLE pipe = INVALID_HANDLE_VALUE;
     for (int attempt = 0; attempt < 50 && pipe == INVALID_HANDLE_VALUE; ++attempt) {
         pipe = CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
@@ -131,7 +136,8 @@ inline void container_connection(SOCKET client, std::wstring name, uint16_t port
     }
     if (pipe == INVALID_HANDLE_VALUE) { closesocket(client); return; }
     uint64_t up = 0, down = 0;
-    pump(pipe, client, up, down);
+    if (datagram) pump_datagrams(pipe, client, true, up, down);
+    else pump(pipe, client, up, down);
     CloseHandle(pipe);
     closesocket(client);
 }
@@ -143,19 +149,23 @@ inline int run_container(int argc, wchar_t** argv) {
     const DWORD owner = std::stoul(argv[2]);
     std::vector<std::thread> listeners;
     for (int n = 3; n < argc; ++n) {
-        const auto port = parse_forward(argv[n]).container_port;
-        SOCKET listener = loopback_socket();
+        const std::wstring argument = argv[n];
+        const bool datagram = argument.starts_with(L"udp:");
+        const auto port = parse_forward(datagram ? argument.substr(4) : argument).container_port;
+        SOCKET listener = datagram ? datagram_socket() : loopback_socket();
         const auto address = loopback_address(port);
-        if (bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) || listen(listener, SOMAXCONN)) {
+        if (bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address))
+            || (!datagram && listen(listener, SOMAXCONN))) {
             log("bridge: container listen 127.0.0.1:", port, " failed WSA=", WSAGetLastError());
             return 4;
         }
-        listeners.emplace_back([listener, owner, port]() {
-            const auto name = pipe_name(owner, port);
+        listeners.emplace_back([listener, owner, port, datagram]() {
+            const auto name = pipe_name(owner, port, datagram);
+            if (datagram) { container_connection(listener, name, port, true); return; }
             for (;;) {
                 SOCKET client = accept(listener, nullptr, nullptr);
                 if (client == INVALID_SOCKET) return;
-                std::thread(container_connection, client, name, port).detach();
+                std::thread(container_connection, client, name, port, false).detach();
             }
         });
     }
@@ -198,13 +208,14 @@ public:
     void start() {
         for (const auto forward : forwards_) {
             listeners_.emplace_back(&HostForwarder::serve, this, forward);
-            log("bridge: container 127.0.0.1:", forward.container_port, " -> host 127.0.0.1:", forward.host_port);
+            log("bridge: ", forward.datagram ? "UDP " : "", "container 127.0.0.1:", forward.container_port,
+                " -> host 127.0.0.1:", forward.host_port);
         }
     }
 
 private:
     void serve(Forward forward) {
-        const auto name = pipe_name(GetCurrentProcessId(), forward.container_port);
+        const auto name = pipe_name(GetCurrentProcessId(), forward.container_port, forward.datagram);
         unsigned connection = 0;
         while (WaitForSingleObject(stop_event_, 0) == WAIT_TIMEOUT) {
             PSECURITY_DESCRIPTOR descriptor = nullptr;
@@ -234,7 +245,7 @@ private:
             if (!connected) { CloseHandle(pipe); continue; }
             const unsigned id = ++connection;
             std::thread([pipe, forward, id]() {
-                SOCKET upstream = loopback_socket();
+                SOCKET upstream = forward.datagram ? datagram_socket() : loopback_socket();
                 const auto address = loopback_address(forward.host_port);
                 if (connect(upstream, reinterpret_cast<const sockaddr*>(&address), sizeof(address))) {
                     log("bridge: port ", forward.container_port, " #", id, " host 127.0.0.1:", forward.host_port,
@@ -242,12 +253,14 @@ private:
                     closesocket(upstream); DisconnectNamedPipe(pipe); CloseHandle(pipe);
                     return;
                 }
-                log("bridge: port ", forward.container_port, " #", id, " opened");
+                log("bridge: ", forward.datagram ? "UDP " : "", "port ", forward.container_port, " #", id, " opened");
                 uint64_t to_host = 0, to_container = 0;
                 // Host side: the pipe carries container->host bytes.
-                pump(pipe, upstream, to_container, to_host);
-                log("bridge: port ", forward.container_port, " #", id, " closed; client->host ", to_host,
-                    " bytes, host->client ", to_container, " bytes");
+                if (forward.datagram) pump_datagrams(pipe, upstream, false, to_container, to_host);
+                else pump(pipe, upstream, to_container, to_host);
+                log("bridge: ", forward.datagram ? "UDP " : "", "port ", forward.container_port, " #", id,
+                    " closed; client->host ", to_host, " host->client ", to_container,
+                    forward.datagram ? " datagrams" : " bytes");
                 closesocket(upstream); DisconnectNamedPipe(pipe); CloseHandle(pipe);
             }).detach();
         }

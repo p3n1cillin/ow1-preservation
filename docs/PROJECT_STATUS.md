@@ -21,16 +21,19 @@ and input reproduced Training -> Practice Range on 2026-10-13. The client
 sends 24000 and shows **ENTERING PRACTICE RANGE**. An opt-in plain 20600
 loopback referral creates a native slot-120 instance-referral job, observed
 immediately in both the private prototype and reproducible public probe.
-This job is transient: later snapshots report it absent. No additional TCP
-connection was observed, and the final world state is WAITING with no pending
-request. Game assignment, instance transport and map load remain unresolved;
+This job is transient: later snapshots report it absent. A corrected second
+endpoint string and opt-in UDP loopback bridge now deliver **39 original-client
+datagrams of 34 bytes** to our receive-only observer (`instance-udp1`). No
+instance protocol replies were sent; the UI shows the entering overlay,
+then returns to Training without a world request. Game assignment,
+instance authentication/replies and map load remain unresolved;
 the 24000/20600 pairing is an experiment, not a demonstrated complete protocol.
 The default launcher continues to use the verified menu path.
 
 Numeric schemas cover all 34 queue-family messages and the 20600 referral.
 `retail_login_state.py --queue-state` reports bounded queue-record counts and
 native job/marker booleans without exporting session inputs. Peer-identifier
-bits, referral fields beyond the traced endpoint and several identity fields
+bits, referral fields beyond the two traced endpoint forms and several identity fields
 remain experimental.
 
 Work continues in the project directory. New private analysis/run files use

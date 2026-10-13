@@ -125,16 +125,17 @@ requests enter via 0x00b4b1c0 (callers 0x0082c3e0 game-server join,
 preferences: accepted; client then reports 58400 (0x692c511b) every ~30 s;
 world state still WAITING/no request (run settings2).
 MAIN MENU REACHED (2026-10-13, run screen8, desktop unlocked): full initial
-data incl. 20802 -> original main menu + first-run TUTORIAL prompt. View the game
-with scripts/Capture-ClientWindow.ps1 (desktop screenshots show the lock screen).
+data incl. 20802 -> original main menu + first-run TUTORIAL prompt. Current
+Computer Use screenshots/input work through @oai/sky; prefer that plugin.
 The "time out communicating with Battle.net" screens came from leftover clients
-whose server had stopped (bounded runs leave the game running; close it first).
+whose server had stopped. Current bounded diagnostics terminate their owned
+client/job, write a private dump and restore scoped ACLs at the end.
 Accounts/launcher: `python tools/ow1_launcher.py configure|create|list|play`
 (tools/accounts.py, store in .local/); `play Mercy` reached the menu as Mercy#1002.
 Reliability (2026-10-13): 27/27 unattended launcher sessions reached the menu.
 `play` waits for an exiting client/port and retries an instant client exit
 (single-instance game). Don't drive the game window with desktop automation
-during login; use scripts/Capture-ClientWindow.ps1 / Click-ClientWindow.ps1.
+during login; use the Computer Use plugin after the main menu appears.
 Related 59900-family handlers print account-migration data; 42400-family
 handlers process tournament data. Exact reply pairing/menu dependency remains
 unresolved. Next: trace initial account/configuration/loading/menu gates; do not
@@ -208,3 +209,43 @@ needed. Use the Computer Use plugin for Windows UI when available.
   Known 1090-byte mapped CA with TLS delay 15 worked in subsequent runs.
 - All 14 CTest targets pass, including 24 probe fixtures. No native code,
   readiness or verification flags were changed for the instance experiment.
+
+## Latest transport checkpoint (2026-10-13, instance-udp1)
+
+This supersedes the instance-public1 transport frontier above. Work stays in
+the project directory; all new private RE and run files are in ignored .local/.
+
+- Corrected 20600 nested +0x6e: it is an IPv4:port endpoint, not a token.
+  Native job +8 holds this string; callback 0x7daf70 -> 0x7cc690
+  (ConnectToInstance) calls parser 0x41ef00 at 0x7ccbf6. Both referral address
+  forms now use 127.0.0.1:1119. Keep outer bool false and original verifiers.
+- Instance connect: 0x7cc690 -> 0xc68980 -> 0x3fc550 -> 0x3ff920. Selector
+  byte RVA 0x2e2f308 is zero in the inspected run, selecting alternate peer
+  path 0x40009d -> 0x3f8990. Do not overwrite the selector or force TCP.
+- Original bridge was TCP-only. New explicit launcher `--udp-forward
+  1119:21120` / Start-PrivateClient.ps1 `-UdpForward 1119:21120` adds a UDP
+  bridge through an owner/AppContainer-only named pipe. It requires normal
+  TCP 1119:21119, exact BNetServer loopback and a 1..180-second duration.
+  One source port per run, <=4096-byte datagrams; no Internet/LAN capability.
+- Start receive-only `python tools/instance_probe.py --run-for 180 --log
+  .local/runs/<unique>.jsonl` BEFORE the client. It binds host 127.0.0.1:21120
+  and logs sizes/counts only. Use the existing full initial-data / opt-in
+  instance-referral bnet probe on TCP 21119. Known private-mapped-ca 1090-byte
+  root / 15-second handshake delay worked in both new native runs.
+- Direct @oai/sky screenshots/input: No Thanks -> Training -> Practice Range
+  causes 24000 -> corrected 20600. The observer receives 39 original-client
+  datagrams, all 34 bytes. Bridge totals: outbound39/inbound0. The native job
+  is present immediately, later absent. The entering overlay eventually clears
+  back to Training. Final world WAITING/no pending request, no map or hero.
+- **Next: trace the native 34-byte datagram handshake and its reply**, using
+  original receiver/state transitions and locally generated referral inputs.
+  A received packet is not an authenticated game session. Do not assume BSON,
+  the lobby raw handshake or a tournament pending-game path is the game protocol.
+- New private dumps beside existing client: retail-private-instance-endpoint1.dmp
+  and retail-private-instance-udp1.dmp. Private .local/re/instance-*.txt contains
+  bounded disassembly/callback analysis; .local/runs/instance-udp1-final.json
+  and instance-udp1-cleanup.json record state/cleanup without session bytes.
+- All 16 CTest targets pass: 24 bnet fixtures, 2 observer fixtures plus native
+  UDP/pipe boundaries/guards/shutdown and isolation tests. Original EXE hash/
+  signature and both baseline ACLs match; no owned native processes/listeners.
+  Default account launcher is still the existing menu path.
