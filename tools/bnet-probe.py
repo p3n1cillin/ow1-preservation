@@ -198,6 +198,7 @@ def attribute_strings(request):
 # Referral sessions handed to the client: cid -> (k0, k1, k2, k3). The lobby
 # connection names its cid in the first handshake message.
 REFERRALS = {}
+_GW_PROBE_INDEX = 0  # cycles candidate responder replies across lobby retries
 REFERRALS_LOCK = threading.Lock()
 
 
@@ -585,13 +586,41 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         packet_capture = None
                 emit(f"post-credential packet: body_bytes={len(payload)} first_byte={payload[0]} (remaining contents omitted)")
                 if not offered:
-                    builder = catalogue_offer if gateway_reply == 'offer' else offer_response
-                    response = builder(payload, gateway_hashes) if gateway_hashes is not None else builder(payload)
                     bootstrap_channel = payload[0]
+                    if gateway_reply == 'probe':
+                        # Each referral retry is a fresh lobby connection, so cycle
+                        # one candidate responder reply per connection and let the
+                        # client's reaction (advance vs. close) identify the right
+                        # message. Candidates follow the captured offer framing
+                        # (u16-LE message id, then body); the client offered id 1.
+                        global _GW_PROBE_INDEX
+                        hashes = parse_offer(payload)
+                        hs = struct.pack(f'<{len(hashes)}I', *hashes)
+                        count = struct.pack('<I', len(hashes))
+                        # id-2 descriptor (rva 0x2cf0180) has a 16-byte identity
+                        # field at object offset 0x78 (two u64, sub-type 0x2cefb60)
+                        # before the record vector at 0x88. Wire (positional) =
+                        # u16 id, identity[16], count u32, hashes. Try identity
+                        # variants; id-1 (client's own form) carries no identity.
+                        ident0 = bytes(16)
+                        ident1 = struct.pack('<QQ', 1, 0)
+                        candidates = [
+                            ("id2 ident0 hashlist",  struct.pack('<H', 2) + ident0 + count + hs),
+                            ("id2 ident{1,0} hashlist", struct.pack('<H', 2) + ident1 + count + hs),
+                            ("id2 ident0 count0",    struct.pack('<H', 2) + ident0 + struct.pack('<I', 0)),
+                            ("id2 hashlist noident", struct.pack('<H', 2) + count + hs),
+                            ("id3 ident0 hashlist",  struct.pack('<H', 3) + ident0 + count + hs),
+                        ]
+                        label, response = candidates[_GW_PROBE_INDEX % len(candidates)]
+                        _GW_PROBE_INDEX += 1
+                        emit(f"gateway PROBE candidate [{label}] -> {response.hex()}")
+                    else:
+                        builder = catalogue_offer if gateway_reply == 'offer' else offer_response
+                        response = builder(payload, gateway_hashes) if gateway_hashes is not None else builder(payload)
+                        emit(f"gateway {gateway_reply} reply sent ({len(response)} B); "
+                             f"hashes={[hex(h) for h in parse_offer(payload)]}")
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     offered = True
-                    emit(f"gateway {gateway_reply} reply sent ({len(response)} B); "
-                         f"hashes={[hex(h) for h in parse_offer(payload)]}")
                 elif payload == bytes((bootstrap_channel,2)):
                     emit('gateway negotiation acknowledgement received (bootstrap version 3)')
                 elif (response := heartbeat_response(payload,bootstrap_channel)) is not None:
@@ -634,7 +663,7 @@ def main():
     ap.add_argument("--lobby-peer-group", type=int, choices=(0,13), default=0,
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
-    ap.add_argument("--gateway-reply", choices=("offer", "ack"), default="offer",
+    ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe"), default="offer",
                     help="state-2 reply to the client's bootstrap offer: 'offer' mirrors a "
                          "catalogue offer (hash list, what the native parser consumes); 'ack' "
                          "sends the 2-byte acknowledgement (prior unverified hypothesis)")

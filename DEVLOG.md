@@ -770,3 +770,40 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   correctly; (3) rerun and use the client advancing to negotiation state 5 (and
   not retrying the referral) as the success signal. Still unverified: main menu,
   gateway session, map, heroes, matchmaking.
+
+## 2026-10-13 — gateway receive pipeline fully mapped; framing confirmed correct
+
+- Added a candidate-cycling reply mode (`--gateway-reply probe`): each referral
+  retry is a fresh lobby connection, so the probe sends one candidate responder
+  message per connection and logs the client's reaction. Captured the exact
+  decrypted offer with `--lobby-packet-capture`: `01 00 | 01 00 00 00 | 94 21 d8 11`
+  = u16-LE message id 1, uint32 count 1, schema hash 0x11d82194 (confirms codex's
+  parse). The message id is a u16 (native reads a word, rva 0x00565260).
+- Live runs: tried replying with id-1 echo, the 2-byte ack, and id-2 variants
+  (with/without a 16-byte identity, with/without the hash list). EVERY reply makes
+  the client close immediately; sending nothing makes it wait ~10 s. That timing
+  difference shows the problem is the reply bytes, not the absence of a reply.
+- **Mapped the full receive pipeline** (resolves where replies must go):
+  - recv dispatcher rva 0x01908cf0 branches on the handshake-complete flag
+    peer+0x1053. Pre-handshake -> the fixed-stage state machine (rva 0x019094a0,
+    state at peer+0x104c) that consumes exactly hello, 65 B (challenge+difficulty+
+    server_random), 32 B (HMAC k1 proof), then 292 B (credential); state 5
+    (rva 0x01909330) then frees the handshake buffer, sets peer+0x1053=1 and goes
+    inert. Post-handshake -> decrypt (Panama, ctx+0x1040) then the gateway reader.
+  - gateway reader rva 0x0041a100: reads **3-byte big-endian length + body**
+    frames (so the probe's framing is correct) and hands each body to the message
+    dispatcher rva 0x0041db50 -> 0x0041cd60.
+  - the dispatcher requires peer state peer+0x20 == 6 (matches the observed
+    connection phase 6) and parses the body with field readers 0x02378cf0 /
+    0x02378d40 (varint/length-delimited style).
+- Conclusion: TLS, login, referral, lobby handshake, own-key credential, Panama
+  cipher (both directions) and the 3-byte gateway framing are all correct and
+  confirmed. The remaining blocker is purely the message BODY format that
+  0x0041cd60 accepts. Both the record-vector reply model (560040/561890) and the
+  simple id/ack models are ruled out by live runs.
+- Next RE target: reverse 0x0041cd60 (and its field readers 0x02378cf0/0x02378d40)
+  to get the exact body schema of the responder's first negotiation message, then
+  emit it via `--gateway-reply probe` candidates and watch for the client leaving
+  phase 6 (not retrying the referral). Key inputs, cipher and framing are all in
+  place for that run. Still unverified: main menu, gateway session, map, heroes,
+  matchmaking.
