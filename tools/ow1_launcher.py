@@ -147,7 +147,7 @@ def cmd_play(args):
                   '--lobby-integrity-key', config['lobby_integrity_key'],
                   '--lobby-peer-group', '13', '--gateway-catalogue', str(ROOT / 'protocol' / 'gateway-104319.json'),
                   '--lobby-login-schema', str(ROOT / 'protocol' / 'lobby-login-104319.json'),
-                  '--lobby-initial-data', 'keys-hotfix-player-settings',
+                  '--lobby-initial-data', 'full',
                   '--lobby-initial-delay', str(args.initial_delay)]
     with open(RUNS / f'{name}-server.out', 'w', encoding='utf-8') as out:
         server = subprocess.Popen(server_cmd, stdout=out, stderr=subprocess.STDOUT, cwd=ROOT)

@@ -1220,3 +1220,26 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   OVERVIEW / STATISTICS / ACHIEVEMENTS / PLAYER ICON, the default player icon,
   "MERCY", "0 / 0" and "CAREER PROFILE IS EMPTY" — the correct state for a new
   account. 21 probe tests pass.
+
+## 2026-10-13 — party of one unlocks Quick Play, Game Browser and Training
+
+- With no party state the client locked Quick Play and Game Browser ("ONLY
+  AVAILABLE TO THE GROUP LEADER") and greyed out TRAINING. Zeroing the third
+  20500 identity did not change this (ruled out).
+- Party state is 20700 (protocol 0x2411de56, handler 0x008529a0 -> component
+  slot 20, record copied at +0x18 by 0x00e1f0d0; party id at record +0x60).
+  The client's own party printer (0x008511b2: "BattleTag, ID, Status, Leader")
+  gives the member layout: player block (+0x40 battle tag), status +0xe0
+  (5 = Member; 0x00e1ef80 counts statuses 5-7) and Leader flag +0xe2.
+- New initial-data option `full` (now the launcher default) adds a party of one:
+  our player as the only member, status Member, Leader true, party id = the
+  game account; every other field empty. Exported the numeric 20700 layout.
+- Codec fix: omitted fixed-size arrays now encode as zero items (a fixed u64[2]
+  in 20700 previously raised "compact array size/type" and dropped the lobby).
+- Live (play Mercy): Quick Play and Game Browser unlocked, a MERCY party card
+  appears, TRAINING is enabled and opens TUTORIAL / PRACTICE RANGE / PRACTICE
+  VS. AI. The party card shows "-75% XP / 0 MATCHES REMAINING" (likely a
+  zeroed penalty field; not yet investigated).
+- Clicking PRACTICE RANGE sends 24000 (8 B) on protocol 0xa6e53896
+  (24000-24028, client-to-server game queue); the screen waits. Answering it is
+  the matchmaking / game-server track. 22 probe tests pass.

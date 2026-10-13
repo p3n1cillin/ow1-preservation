@@ -137,7 +137,8 @@ class Writer:
         for field in fields:
             kind,count=field['kind'],field['count']
             default={} if kind==14 else False if kind==0 else b'' if kind in (12,13,BLOB) else 0.0 if kind in (10,11) else 0
-            value=values.get(field['offset'],[] if count else default)
+            # Omitted arrays: empty when variable-length, zero items when fixed-size.
+            value=values.get(field['offset'],([] if count==-1 else [default]*count) if count else default)
             if count:
                 if not isinstance(value,list) or len(value)>MAX_ITEMS or (count>0 and len(value)!=count):
                     raise ValueError('compact array size/type')

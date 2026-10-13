@@ -716,7 +716,7 @@ def main():
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
     ap.add_argument("--lobby-login-schema", help="opt-in experimental 20500 reply using the numeric lobby login schemas")
-    ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings'),
+    ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings','full'),
                     help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502) "
                          "and default account preferences (20802); requires login schemas")
     ap.add_argument("--lobby-initial-delay", type=int, choices=range(0, 31), default=0,
@@ -750,7 +750,8 @@ def main():
         if args.lobby_initial_data:
             from lobby_service import InitialLobby
             initial_ids={'keys':(20504,),'keys-hotfix':(20504,20505),'keys-hotfix-player':(20504,20505,20502),
-                         'keys-hotfix-player-settings':(20504,20505,20502,20802)}[args.lobby_initial_data]
+                         'keys-hotfix-player-settings':(20504,20505,20502,20802),
+                         'full':(20504,20505,20502,20802,20700)}[args.lobby_initial_data]
             if any((InitialLobby.schema_of(mid),mid) not in login_messages for mid in initial_ids):
                 ap.error('initial data requires each selected notification schema')
     if args.lobby_private_key or args.lobby_integrity_key:

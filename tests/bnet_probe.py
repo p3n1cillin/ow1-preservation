@@ -119,6 +119,30 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(decode(fields,body),{0:b'abc',40:1.5})
         with self.assertRaises(ValueError):decode(fields,struct.pack('<I',99)+b'abc'+bytes(8))
         with self.assertRaises(ValueError):encode(fields,{40:1})
+        fixed=[{'kind':8,'offset':0,'width':8,'count':2}]
+        self.assertEqual(encode(fixed,{}),bytes(16))
+        with self.assertRaises(ValueError):encode(fixed,{0:[1]})
+
+    def test_party_of_one_marks_player_leader(self):
+        from gateway_codec import load_messages,decode,encode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,HELLO_SCHEMA,PARTY_SCHEMA,GAME_ACCOUNT_HIGH
+        root=Path(__file__).resolve().parents[1]
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        service=InitialLobby(hashes,messages,'Mercy#1002','full',1002)
+        identity={0:1002,8:GAME_ACCOUNT_HIGH}
+        service.receive(bytes((hashes.index(HELLO_SCHEMA)+1,0))+encode(messages[HELLO_SCHEMA,21800],
+                        {0xb8:{0:identity},0x1bc:104319}))
+        sent=dict(service.initial_notifications())
+        self.assertEqual(list(sent),[20504,20505,20502,20802,20700])
+        packet=sent[20700]
+        self.assertEqual(packet[:2],bytes((hashes.index(PARTY_SCHEMA)+1,0)))
+        party=decode(messages[PARTY_SCHEMA,20700],packet[2:])[0x78]
+        self.assertEqual(party[0x60],identity)
+        [member]=party[0x00]
+        self.assertEqual((member[0x00][0x00],member[0x00][0x40],member[0xe0],member[0xe2]),
+                         (identity,b'Mercy#1002',5,True))
 
     def test_launcher_detects_start_conflicts(self):
         import tempfile
