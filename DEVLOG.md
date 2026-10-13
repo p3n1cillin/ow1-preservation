@@ -1113,3 +1113,25 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Dump: world-state manager still WAITING with no pending world request, so
   preferences alone do not start the menu world. An earlier attempt reused a
   stale probe (port guard refused the new one); that run is discarded.
+
+## 2026-10-13 — MAIN MENU REACHED on the private server
+
+- Desktop screenshots were masked (lock screen), which explains earlier "black"
+  captures. Added scripts/Capture-ClientWindow.ps1: renders the owned client's
+  window via PrintWindow into a local PNG (keep captures out of Git).
+- Runs screen5/6/7 (same server configuration, desktop locked) showed
+  "CONNECTING…" then "SORRY, WE WERE UNABLE TO LOG YOU IN. TIME OUT
+  COMMUNICATING WITH BATTLE.NET SERVICES", although the protocol completed in
+  the background. With --handshake-delay 0 the CA-trust step is too late and
+  TLS is dropped.
+- Run screen8 (desktop unlocked; probe: group 13, login schema,
+  `--lobby-initial-data keys-hotfix-player-settings`, --handshake-delay 25):
+  3 s after the initial data the original client shows the **main menu** (PLAY,
+  TRAINING greyed, HERO GALLERY, LOOT BOX, OVERWATCH LEAGUE, HIGHLIGHTS, SOCIAL,
+  CAREER PROFILE, OPTIONS, PATCH NOTES, EXIT GAME, chat prompt, party/friends
+  buttons), then the first-run **TUTORIAL** prompt. The static backdrop has no
+  3D hero scene, consistent with the world-state manager having no world request.
+- Not yet established: which of the initial messages is strictly required for
+  the menu (screen8 is the only visible-desktop run so far), why the locked-desktop
+  runs timed out, and anything beyond the menu (tutorial/practice/map loading,
+  heroes, matchmaking). Nothing was clicked.

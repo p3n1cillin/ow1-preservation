@@ -8,7 +8,7 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 |---|---|
 | M1: existing project/build understood | Source, continuation and native captures inspected; build/test evidence in TESTING.md. |
 | M2: original client communicates with private backend | Real TLS 1.2, WebSocket, Connect, Logon, GameUtilities referral, lobby proofs and own-key credential handshake exercised. |
-| M3: independent authentication/menu | Local 'Pro' account grant and own-key credential accepted. Group-13 gateway negotiates and heartbeats. Our initial identity reply advances the original UI to **ENTERING GAME…**. Main menu remains unverified. |
+| M3: independent authentication/menu | Local 'Pro' account grant and own-key credential accepted. Group-13 gateway negotiates and heartbeats. Our initial identity reply advances the original UI to **ENTERING GAME…**. **Main menu reached (2026-10-13, run screen8):** with the full initial-data sequence the original client shows PLAY/TRAINING/HERO GALLERY/LOOT BOX/…/EXIT GAME, then the new-player TUTORIAL prompt (direct window capture). The 3D menu backdrop is absent (no world requested). |
 | M4: original map | Practice header loads and default context activates; context unready. No rendered final map. |
 | M5–M6: playable hero/roster | No controllable final-retail hero or verified combat/abilities. |
 | M7–M9: authoritative multiplayer/6v6 | Not implemented or verified against real final clients. |
