@@ -121,6 +121,9 @@ World state (2026-10-13): at ENTERING GAME the world-state manager (vtable
 pending world request; `retail_login_state.py --world-state` reports it. World
 requests enter via 0x00b4b1c0 (callers 0x0082c3e0 game-server join,
 0x008359a0 local world, 0x00b97f40 from the 20300 game-server dispatcher).
+`--lobby-initial-data keys-hotfix-player-settings` adds default 20802 account
+preferences: accepted; client then reports 58400 (0x692c511b) every ~30 s;
+world state still WAITING/no request (run settings2).
 Related 59900-family handlers print account-migration data; 42400-family
 handlers process tournament data. Exact reply pairing/menu dependency remains
 unresolved. Next: trace initial account/configuration/loading/menu gates; do not
