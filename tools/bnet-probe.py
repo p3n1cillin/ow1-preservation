@@ -486,7 +486,8 @@ def read_lobby_frame(conn):
 
 
 def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credential_delay=0, packet_capture=None,
-                peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='ack', lobby_service=None):
+                peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='ack', lobby_service=None,
+                initial_delay=0):
     """Lobby (game-service gateway) handshake at the referral hostv4, as the
     client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
     are raw little-endian bytes, one per TCP send, with no framing:
@@ -562,6 +563,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
             decrypted = DecryptedConnection(raw, inbound)
             from gateway_protocol import offer_response, catalogue_offer, negotiation_reply, frame as gateway_frame, parse_offer, heartbeat_response
             offered = False
+            initial_due = float('inf')
             bootstrap_channel = None
             captured = 0
             # Serve the demonstrated hash negotiation, then observe the next
@@ -662,6 +664,11 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                 elif lobby_service is not None and (response := lobby_service.receive(payload)) is not None:
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     emit(f'initial lobby identity reply 20500 sent ({len(response)} B; contents omitted)')
+                    initial_due = time.monotonic() + initial_delay
+                if (lobby_service is not None and lobby_service.sent and not lobby_service.updates_sent
+                        and time.monotonic() >= initial_due):
+                    # Optionally deferred: sent on the first client packet (heartbeats
+                    # arrive every 5 s) once --lobby-initial-delay has elapsed.
                     for mid,update in lobby_service.initial_notifications():
                         raw.sendall(outbound.apply(gateway_frame(update)))
                         emit(f'initial-data notification {mid} sent ({len(update)} B; contents omitted)')
@@ -708,6 +715,8 @@ def main():
     ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings'),
                     help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502) "
                          "and default account preferences (20802); requires login schemas")
+    ap.add_argument("--lobby-initial-delay", type=int, choices=range(0, 31), default=0,
+                    help="seconds to wait after the 20500 identity reply before sending the initial data")
     ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
                     help="reply to the client's bootstrap offer: 'ack' sends empty message id 3, "
                          "which the 104319 client accepts (negotiated state, id-4 heartbeats); "
@@ -789,7 +798,7 @@ def main():
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
-                                  args.gateway_reply, lobby_service), daemon=True).start()
+                                  args.gateway_reply, lobby_service, args.lobby_initial_delay), daemon=True).start()
                     else:
                         threading.Thread(target=observe_raw, args=(raw, addr, accepted, log), daemon=True).start()
                     continue

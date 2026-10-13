@@ -89,6 +89,21 @@ class ProbeTests(unittest.TestCase):
             store.delete('Mercy')
             self.assertEqual(AccountStore(path).create('Genji')['account_id'],1003)
 
+    def test_launcher_detects_start_conflicts(self):
+        import tempfile
+        import ow1_launcher as launcher
+        with tempfile.TemporaryDirectory() as folder:
+            log=Path(folder)/'run.log'
+            log.write_text('Native CA probe: original instruction profile verified.\nClient exited: 0x1\n')
+            self.assertTrue(launcher.early_exit(log))
+            log.write_text('TLS observer: native_job_state=1\nClient exited: 0x0\n')
+            self.assertFalse(launcher.early_exit(log))
+            self.assertFalse(launcher.early_exit(Path(folder)/'missing.log'))
+        calls=iter([False,False,True])
+        with mock.patch.object(launcher.time,'sleep'):
+            self.assertTrue(launcher.wait_until(lambda:next(calls),10))
+            self.assertFalse(launcher.wait_until(lambda:False,0))
+
     def test_account_identity_reaches_login_and_lobby(self):
         from gateway_codec import load_messages,decode,encode
         from gateway_protocol import load_catalogue

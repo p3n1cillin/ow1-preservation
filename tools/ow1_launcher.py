@@ -67,6 +67,24 @@ def launcher_running():
     return 'ow1-offline-launch.exe' in out
 
 
+def wait_until(condition, seconds):
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(2)
+    return condition()
+
+
+def early_exit(log_path):
+    """True when the launcher reports the client exiting before it reached the server."""
+    try:
+        text = Path(log_path).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return False
+    return 'Client exited' in text and 'TLS observer' not in text
+
+
 def cmd_configure(args):
     config = {name: str(Path(getattr(args, name)).resolve()) for name in FILES}
     config['handshake_delay'] = args.handshake_delay
@@ -111,12 +129,12 @@ def cmd_play(args):
     password = getpass.getpass(f"password for {account['name']}: ") if 'password' in account else None
     store.verify(args.name, password)
     config = load_config()
-    if not port_free():
-        sys.exit(f'port {PORT} is busy: stop the previous server first')
-    if launcher_running():
-        sys.exit('a private client run is still active: wait for it to finish')
-    if owned_clients():
+    # The game runs one instance, and a finishing session stops its server just
+    # after its client exits: give both up to a minute before refusing.
+    if not wait_until(lambda: not launcher_running() and not owned_clients(), 60):
         sys.exit('a previous test client is still running (the game allows one instance): close it first')
+    if not wait_until(port_free, 30):
+        sys.exit(f'port {PORT} is busy: stop the previous server first')
     seconds = min(max(args.seconds, 1), MAX_SECONDS)
     stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     name = f"play-{account['name']}-{stamp}"
@@ -129,7 +147,8 @@ def cmd_play(args):
                   '--lobby-integrity-key', config['lobby_integrity_key'],
                   '--lobby-peer-group', '13', '--gateway-catalogue', str(ROOT / 'protocol' / 'gateway-104319.json'),
                   '--lobby-login-schema', str(ROOT / 'protocol' / 'lobby-login-104319.json'),
-                  '--lobby-initial-data', 'keys-hotfix-player-settings']
+                  '--lobby-initial-data', 'keys-hotfix-player-settings',
+                  '--lobby-initial-delay', str(args.initial_delay)]
     with open(RUNS / f'{name}-server.out', 'w', encoding='utf-8') as out:
         server = subprocess.Popen(server_cmd, stdout=out, stderr=subprocess.STDOUT, cwd=ROOT)
     try:
@@ -137,11 +156,22 @@ def cmd_play(args):
         if server.poll() is not None:
             sys.exit(f'server failed to start; see {RUNS / (name + "-server.out")}')
         print(f"server up for {account['battle_tag']}; starting the client for {seconds} s")
-        subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-                        str(ROOT / 'scripts' / 'Start-PrivateClient.ps1'), '-RunForSeconds', str(seconds),
-                        '-LogName', name, '-TrustCaCertificate', config['ca'], '-ObserveTls', '-TrustSocketCa',
-                        '-TrustLobbyKey', config['lobby_modulus']], check=True, cwd=ROOT)
-        time.sleep(5)
+        for attempt in (1, 2):
+            log_name = name if attempt == 1 else f'{name}-retry'
+            subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+                            str(ROOT / 'scripts' / 'Start-PrivateClient.ps1'), '-RunForSeconds', str(seconds),
+                            '-LogName', log_name, '-TrustCaCertificate', config['ca'], '-ObserveTls',
+                            '-TrustSocketCa', '-TrustLobbyKey', config['lobby_modulus']], check=True, cwd=ROOT)
+            time.sleep(5)
+            while launcher_running():
+                time.sleep(3)
+                if owned_clients():
+                    break
+            if owned_clients() or not early_exit(RUNS / f'{log_name}.log'):
+                break
+            # A client that exits at once usually met a still-closing instance.
+            print('client exited at start; waiting for the previous instance and retrying once')
+            wait_until(lambda: not launcher_running() and not owned_clients(), 60)
         while launcher_running():
             time.sleep(3)
         # The bounded diagnostic window has ended; keep serving while the game runs.
@@ -175,6 +205,8 @@ def main():
     play = sub.add_parser('play', help='start the private server and client as an account')
     play.add_argument('name')
     play.add_argument('--seconds', type=int, default=MAX_SECONDS)
+    play.add_argument('--initial-delay', type=int, default=0, choices=range(0, 31),
+                      help='seconds between the identity reply and the initial lobby data')
     play.set_defaults(func=cmd_play)
     args = parser.parse_args()
     try:

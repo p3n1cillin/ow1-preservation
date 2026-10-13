@@ -1177,3 +1177,26 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   twice around the menu interaction and 22206 (two {seq,src} identities + i32,
   38 B) when Career Profile opened, presumably the profile request. No replies
   are sent yet; this is the next protocol frontier for the menu.
+
+## 2026-10-13 — login reliability: 27/27 controlled sessions reach the menu
+
+- Built an unattended trial harness (local scratch): launcher `play`, window
+  capture every 5 s, classify menu / tutorial / connecting / error, close the
+  client, repeat. Results: plain baseline 8/8, window minimize+restore right
+  after the lobby data 4/4, larger plain batch 15/15. Every session reached the
+  menu or first-run tutorial prompt 1-7 s after the initial data.
+- The earlier stuck-on-CONNECTING session could not be reproduced. Its server
+  exchange and launcher diagnostics are identical to successful runs; the only
+  unique factor is that the computer-use tool activated the game window, hid
+  other windows and drew its overlay a few seconds after the lobby data, while
+  the client was switching to the menu. Treated as external interference; not
+  proven (reproducing it would need that tool again).
+- Reproduced and fixed a real launcher race: a new session started while the
+  previous client or server was still exiting quits at once (single-instance
+  game, `Client exited: 0x1`) or refused on the busy port. `play` now waits up
+  to 60 s for the previous client/launcher and 30 s for the port, and retries
+  the client once if it exits before reaching TLS. Verified: force-closing a
+  session and immediately starting another reaches the menu.
+- Probe/launcher gain `--lobby-initial-delay` / `--initial-delay` (default 0) to
+  defer the initial data; not needed for reliability (baseline is 0).
+  19 probe tests pass.
