@@ -116,6 +116,11 @@ with a healthy connection; main menu remains unverified. Read-only snapshot:
 `python tools/retail_login_state.py --dump <owned-dump>`. It reports booleans
 only. The slot-22 +0x88 player marker is transient/meaning not fully established;
 it is false in the finished player run. Never label it persistent receipt.
+World state (2026-10-13): at ENTERING GAME the world-state manager (vtable
+0x02655d88, +0x18 state, names SHUTDOWN..WORLD_RUNNING) is WAITING with no
+pending world request; `retail_login_state.py --world-state` reports it. World
+requests enter via 0x00b4b1c0 (callers 0x0082c3e0 game-server join,
+0x008359a0 local world, 0x00b97f40 from the 20300 game-server dispatcher).
 Related 59900-family handlers print account-migration data; 42400-family
 handlers process tournament data. Exact reply pairing/menu dependency remains
 unresolved. Next: trace initial account/configuration/loading/menu gates; do not

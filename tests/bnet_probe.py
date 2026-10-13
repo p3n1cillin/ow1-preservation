@@ -68,6 +68,26 @@ class ProbeTests(unittest.TestCase):
             broken=SparseDump();broken.put(address,value)
             with self.assertRaises(ValueError):state.inspect(broken)
 
+    def test_world_state_report_names_only(self):
+        import retail_login_state as state
+        base=0x10000000
+        manager=bytearray(0x28)
+        manager[:8]=struct.pack('<Q',base+state.WORLD_VFT)
+        manager[0x18]=2
+        unknown=bytearray(manager); unknown[0x18]=11
+        class FakeDump:
+            image_base=base
+            def __init__(self, objects): self.objects=objects
+            def find_all(self, needle):
+                return [a for a,b in self.objects.items() if b.startswith(needle)]
+            def read(self, address, size): return bytes(self.objects[address][:size])
+        report=state.world_states(FakeDump({0x30000000:manager, base+0x100:manager}))
+        self.assertEqual(report,[{'state':'WAITING','world_request_pending':False}])
+        manager[0x20:0x28]=struct.pack('<Q',0x40000000)
+        self.assertTrue(state.world_states(FakeDump({0x30000000:manager}))[0]['world_request_pending'])
+        with self.assertRaises(ValueError):
+            state.world_states(FakeDump({0x30000000:unknown}))
+
     def test_compact_known_bytes_and_bounds(self):
         from gateway_codec import decode,encode
         fields=[dict(kind=0,offset=i,width=1,count=0) for i in range(3)]

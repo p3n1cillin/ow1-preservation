@@ -1075,3 +1075,25 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Candidate gate for later checking: hotfix state machine (~0x00b4cd70, 15 s
   re-poll, "hotfix timeout" after a configurable 81 s in state 4). Not verified.
 - No live run in this step; main menu remains unverified.
+
+## 2026-10-13 — world-state manager located; ENTERING GAME has no world request
+
+- Found the client's world/game state machine: manager ctor 0x00b4a5b0
+  (vtable 0x02655d88), state byte +0x18, pending request +0x20, tick with
+  per-state handlers (~0x00b4cca8). Its own name table (0x00b4f760): 0 SHUTDOWN,
+  1 SHUTTING DOWN, 2 WAITING, 3 ABANDONING SCENES, 4 HOTFIXING, 5 GLOBAL LOADING,
+  6 WORLD LOADING, 7 WORLD LOADED, 8 WORLD REPLICATING, 9 GAME MODE LOADING,
+  10 WORLD_RUNNING. The 81 s "hotfix timeout" belongs to state 4.
+- World requests enter through 0x00b4b1c0 (allocates a 0x150-byte request).
+  Callers: 0x0082c3e0 (game-server join; fetches hotfix data first and fails
+  with "Hotfix unavailable"), 0x008359a0 (local world via on-demand component
+  slot 79) and 0x00b97f40 (reached from the 20300 game-server dispatcher, with
+  "Server/Client hot reloading mismatch"/"quanta mismatch" checks).
+- Native run world1 (full codex sequence: group 13, 20500, empty 20504/20505,
+  20502): same requests 60002/42600 as before. Dump: the manager is **WAITING
+  with no pending world request**; the hello-only dump is also WAITING. So the
+  client has not asked to load any world (menu scene included) and the hotfix
+  timeout is not involved. The gate is the front-end logic that issues the first
+  world request.
+- `tools/retail_login_state.py --world-state` reports the state name and a
+  pending-request boolean only. 16 probe fixtures; all 14 CTest targets pass.

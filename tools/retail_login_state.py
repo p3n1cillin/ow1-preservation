@@ -18,6 +18,11 @@ ROOT_VFT = 0x2612358
 LOGIN_VFT = 0x26113c8
 KEYS_VFT = 0x2611510
 PLAYER_VFT = 0x2610ea0
+# World-state manager (ctor 0x00b4a5b0): state byte +0x18, pending request +0x20.
+WORLD_VFT = 0x2655d88
+WORLD_STATES = ('SHUTDOWN', 'SHUTTING DOWN', 'WAITING', 'ABANDONING SCENES', 'HOTFIXING',
+                'GLOBAL LOADING', 'WORLD LOADING', 'WORLD LOADED', 'WORLD REPLICATING',
+                'GAME MODE LOADING', 'WORLD_RUNNING')
 
 
 def inspect(dump):
@@ -54,15 +59,38 @@ def inspect(dump):
                 key_notification_received=bool(notification),player_update_marker=bool(player_marker))
 
 
+def world_states(dump, limit=8):
+    """State name and request presence for each world-state manager instance.
+
+    The client's own state-name table (0x00b4f760) supplies the names. Only the
+    enum value and a pending-request boolean are reported.
+    """
+    needle=struct.pack('<Q',dump.image_base+WORLD_VFT)
+    out=[]
+    for address in dump.find_all(needle):
+        if address%8 or dump.image_base<=address<dump.image_base+IMAGE_SIZE:continue
+        data=dump.read(address,0x28)
+        if len(data)!=0x28:continue
+        state=data[0x18]
+        if state>=len(WORLD_STATES):raise ValueError('unknown world state value')
+        out.append(dict(state=WORLD_STATES[state],world_request_pending=any(data[0x20:0x28])))
+        if len(out)>=limit:break
+    return out
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dump',required=True)
     parser.add_argument('--out',help='optional exclusive-created JSON report')
+    parser.add_argument('--world-state',action='store_true',
+                        help='also scan for world-state manager state (slow on full dumps)')
     args=parser.parse_args()
     spec=importlib.util.spec_from_file_location('owned_dump',Path(__file__).parent/'offline-launch/re/mdump.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     dump=module.Dump(args.dump)
-    try:result=inspect(dump)
+    try:
+        result=inspect(dump)
+        if args.world_state:result['world_state']=world_states(dump)
     finally:dump.f.close()
     text=json.dumps(result,indent=2)+'\n'
     if args.out:
