@@ -6,6 +6,8 @@ import struct
 import unittest
 from unittest import mock
 import sys
+import json
+import tempfile
 
 spec = importlib.util.spec_from_file_location('probe', Path(__file__).resolve().parents[1] / 'tools/bnet-probe.py')
 probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
@@ -58,6 +60,7 @@ class ProbeTests(unittest.TestCase):
 
     def test_own_lobby_transport_fragmentation(self):
         from panama_stream import Panama
+        import gateway_protocol as gateway
         keys = tuple(bytes([i])*64 for i in range(1,5))
         cid = 123
         client_random, server_random = bytes([5])*32, bytes([6])*32
@@ -65,8 +68,9 @@ class ProbeTests(unittest.TestCase):
         probe.REFERRALS[cid] = keys
         try:
             inbound_key = probe.lobby_hmac(keys[3], server_random, client_random)
-            payload = b'\x02SECRET123'  # author fixture; must be omitted from logs
-            framed = len(payload).to_bytes(3,'big') + payload
+            offer = b'\x01\x00' + struct.pack('<II',1,gateway.BOOTSTRAP_HASH)
+            payload = b'\x02SECRET123'  # author follow-on fixture; omitted from logs
+            framed = gateway.frame(offer) + gateway.frame(gateway.READY) + gateway.frame(gateway.HEARTBEAT) + gateway.frame(payload)
             client = (probe.LOBBY_CLIENT_HELLO + struct.pack('<Q',cid) + client_random
                       + struct.pack('<Q',1) + probe.lobby_hmac(keys[0], client_random, server_random)
                       + Panama(inbound_key,inbound_key).apply(framed))
@@ -77,12 +81,15 @@ class ProbeTests(unittest.TestCase):
             self.assertTrue(conn.closed)
             self.assertIn('client_proof_valid=True', log.getvalue())
             self.assertIn('body_bytes=10 first_byte=2', log.getvalue())
+            self.assertIn('gateway negotiation acknowledgement received', log.getvalue())
             self.assertNotIn('SECRET', log.getvalue())
-            self.assertEqual(len(conn.sent), 17+65+32+292)
+            self.assertEqual(len(conn.sent), 17+65+32+292+5+5)
             outbound_key = probe.lobby_hmac(keys[2], client_random, server_random)
-            packet = Panama(outbound_key,outbound_key).apply(conn.sent[-292:])
+            packet = Panama(outbound_key,outbound_key).apply(conn.sent[17+65+32:])
             self.assertEqual(packet[:256], credential)
-            self.assertEqual(packet[256:], struct.pack('<QQQQI',1,1,cid,1,0))
+            self.assertEqual(packet[256:292], struct.pack('<QQQQI',1,1,cid,1,0))
+            self.assertEqual(packet[292:], gateway.frame(gateway.READY) + gateway.frame(gateway.HEARTBEAT))
+            self.assertIn('gateway heartbeat exchanged', log.getvalue())
         finally:
             probe.REFERRALS.pop(cid,None)
 
@@ -91,6 +98,34 @@ class ProbeTests(unittest.TestCase):
             with self.assertRaises(ValueError): probe.read_lobby_frame(Fragmented(prefix))
         for packet in (b'\0\0', b'\0\0\x02x'):
             with self.assertRaises(EOFError): probe.read_lobby_frame(Fragmented(packet))
+
+    def test_gateway_offer_validation(self):
+        import gateway_protocol as gateway
+        offer = b'\x01\x00' + struct.pack('<II',1,gateway.BOOTSTRAP_HASH)
+        self.assertEqual(gateway.offer_response(offer), b'\x01\x02')
+        for packet in (b'', b'\x01\x02', b'\x01\x00'+struct.pack('<I',0), offer+b'x',
+                       b'\x01\x00'+struct.pack('<III',2,gateway.BOOTSTRAP_HASH,gateway.BOOTSTRAP_HASH),
+                       b'\x01\x00'+struct.pack('<II',257,gateway.BOOTSTRAP_HASH)):
+            with self.assertRaises(ValueError): gateway.parse_offer(packet)
+        with self.assertRaises(ValueError): gateway.offer_response(b'\x01\x00'+struct.pack('<II',1,123))
+
+    def test_gateway_catalogue_bounds(self):
+        import gateway_protocol as gateway
+        catalogue = {'build':104319, 'protocols':[dict(schema_hash=123,first_id=100,end_id=102,flags=2,group=13)]}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'catalogue.json'
+            path.write_text(json.dumps(catalogue))
+            self.assertEqual(gateway.load_catalogue(path,13),(123,))
+            self.assertEqual(gateway.offer_response(b'\x01\x00'+struct.pack('<II',1,123),(123,)),gateway.READY)
+            self.assertEqual(gateway.offer_response(b'\x00\x00'+struct.pack('<II',1,123),(123,)),b'\x00\x02')
+            self.assertEqual(gateway.heartbeat_response(b'\x00\x03',0),b'\x00\x03')
+            self.assertIsNone(gateway.heartbeat_response(b'\x01\x03',0))
+            for broken in ({**catalogue,'build':1}, {**catalogue,'protocols':catalogue['protocols']*2},
+                           {'build':104319,'protocols':[dict(schema_hash=True,first_id=100,end_id=102,flags=2,group=13)]}):
+                path.write_text(json.dumps(broken))
+                with self.assertRaises(ValueError): gateway.load_catalogue(path,13)
+            path.write_bytes(bytes(65537))
+            with self.assertRaises(ValueError): gateway.load_catalogue(path,13)
 
 
 if __name__ == '__main__': unittest.main()

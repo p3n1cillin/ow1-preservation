@@ -694,3 +694,40 @@ by the measured policy result below. The private TLS handshake remains blocked.
 Validation checkpoint: all native targets build and 14/14 CTest targets pass.
 Client executable hash/signature and both saved ACLs remain unchanged. Owned
 clients/launchers/observers are stopped. Do not infer gameplay from this result.
+
+## 2026-10-13 — gateway negotiation scaffold + reply-parser reversed
+
+- Preserved the gateway negotiation layer codex left uncommitted when its session
+  was cut off (tools/gateway_protocol.py, tools/gateway_catalogue.py,
+  protocol/gateway-104319.json, probe + test wiring). It parses the client's
+  bootstrap offer, loads the exported interface catalogue, frames packets
+  (3-byte BE length) and replies. All 9 probe unit tests pass; no native change,
+  so the 14/14 CTest checkpoint is unaffected. Catalogue JSON holds only protocol
+  hashes/id-ranges/flags/group numbers (no code, keys or assets), like
+  docs/BGS_PROTOCOL.md.
+- The client's first post-credential packet is a bootstrap OFFER (10 B over the
+  Panama stream): `channel=1, version=0, count=u32=1, schema_hash=u32=0x11d82194`
+  (group-0 bootstrap protocol; gateway-104319.json record 0, ids 1..5, flags 3).
+- **Reversed the client's reply parser (the open question).** Incoming gateway
+  messages are dispatched by the negotiation state machine at rva 0x00560040
+  (ctx state at +0x18). In state 2 it calls 0x00561180 (adopts the sender
+  ProcessId at msg+0x78) then 0x00561890, which iterates the message's record
+  vector at msg+0x88 (count at +8) and calls per-record handler 0x00561730 for
+  each 0x40-byte record. 561730 reads the record's schema hash (record+0) and
+  looks it up in the client's local catalogue via 0x00569a70; an unknown hash
+  takes the reject path 0x005615f0. Only after 561890 succeeds does the client
+  emit its response (0x00562810) and advance state 2->4; a later message drives
+  3->5 (final ack via 0x0056ccc0 + 0x00562600).
+- **Therefore the required state-2 reply is the server's own catalogue OFFER**
+  (sender identity + the protocol hash list the client can resolve), NOT a 2-byte
+  `01 02` ack. This is consistent with the observation that codex's positive runs
+  2/3 — which already sent `01 02` — still had the CLIENT close ~10 s after its
+  offer. `gateway_protocol.offer_response` returning `01 02` is thus an
+  unverified hypothesis that the reversed parser contradicts.
+- Next (needs a live own-key run): send a version-matched catalogue offer back
+  (channel 1, the client's offered schema hash(es), wire form = channel,version,
+  count,hashes — records are expanded locally from the catalogue by 561730).
+  Use the client advancing to negotiation state 4 then 5 (and not closing) as the
+  success signal; iterate the `version` byte (0 vs the role the native mode-2
+  responder expects) and whether an identity prefix is required. Still unverified:
+  main menu, gateway session, map, heroes, matchmaking.

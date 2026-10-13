@@ -422,4 +422,5 @@ game-files/
 *.pfx
 *.credential-key
 *.modulus
+*.gateway-packet
 __pycache__/
