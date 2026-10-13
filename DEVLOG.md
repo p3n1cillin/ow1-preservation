@@ -807,3 +807,38 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   phase 6 (not retrying the referral). Key inputs, cipher and framing are all in
   place for that run. Still unverified: main menu, gateway session, map, heroes,
   matchmaking.
+
+## 2026-10-13 — gateway message dispatch mapped (reply is id 2); body encoding is the wall
+
+- Found the gateway message dispatcher: rva 0x0055e980 reads the message id as a
+  u16 (via 0x00565260) and routes by id to per-type handlers:
+  id 1 -> 0x005601e0, id 2 -> 0x00560040 (the negotiation state machine analysed
+  earlier), id 3 -> 0x00560370, id 4 -> 0x0055e9e3.
+- Confirmed why echoing the client's id-1 offer fails: handler 0x005601e0 requires
+  the peer to be a mode-2 responder ([peer+0x1c]==2) in state 2. The client is a
+  mode-1 initiator, so it rejects any received id-1 and closes. The reply the
+  mode-1 client expects in state 3 is an id-2 message (-> 0x00560040 state-3 path:
+  adopt sender via 0x00561180, parse records via 0x00561890, send the client's
+  final id-3 and advance to state 5). id 3 handler 0x00560370 accepts state 3/4.
+- id-2 message struct (field table rva 0x02cf0180): a {seq, src} header at object
+  offset 0x78 (sub-type rva 0x02cefb60, two 8-byte fields literally named "seq"
+  and "src") followed by a record vector at 0x88. id-1 has no such header (just a
+  record vector at 0x78/0x80), which matches the captured 10-byte offer
+  (u16 id, u32 count, u32 schema hash; vectors are fixed-width, untagged).
+- Live-tested six id-2 body encodings over the Panama gateway stream: id+records,
+  id alone, id+count0, id+16-byte-zero-header+records, id+{1,0}-header+records,
+  and the id-1 echo / 2-byte ack / mirror from before. EVERY one makes the client
+  close immediately (vs ~10 s wait with no reply). So transport, framing (3-byte
+  BE length), cipher and the id-2 routing are all correct; the exact id-2 body
+  WIRE ENCODING is the only remaining unknown.
+- Wall: that encoding is produced by a generic reflection (de)serializer that
+  walks the per-message field tables (0x02cf0180 etc.); it takes the descriptor as
+  an argument and is heavily obfuscated, so it is not resolvable by the static
+  xref method used so far, and debugger attachment crashes the client.
+- Recommended next approach (not yet done): extend the existing bounded owned-
+  process observer (retail_tls_observer / lobby key installer style - safe
+  ReadProcessMemory, no debugger) to dump a correctly-serialized id-2 message that
+  the client itself builds (ctor 0x0056cb90, which populates +0x78/+0x88), or to
+  single-shot the generic serializer, and read the exact wire bytes. That gives
+  ground truth for the id-2 body without guessing. Still unverified: main menu,
+  gateway session, map, heroes, matchmaking.

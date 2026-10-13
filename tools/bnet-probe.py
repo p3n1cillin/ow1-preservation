@@ -602,14 +602,18 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         # before the record vector at 0x88. Wire (positional) =
                         # u16 id, identity[16], count u32, hashes. Try identity
                         # variants; id-1 (client's own form) carries no identity.
+                        # Dispatcher rva 0x0055e980 routes by u16 id: id 2 -> the
+                        # state machine 0x00560040 that drives the mode-1 client's
+                        # state 3 -> 5. The id-1 offer carries NO wire identity
+                        # (just id + record vector), so try the symmetric id-2
+                        # (id + records) first, then identity-bearing variants.
                         ident0 = bytes(16)
-                        ident1 = struct.pack('<QQ', 1, 0)
                         candidates = [
-                            ("id2 ident0 hashlist",  struct.pack('<H', 2) + ident0 + count + hs),
-                            ("id2 ident{1,0} hashlist", struct.pack('<H', 2) + ident1 + count + hs),
-                            ("id2 ident0 count0",    struct.pack('<H', 2) + ident0 + struct.pack('<I', 0)),
                             ("id2 hashlist noident", struct.pack('<H', 2) + count + hs),
-                            ("id3 ident0 hashlist",  struct.pack('<H', 3) + ident0 + count + hs),
+                            ("id2 empty",            struct.pack('<H', 2)),
+                            ("id2 count0 noident",   struct.pack('<H', 2) + struct.pack('<I', 0)),
+                            ("id2 ident0 hashlist",  struct.pack('<H', 2) + ident0 + count + hs),
+                            ("id3 hashlist noident", struct.pack('<H', 3) + count + hs),
                         ]
                         label, response = candidates[_GW_PROBE_INDEX % len(candidates)]
                         _GW_PROBE_INDEX += 1
