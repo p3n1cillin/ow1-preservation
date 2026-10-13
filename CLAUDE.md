@@ -127,7 +127,10 @@ world state still WAITING/no request (run settings2).
 MAIN MENU REACHED (2026-10-13, run screen8, desktop unlocked): full initial
 data incl. 20802 -> original main menu + first-run TUTORIAL prompt. View the game
 with scripts/Capture-ClientWindow.ps1 (desktop screenshots show the lock screen).
-Locked-desktop runs showed a Battle.net login timeout instead; cause unknown.
+The "time out communicating with Battle.net" screens came from leftover clients
+whose server had stopped (bounded runs leave the game running; close it first).
+Accounts/launcher: `python tools/ow1_launcher.py configure|create|list|play`
+(tools/accounts.py, store in .local/); `play Mercy` reached the menu as Mercy#1002.
 Related 59900-family handlers print account-migration data; 42400-family
 handlers process tournament data. Exact reply pairing/menu dependency remains
 unresolved. Next: trace initial account/configuration/loading/menu gates; do not

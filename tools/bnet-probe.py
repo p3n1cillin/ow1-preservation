@@ -333,7 +333,7 @@ def describe(fields):
 
 
 def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_grant=False,
-           referral_host=None):
+           referral_host=None, account_id=1001):
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
 
     def emit(line):
@@ -402,7 +402,7 @@ def handle(conn, addr, log, serve=False, battle_tag="Preservation#1001", no_gran
                     # listener: OnLogonComplete(LogonResult{error_code=0, ...}). The
                     # service is addressed by hash (fixed32, field 11), as the client
                     # does; method 5 = OnLogonComplete.
-                    result = build_logon_result(battle_tag, 1001)
+                    result = build_logon_result(battle_tag, account_id)
                     header = (enc_v(1, 0) + enc_v(2, ON_LOGON_COMPLETE) + enc_v(3, 2)
                               + enc_fixed32(11, AUTH_CLIENT_SERVICE))
                     ws_send(conn, frame([header], result))
@@ -689,6 +689,8 @@ def main():
     ap.add_argument("--no-grant", action="store_true", help="ack Logon but do not send OnLogonComplete; observe the client's next move")
     ap.add_argument("--battle-tag", default="Preservation#1001",
                     help="identity granted to the client on login (served to OnLogonComplete)")
+    ap.add_argument("--account-id", type=int, default=1001,
+                    help="local account number (EntityId low half) granted with --battle-tag; see tools/accounts.py")
     ap.add_argument("--referral-host", default="127.0.0.1:1119",
                     help="hostv4 returned for the Balancer referral (ReferralInfo); "
                          "'' keeps the empty-response behaviour")
@@ -713,6 +715,8 @@ def main():
                          "for a ctx+0x84 bit-0 peer) and 'probe' are diagnostic controls that the "
                          "client rejects")
     args = ap.parse_args()
+    if not 1 <= args.account_id < 2**32:
+        ap.error('--account-id must be 1..2^32-1')
     credential = None
     gateway_hashes = None
     login_messages = None
@@ -781,7 +785,7 @@ def main():
                     print(line, flush=True); log.write(line + "\n"); log.flush()
                     if first == b"H" and args.serve:
                         from lobby_service import InitialLobby
-                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data) if login_messages is not None else None
+                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
@@ -796,7 +800,7 @@ def main():
                 print(line, flush=True); log.write(line + "\n"); log.flush()
                 raw.close(); continue
             threading.Thread(target=handle, args=(tls, addr, log, args.serve, args.battle_tag, args.no_grant,
-                                                  args.referral_host or None), daemon=True).start()
+                                                  args.referral_host or None, args.account_id), daemon=True).start()
 
 
 if __name__ == "__main__":

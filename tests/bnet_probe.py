@@ -68,6 +68,48 @@ class ProbeTests(unittest.TestCase):
             broken=SparseDump();broken.put(address,value)
             with self.assertRaises(ValueError):state.inspect(broken)
 
+    def test_local_account_store(self):
+        import tempfile
+        from accounts import AccountStore
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'accounts.json'
+            store=AccountStore(path)
+            tracer=store.create('Tracer','blink')
+            mercy=store.create('Mercy')
+            self.assertEqual((tracer['account_id'],tracer['battle_tag']),(1001,'Tracer#1001'))
+            self.assertEqual(mercy['account_id'],1002)
+            self.assertNotIn('blink',path.read_text())
+            store=AccountStore(path)
+            self.assertEqual(store.verify('tracer','blink')['account_id'],1001)
+            self.assertEqual(store.verify('Mercy',None)['account_id'],1002)
+            with self.assertRaises(ValueError):store.verify('Tracer','wrong')
+            with self.assertRaises(ValueError):store.create('TRACER')
+            for bad in ('ab','1abc','Way2LongNameHere','Bad#Name'):
+                with self.assertRaises(ValueError):store.create(bad)
+            store.delete('Mercy')
+            self.assertEqual(AccountStore(path).create('Genji')['account_id'],1003)
+
+    def test_account_identity_reaches_login_and_lobby(self):
+        from gateway_codec import load_messages,decode,encode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,HELLO_SCHEMA,WELCOME_SCHEMA,GAME_ACCOUNT_HIGH
+        root=Path(__file__).resolve().parents[1]
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        entry=hashes.index(HELLO_SCHEMA)+1
+        def hello(account):
+            return bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],{0xb8:{0:{0:account,8:GAME_ACCOUNT_HIGH}},0x1bc:104319})
+        service=InitialLobby(hashes,messages,'Mercy#1002',None,1002)
+        with self.assertRaises(ValueError):service.receive(hello(1001))
+        values=decode(messages[WELCOME_SCHEMA,20500],service.receive(hello(1002))[2:])
+        self.assertEqual(values[0x78][0],1002)
+        self.assertEqual(values[0x88][0],1002)
+        self.assertEqual(values[0xa8],b'Mercy#1002')
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,'X#0',None,0)
+        result=probe.build_logon_result('Mercy#1002',1002)
+        self.assertIn(b'Mercy#1002',result)
+        self.assertEqual(result.count(struct.pack('<Q',1002)),2)
+
     def test_world_state_report_names_only(self):
         import retail_login_state as state
         base=0x10000000

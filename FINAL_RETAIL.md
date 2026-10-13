@@ -648,3 +648,25 @@ python tools/retail_login_state.py --dump "$dump"
 
 This read-only diagnostic emits booleans and guards the native context profile.
 Its player marker is a current snapshot, not a persistent receipt/completion flag.
+
+## Play with local accounts (launcher) — 2026-10-13
+
+Accounts are our own, stored in `.local/accounts.json` (passwords as salted
+PBKDF2 hashes); no Battle.net account is involved. Configure the server
+certificate, CA and own lobby-key inputs once, create accounts, then play:
+
+```powershell
+python tools/ow1_launcher.py configure --cert <chain.pem> --key <server.key> --ca <ca.crt> `
+  --lobby-private-key <lobby-key.pem> --lobby-integrity-key <lobby-integrity.credential-key> `
+  --lobby-modulus <lobby-public.modulus>
+python tools/ow1_launcher.py create Tracer
+python tools/ow1_launcher.py list
+python tools/ow1_launcher.py play Tracer
+```
+
+`play` starts the private server for that account (battle tag `Name#<id>`,
+account id from 1001), launches the bounded client and keeps serving until the
+game is closed. Close any earlier test client first: the game runs one
+instance. Verified: the original client reaches the main menu and first-run
+tutorial prompt as Mercy#1002. View it with `scripts/Capture-ClientWindow.ps1`
+if desktop screenshots are masked. Nothing past the menu is verified.

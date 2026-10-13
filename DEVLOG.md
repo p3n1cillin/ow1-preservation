@@ -1135,3 +1135,27 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   the menu (screen8 is the only visible-desktop run so far), why the locked-desktop
   runs timed out, and anything beyond the menu (tutorial/practice/map loading,
   heroes, matchmaking). Nothing was clicked.
+
+## 2026-10-13 — local accounts and launcher; second main-menu run (Mercy#1002)
+
+- Correction: the "TIME OUT COMMUNICATING WITH BATTLE.NET SERVICES" captures from
+  runs screen5/6/7 came from a leftover test client (started 13:23:30) whose
+  server had already stopped; the capture helper picked the first window. Bounded
+  runs end the diagnostic window but leave the game process running, so the next
+  launch (single-instance game) exits early and the old window shows the timeout
+  once its server goes away. The screen8 main-menu capture is correctly
+  attributed (process started 13:47:41, 2560x1080). The capture helper now picks
+  the newest client window or a given process id.
+- Added tools/accounts.py: our own local accounts (not Battle.net) in
+  `.local/accounts.json`: name, battle tag `Name#<id>`, account id from 1001
+  (never reused), optional password stored only as salted PBKDF2-SHA256.
+- The account id now reaches every identity we serve: OnLogonComplete
+  EntityIds (`--account-id`), the 20500 identity reply, its local identities
+  and the 20502 player record; the lobby only answers a hello carrying the
+  granted account. Previously 1001 was hard-coded.
+- Added tools/ow1_launcher.py (`configure`, `create`, `list`, `delete`, `play`):
+  `play` checks the password, refuses while an earlier test client or run is
+  active, starts the private server for that account, launches the bounded
+  client, and keeps serving until the game closes.
+- Live: `play Mercy` -> login as Mercy#1002, 20500 for account 1002 accepted,
+  main menu + tutorial prompt captured. 18 probe tests pass.

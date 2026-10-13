@@ -1,4 +1,4 @@
-param([string]$ProcessName = 'Overwatch', [Parameter(Mandatory)][string]$Out)
+param([string]$ProcessName = 'Overwatch', [Parameter(Mandatory)][string]$Out, [int]$ProcessId = 0)
 # Local diagnostic: render the owned client's top-level window into a PNG via PrintWindow
 # (works when desktop screenshots are masked). Keep captures outside Git: they show game assets.
 Add-Type -AssemblyName System.Drawing
@@ -13,7 +13,7 @@ public static class Win {
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
 }
 "@
-$p = Get-Process -Name $ProcessName -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$p = Get-Process -Name $ProcessName -ErrorAction Stop | Where-Object { $_.MainWindowHandle -ne 0 -and ($ProcessId -eq 0 -or $_.Id -eq $ProcessId) } | Sort-Object StartTime -Descending | Select-Object -First 1
 if (-not $p) { throw 'no window' }
 $h = $p.MainWindowHandle
 $r = New-Object Win+RECT

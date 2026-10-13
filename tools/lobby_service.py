@@ -13,11 +13,13 @@ GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
 class InitialLobby:
-    def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None):
+    def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
             raise ValueError('local battle tag length/NUL')
+        if type(account_id) is not int or not 1<=account_id<2**32:raise ValueError('local account id bounds')
+        self.account_id=account_id
         self.hello_entry=hashes.index(HELLO_SCHEMA)+1
         self.welcome_entry=hashes.index(WELCOME_SCHEMA)+1
         if len(hashes)>255: raise ValueError('unsupported extended protocol entries')
@@ -41,11 +43,11 @@ class InitialLobby:
         if self.sent:raise ValueError('duplicate initial lobby hello')
         hello=decode(self.messages[HELLO_SCHEMA,21800],packet[2:])
         identity=hello[0xb8][0]
-        if hello[0x1bc]!=104319 or identity!={0:1001,8:GAME_ACCOUNT_HIGH}:
+        if hello[0x1bc]!=104319 or identity!={0:self.account_id,8:GAME_ACCOUNT_HIGH}:
             raise ValueError('hello differs from the granted local build/account')
         # Identities from the server's own BGS grant. Third identity is an
         # experimental local persistent id; no existing player data is reused.
-        values={0x78:identity,0x88:{0:1001,8:1<<56},0x98:{0:[1001,0]},
+        values={0x78:identity,0x88:{0:self.account_id,8:1<<56},0x98:{0:[self.account_id,0]},
                 0xa8:self.name,0xd0:b'',0xf8:b'',0x120:b''}
         body=encode(self.messages[WELCOME_SCHEMA,20500],values)
         self.sent=True
@@ -68,7 +70,7 @@ class InitialLobby:
             # unverified counters/flags stay zero and the name is our own tag.
             # 20802 (account preferences, handler 0x7793a0) is sent with every
             # list empty and every flag/byte at its zero default.
-            values={0x78:{0:self.identity,0x10:{0:1001,8:1<<56},0x40:self.name}} if mid==20502 else {}
+            values={0x78:{0:self.identity,0x10:{0:self.account_id,8:1<<56},0x40:self.name}} if mid==20502 else {}
             schema=self.schema_of(mid)
             body=encode(self.messages[schema,mid],values)
             base=20800 if schema==PROFILE_SCHEMA else 20500
