@@ -394,12 +394,60 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   second client from the package-cache path (killed after ~20 s). Computer Use
   grants that package path, so the bounded client (real LOCALAPPDATA path) is
   masked; ask the user to click No Thanks -> Training -> Practice Range.
-- UI driving: do not use Computer Use for runs. `.local/re/ow-ui.ps1 -Action
-  shot|click` captures the owned window via CopyFromScreen and clicks client
-  coords (2560x1080: No Thanks 2100,1006; Training 471,325; Practice 1279,538).
+- Historical Claude runs used `.local/re/ow-ui.ps1` for screenshots/input.
+  Codex must follow its Computer Use skill for Windows automation; do not mix
+  PowerShell UI code into those turns or reuse historical coordinates.
 - **FIRST PENDING WORLD REQUEST (udpapp11):** 20300 +0x4a8 = Practice Range
   header GUID 0x0790000000000688 becomes the world request's first field; both
   world managers then hold a pending request (previously none). State stays
   WAITING; UI ENTERING GAME. udpapp12 added 21610 pong echoes: no change.
   Dumps retail-private-udpapp10/11/12.dmp beside the client. Next: find what
   advances WAITING+pending (server frames/module-3 time, snapshots, hotfix).
+- udpapp13 (type-1 frame on every reply), udpapp14 (empty local Hotfix dir),
+  udpapp15 (settings +0x128 = same GUID): all still WAITING + pending, referral
+  job present. 20301 = settings update (installer 0x587e10). A second join flow
+  exists: queue session start 0x828580 -> 0x8357a0 -> local-world builder
+  0x8359a0.
+- udpapp16/17 (black-box): 20301/20302/20322 follow-ups, module-3 time and
+  welcome +0x78/+0x4b0/+0x518 changed nothing (WAITING + pending). Untried:
+  entity snapshots/module-5 lists, settings-record contents, queue join flow.
+  Dumps now land as retail-private.dmp; rename to the run name afterwards.
+- udpapp19/20: OW1_QUEUE_FIRST=23311|23332 (private probe_record_inputs.py)
+  sends an empty queue notification before 20600. 23332 accepted (marker),
+  still WAITING + pending. Queue pending-game path = tournament (spectator-
+  like session), not Practice Range. Remaining black-box levers are blind
+  (entity snapshots, settings record); next needs a decision from the user.
+- udpapp21 (settings sweep, user-chosen): game-mode GUIDs are type 0xC5
+  (0x0230...); low parts = public decimal mode ids, Practice Range = 0x5a.
+  Welcome +0x130 = 0x023000000000005a with map in +0x4a8/+0x128: still
+  WAITING + pending, same client messages. Next settings levers: +0x138,
+  32-byte +0x4b4, u64[] +0x520 (no basis yet). Notes in
+  .local/re/instance-welcome-frontier.md.
+
+## WAITING resource gate continuation (Codex, 2026-10-14)
+
+- Followed aligned branch targets through opaque padding: world tick
+  0xb4b5f0 -> switch at 0xb4cca8 -> WAITING handler 0xb52b20.
+- Handler normalizes the request's low u32 to map-header type 0x9F; checks
+  catalogue availability with 0x171b800; polls load status with 0x171c0b0.
+  Status <2 returns; status 3 calls 0xb523f0 and enters state 3 (ABANDONING
+  SCENES). Other statuses >=2 take the error path. No native gate patched.
+- Read-only reinspection of udpapp11/21: both pending managers' Practice
+  headers exist in the catalogue but have no load-cache object (status 0).
+  Resource cache has 28 other entries. udpapp21's optional mode resource also
+  exists without a load-cache object. udpapp10 has no pending request.
+- Public `retail_login_state.py --world-resource-state` reproduces these
+  booleans/counts/statuses. Private arithmetic interpretation confirms its
+  independent CRC lookup against the native hash routine; no table/key bytes
+  are exported. Reports: .local/runs/udpapp{10,11}-resource-gates.json and
+  udpapp21-public-resource-check.json. Private trace: world-waiting-22*.txt.
+- Added observed common-channel 21600 layout and ignored boolean padding to
+  the independent codec. 1003 complete bodies across udpapp10/11/21 open and
+  re-encode exactly: 3 joins, 974 21610s, 26 21627s. No captures published.
+- Build and all 20 CTest targets pass (5 reliable fixtures, 4 resource-state
+  fixtures). Stopped the stale owned udpapp9 BGS process after checking its
+  command line. No new interactive game run occurred in this continuation.
+- Next: identify the normal client/server path that requests and retains the
+  map-header resource. Existing standalone PracticeResources proves native
+  resource request 0x171e8e0 can load it; invoking that adapter is a diagnostic,
+  not completion of the original application negotiation.

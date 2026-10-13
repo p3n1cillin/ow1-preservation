@@ -3,6 +3,21 @@
   "messages": [
     {
       "schema_hash": 2818293004,
+      "message_id": 21600,
+      "fields": [
+        { "kind": 12, "offset": 120, "width": 40, "count": 0 },
+        { "kind": 7, "offset": 160, "width": 4, "count": 0 },
+        { "kind": 0, "offset": 164, "width": 1, "count": 0 },
+        { "kind": 0, "offset": 165, "width": 1, "count": 0 },
+        { "kind": 0, "offset": 166, "width": 1, "count": 0 },
+        { "kind": 0, "offset": 167, "width": 1, "count": 0 },
+        { "kind": 10, "offset": 168, "width": 4, "count": 0 },
+        { "kind": 7, "offset": 172, "width": 4, "count": 0 },
+        { "kind": 15, "offset": 176, "width": 40, "count": 0 }
+      ]
+    },
+    {
+      "schema_hash": 2818293004,
       "message_id": 21610,
       "fields": [
         {

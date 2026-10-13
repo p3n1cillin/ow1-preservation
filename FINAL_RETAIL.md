@@ -733,3 +733,24 @@ above still sends no replies. Reliable-message framing and game negotiation
 remain unresolved; the final world is WAITING/no request. No rendered map,
 controllable hero or completed game session is claimed. New RE/captures/keys
 remain in ignored project .local/ and existing input caches.
+
+## Server-welcome resource gate — 2026-10-14
+
+Later private 20300 welcome experiments create pending Practice world requests
+and receive a 21600 client join. The client remains WAITING. Read-only tracing
+now reaches the real WAITING handler through aligned opaque-branch targets:
+it checks resource catalogue availability, then waits for the map-header load
+query to return 3 before entering ABANDONING SCENES. Raw state 0 does not advance.
+
+`tools/retail_login_state.py --world-resource-state --dump <private-dump>`
+reproduces the saved udpapp11/21 result: catalogue entry present, header load
+cache entry absent, raw state 0. Both snapshots have 28 other resource-cache
+entries. This is the resource-load cache, separate from the earlier context
+metadata cache. The new reader exports only flags/counts/statuses and never
+calls a loader or writes native memory.
+
+The native-header experiment above already establishes that a retained native
+resource request can satisfy this prerequisite. The remaining work is to find
+the original initiation path during server application negotiation. Guessed
+settings/server frames have not done so. No new game launch, rendered map or
+playable hero is claimed by this saved-dump continuation.

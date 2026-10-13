@@ -266,3 +266,30 @@ type-1 bodies' first field from udpflags7/udpack8. This is a prefix comparison,
 not complete message decoding. Native disassembly/captures/keys remain ignored.
 Final cleanup checks original hash/Valid signature, exact saved ACLs and zero
 owned native processes or diagnostic listeners. 8540434 Windows CI passed.
+
+## 2026-10-14: join records and resource-load diagnostics
+
+Build succeeds and **20/20 CTest targets pass**. Five reliable-record fixtures
+now include written 21600 name/boolean/blob bytes followed by another record,
+ignored upper boolean bits, truncation, invalid strings/blobs/padding and the
+existing record/body bounds. Four new resource-state fixtures distinguish
+catalogue presence from an absent/in-progress/completed load, traverse hash
+collisions and reject corrupt counts, chains, memory and image profiles.
+
+Private saved-run validation: all **1003** nonempty application bodies across
+udpapp10/11/21 authenticate and re-encode exactly: 184/373/446 respectively,
+including one 21600 join per run. All records total 3 joins, 974 21610s and
+26 21627s. The native boolean byte's ignored upper nibble is preserved.
+
+The earlier compact-prefix comparison did not identify the client-to-server
+field correctly: its body starts with the reliable-module block, not the
+server-to-client compact frame field. Complete reliable-body validation
+supersedes that interpretation; the LSB-first compact primitive remains valid.
+
+`retail_login_state.py --world-resource-state` rechecks saved udpapp10/11/21
+dumps without writing client memory or invoking native code. The latter two
+contain pending requests whose headers are in the catalogue but absent from
+the load cache (raw state 0). udpapp21's optional mode resource has the same
+result; udpapp10 has no request. Private arithmetic interpretation validates
+the independent resource hash against the original routine. No new interactive
+game run or rendered-map claim accompanies this source checkpoint.

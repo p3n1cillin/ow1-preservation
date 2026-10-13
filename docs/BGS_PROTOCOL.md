@@ -685,7 +685,7 @@ complete observed Training requests before replying. 23332's native handler
 read-only `--queue-state` diagnostic emits that marker, four record counts and
 a referral-job-presence boolean. It exports no native bytes or session inputs.
 
-### Reliable records and the game-server welcome (2026-10-13, udpapp9..udpapp14)
+### Reliable records and the game-server welcome (2026-10-13, udpapp9..udpapp20)
 
 **Client-to-server bodies** start directly with the reliable module block: a
 present bit, a 4-bit primary record count and a 4-bit secondary count, then
@@ -745,10 +745,69 @@ Private bounded runs, UI driven by window capture plus coordinate clicks:
 - Echoing each 21610 with two server times appended, sending a type-1 frame on
   every reply, or pre-creating an empty local `104319\Hotfix` directory does
   not change that result.
+- Also setting the settings record's map field (+0x128) to the same GUID
+  (udpapp15) leaves both managers WAITING with the request pending.
+- Further sequenced channel-0 records after the client join (a 20301
+  settings update with the same map, a 20302 with player id 1, a 20322 i64),
+  module-3 server time, and non-zero welcome +0x78/+0x4b0/+0x518 values
+  (udpapp16/udpapp17) produce no new client messages and no state change.
+- Answering the Training request with an empty 23311 or 23332 queue
+  notification immediately before the 20600 referral (udpapp19/udpapp20):
+  23332 is accepted (its native marker is set), but queue records stay empty
+  and both managers stay WAITING with the request pending.
+- Resource GUIDs follow the public TankLib convention (type = bit-reversed
+  12-bit field + 1): map headers are type 0x9F, game modes type 0xC5, whose
+  low parts match the public decimal game-mode ids (Practice Range = 90).
+  Putting the Practice Range game mode in settings +0x130 next to the map
+  (udpapp21) also leaves both managers WAITING with the request pending.
+
+The settings-record installer 0x00587e10 is also called by the 20301 handler
+(message +0x78), so 20301 is a settings update with the same 1,064-byte record.
+The client has a second, queue-driven join flow: the local-world builder
+0x008359a0 is reached from 0x008357a0 beside the queue session-start function
+0x00828580, building its request from the session descriptor instead of a
+20300 welcome. That consumer logs tournament pending games and its session
+class looks spectator-like, so the instance-referral flow remains the one the
+Practice Range demonstrably uses.
 
 The referral job is created only by 20600 (0x00775cd0) and consumed only on the
 instance-teardown path 0x007cdb60; its presence at shutdown means the instance
-connection was still up. The manager step function 0x00b52190 and world tick
-0x00b4b5f0 are control-flow obfuscated and were not traced. Field meanings of
+connection was still up. The manager step function 0x00b52190 remains partially
+traced; the WAITING branch of world tick 0x00b4b5f0 is traced below. Field meanings of
 the 1,064-byte 20300 settings record are unknown. Captured bodies, generated
 inputs and dumps remain private.
+
+### WAITING resource gate and client join (2026-10-14)
+
+Following aligned branch targets through the opaque padding reaches the world
+tick's state dispatch at 0x00b4cca8. WAITING calls 0x00b52b20. The handler
+constructs a type-0x9F map-header GUID from the request's low u32, checks its
+catalogue entry with 0x0171b800, and polls 0x0171c0b0. A raw load state below 2
+returns without advancing; state 3 calls 0x00b523f0, entering world state 3
+(ABANDONING SCENES). Other states >=2 take its error path.
+
+Read-only reinspection of udpapp11/21 finds the requested Practice header in
+the resource catalogue, but no corresponding load-cache object, so the query
+returns 0. Each dump has 28 other load-cache entries. The optional mode resource
+in udpapp21 is also in the catalogue without a load-cache object. udpapp10 has
+no pending request. These are saved-run observations, not new live launches.
+The next prerequisite is the original path that initiates/retains the header
+load; header existence, additional server frames and guessed settings do not
+establish that prerequisite. The earlier standalone native-resource experiment
+in FINAL_RETAIL.md independently demonstrates header loading through the
+original API, but is separate from server application negotiation.
+
+`retail_login_state.py --world-resource-state` now reports these checks with
+bounded lookups and profile validation. It exports only booleans, counts and
+raw state values; GUIDs, native hash tables, pointers and resource bytes stay
+inside the reader.
+
+Common-channel message 21600 (base delta 0) is the client join seen after 20300.
+Its observed layout is a NUL-terminated name, u32, four packed booleans, float32,
+u32 and length-prefixed blob. Semantic meanings beyond the join response remain
+unverified. The boolean byte's upper four bits are ignored by the native reader;
+the independent codec preserves them as `Record.boolean_padding`. With this
+layout, all 1003 complete authenticated client bodies in udpapp10/11/21 roundtrip
+exactly, including the previously undecoded 21600 records. The public profile
+supports only 21600/21610/21627 on primary channel 1; it is not a complete game
+protocol or a server-to-client encoder.

@@ -1,6 +1,6 @@
 """Observed client-to-server reliable record block for build 104319.
 
-Only primary records on common channel 1, messages 21610/21627 and the observed
+Only primary records on common channel 1, messages 21600/21610/21627 and the observed
 empty trailing modules are supported. Authenticate the datagram before parsing.
 Server-to-client bodies have a different prefix; this is not a server encoder.
 """
@@ -12,7 +12,7 @@ from instance_bits import MAX_BODY
 COMMON_SCHEMA = 0xa7fbbd0c
 COMMON_CHANNEL = 1
 COMMON_BASE = 21600
-OBSERVED_MESSAGES = (21610, 21627)
+OBSERVED_MESSAGES = (21600, 21610, 21627)
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,9 @@ class Record:
     sequence: int
     message_id: int
     values: dict
+    # Four boolean fields in 21600 occupy the low nibble of one byte. The
+    # native reader ignores the upper nibble; retain it for exact roundtrips.
+    boolean_padding: int = 0
 
 
 def _fields(messages, message_id):
@@ -48,7 +51,10 @@ def decode_client_body(body, messages):
         if channel != COMMON_CHANNEL:
             raise ValueError('unsupported instance reliable channel')
         message_id = COMMON_BASE + delta
-        records.append(Record(sequence, message_id, reader.fields(_fields(messages, message_id))))
+        start = reader.pos
+        values = reader.fields(_fields(messages, message_id))
+        padding = reader.data[start + len(values[0x78]) + 5] >> 4 if message_id == 21600 else 0
+        records.append(Record(sequence, message_id, values, padding))
     if reader.pos != len(reader.data):
         raise ValueError('instance reliable trailing data')
     return records
@@ -64,8 +70,13 @@ def encode_client_body(records, messages, *, padding=0):
         if type(record) is not Record or type(record.sequence) is not int or not 0 <= record.sequence <= 0xffffffff:
             raise ValueError('instance reliable record sequence/type')
         fields = _fields(messages, record.message_id)
+        if type(record.boolean_padding) is not int or not 0 <= record.boolean_padding <= 15 or (record.message_id != 21600 and record.boolean_padding):
+            raise ValueError('instance join boolean padding bound/profile')
         result.extend(struct.pack('<IBB', record.sequence, COMMON_CHANNEL, record.message_id - COMMON_BASE))
-        result.extend(encode(fields, record.values))
+        payload = bytearray(encode(fields, record.values))
+        if record.message_id == 21600:
+            payload[len(record.values.get(0x78, b'')) + 5] |= record.boolean_padding << 4
+        result.extend(payload)
         if len(result) + 1 > MAX_BODY:
             raise ValueError('instance reliable body bound')
     return bytes(result) + b'\0'

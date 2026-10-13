@@ -878,7 +878,7 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   the resulting wire bytes for ground truth, rather than guessing the framing.
   Still unverified: gateway session, main menu, map, heroes, matchmaking.
 
-## 2026-10-13 — gateway serializer framework investigated; static decode of wire framing blocked
+## 2026-10-13 — gateway serializer framework investigated; wire framing unresolved
 
 - Traced the message serialize path from 0x00560d90: it calls the message's
   vt+0x28 (0x005651f0) then a generic walker 0x00568690, which iterates the field
@@ -910,7 +910,7 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   exact bytes without guessing or in-process code injection. Still unverified:
   gateway session, main menu, map, heroes, matchmaking.
 
-## 2026-10-13 — mode-flip capture assessed as unreliable; id-2 encoding blocked by safe tooling
+## 2026-10-13 — mode-flip capture assessed as unreliable; id-2 encoding unresolved
 
 - Specified the gateway context fully: created/initialised by 0x00560560 (called
   from 0x00563ca5 inside the receive setup 0x00563410), which hardcodes the role
@@ -928,12 +928,10 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   state==2, so a late flip would have to overwrite the live state machine
   (ctx+0x18) as well — invasive and crash-prone, and debugger/HWBP single-stepping
   of the serialiser crashes the client (established earlier).
-- Conclusion: with the project's safe tooling (bounded ReadProcessMemory polling +
-  guarded heap writes, no debugger), the exact id-2 wire framing cannot be
-  captured or cleanly reversed; the serialiser is obfuscated and interleaves a
+- Bounded ReadProcessMemory polling and guarded heap writes did not capture
+  the exact id-2 wire framing; the serialiser is obfuscated and interleaves a
   named trace serialiser (0x00568690) with the compact wire writer (0x00561e90),
   and neither the wire field-walker nor the string/nested framing could be pinned.
-  The negotiation layer is blocked here.
 - Everything up to this point stands and is reproducible: TLS, login, Balancer
   referral, lobby handshake, own-key credential, Panama cipher both directions,
   the 3-byte gateway framing, the full message dispatch map and the complete id-2
@@ -1425,3 +1423,26 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   masked for the bounded client and its open_application started a stray
   unbounded client (killed after ~20 s). Each run: client exited, listeners
   stopped, original EXE hash unchanged.
+
+## 2026-10-14 — pending world requests wait for a resource load
+
+- Continued from Claude's latest project files and saved udpapp10/11/21 runs.
+  Followed aligned opaque-branch targets in the original world tick to its
+  WAITING handler. This handler checks resource availability, then polls the
+  map-header load state: <2 waits, 3 advances to ABANDONING SCENES, other >=2
+  statuses take an error path. A pending request alone does not initiate a load.
+- New independent read-only resource diagnostic reproduces catalogue presence
+  versus load-cache presence/status. udpapp11/21 have valid pending Practice
+  requests and catalogue entries, but no header load-cache object (status 0).
+  Both dumps have 28 other resource-cache entries. udpapp21's optional mode
+  resource is likewise available but unrequested. udpapp10 has no pending world.
+  Private arithmetic interpretation independently checks the resource hash;
+  native tables, pointers and payloads remain private.
+- Added observed 21600 client-join numeric schema and boolean-padding handling.
+  All 1003 authenticated nonempty client bodies from those three welcome runs
+  decode/re-encode exactly, including 3 joins, 974 21610s and 26 21627s.
+- Native targets build and all 20 CTest targets pass. New synthetic fixtures
+  check resource absence versus load states 0..3, hash collisions, malformed
+  chains/counts/memory, profile validation and report omissions. No new native
+  game launch or map/hero success is claimed. Next: original header preloading
+  path during private application negotiation, before further settings sweeps.

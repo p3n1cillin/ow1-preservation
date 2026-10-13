@@ -1,4 +1,4 @@
-# Verified project status — 2026-10-13
+# Verified project status — 2026-10-14
 
 Active target: final OW1 **1.74.0.0.104319**. Public source:
 [ow1-preservation](https://github.com/p3n1cillin/ow1-preservation).
@@ -28,18 +28,24 @@ send/receive roles, matching our generated referral inputs. In `udpflags7`,
 authenticated flags-3 replies advance the original UI to **ENTERING GAME**,
 with advancing acknowledgements and nonempty type-1 packets. All **161 client
 packets / 100 replies** authenticate and regenerate with our independent codec.
-The final bounded dump remains world WAITING/no pending request. Reliable
-payloads, game assignment, complete application negotiation and map load remain unresolved;
+That bounded dump remains world WAITING/no pending request. Complete game
+assignment, application negotiation and map load remain unresolved;
 the 24000/20600 pairing is an experiment, not a demonstrated complete protocol.
 The default launcher continues to use the verified menu path.
 
-Latest source checkpoint: **18/18 CTest targets pass**, including eight
-envelope/receipt-window and four compact-bitstream fixtures. The corrected
-native receipt comparison authenticates 224 client packets/224 replies and
-limits captured nonempty bodies to 13/33 bytes. It still shows ENTERING GAME,
-later Training, with no map. The observer ended before client shutdown; no
-complete application session or long-term stability is claimed. The first
-compact field is verified; conditional reliable blocks and messages remain unresolved.
+Latest source checkpoint: **20/20 CTest targets pass**. Primary common-channel
+reliable records 21600/21610/21627 are decoded; 1003 complete saved client
+bodies across three welcome runs authenticate and re-encode exactly. A 20300
+server welcome is accepted and answered by the original client with 21600.
+Supplying the Practice map creates pending world requests, but no rendered map.
+
+The current blocker is more specific: the original WAITING handler polls the
+map-header load state and advances only at status 3. Saved udpapp11/21 requests
+have catalogue entries but no header load-cache object (status 0), despite 28
+other cache entries. A read-only diagnostic reproduces this distinction.
+The normal application path that initiates and retains that load remains
+unresolved. This continuation inspected existing captures/dumps; no new live
+map test or long-term stability claim was made.
 
 Numeric schemas cover all 34 queue-family messages and the 20600 referral.
 `retail_login_state.py --queue-state` reports bounded queue-record counts and
