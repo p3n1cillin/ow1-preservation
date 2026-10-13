@@ -1407,3 +1407,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Rebuilt native targets; all 18 CTest targets pass (8 envelope/window fixtures,
   4 bitstream fixtures). Previous 8540434 CI passed. Public changes contain own
   code and semantic notes only; native code, captures and generated keys private.
+
+## 2026-10-13 — reliable records, game-server welcome, first world request
+
+- Verified Codex's public client reliable-record codec (21610/21627 on common
+  channel 1): exact roundtrip of all 138/149 captured bodies; all 19 CTest
+  targets pass.
+- Mapped the server-to-client body layout (frame, six module prefixes, entity
+  count) and the instance's 11 reliable channels. Channel 0 is the 20300
+  game-server family; 20300's handler checks quanta 16000 / hot-reload false and
+  issues a world request from message +0x4a8.
+- Private runs udpapp10..14: default 20300 accepted (client sends 21600 join);
+  +0x4a8 = Practice Range header GUID yields the first pending world request in
+  both world managers. Still WAITING / ENTERING GAME; pongs, continuous frames
+  and an empty local Hotfix directory changed nothing. No map, hero or gameplay.
+- UI driven by private window capture + coordinate clicks; Computer Use was
+  masked for the bounded client and its open_application started a stray
+  unbounded client (killed after ~20 s). Each run: client exited, listeners
+  stopped, original EXE hash unchanged.

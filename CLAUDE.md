@@ -368,3 +368,38 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   Next: complete conditional reliable-module framing and the application
   negotiation message before generating an engine-level reply. No readiness,
   transport or verification flags are patched.
+
+## Game-server welcome checkpoint (Claude, 2026-10-13, udpapp9)
+
+- Codex's uncommitted public reliable-record codec (21610/21627) passes: all 19
+  CTest targets, exact roundtrip of 138+149 captured client bodies.
+- Server->client body (receive 0x7ce110): compact server frame, module prefixes
+  0..5, 7-bit entity count. Reliable mod0 = present bit, 4b primary, 4b
+  secondary, byte-aligned records; mod1/2 empty; mod3 compact ack frame + 4 flag
+  bits + time bit(+16); mod4 bit must be 1; mod5 bit-terminated lists. Codex's
+  draft --app-empty body misplaced mod3's time bit; it was never run.
+- Instance carries 11 reliable channels; **channel 0 = 20300 family**
+  (schema 0xc77f6403). 20300 handler 0x7d9400 directly calls world-request path
+  0xb97f40 after checking +0x500 == 16000 (quanta) and +0x519 == false.
+- Private: .local/re/instance-welcome-frontier.md, instance-channel0-messages.json,
+  udp_welcome_reply.py, run-welcome.ps1. udpapp9 reached login, but Computer Use
+  screenshots on both monitors were fully masked, so Practice Range was never
+  selected (0 datagrams). Re-run when the game window can be captured/driven.
+  Cleanup, listeners and original EXE hash verified.
+- udpapp10 (user clicked Practice Range): the client accepted the default 20300
+  welcome and immediately sent a new reliable 21600 (channel 1: local name,
+  zeros, empty blob) = client join. World stayed WAITING/no request; referral
+  job present at shutdown. Next: fill 20300 settings (+0x80) with a real map/mode.
+- NEVER call computer-use open_application for Overwatch: it started an unbounded
+  second client from the package-cache path (killed after ~20 s). Computer Use
+  grants that package path, so the bounded client (real LOCALAPPDATA path) is
+  masked; ask the user to click No Thanks -> Training -> Practice Range.
+- UI driving: do not use Computer Use for runs. `.local/re/ow-ui.ps1 -Action
+  shot|click` captures the owned window via CopyFromScreen and clicks client
+  coords (2560x1080: No Thanks 2100,1006; Training 471,325; Practice 1279,538).
+- **FIRST PENDING WORLD REQUEST (udpapp11):** 20300 +0x4a8 = Practice Range
+  header GUID 0x0790000000000688 becomes the world request's first field; both
+  world managers then hold a pending request (previously none). State stays
+  WAITING; UI ENTERING GAME. udpapp12 added 21610 pong echoes: no change.
+  Dumps retail-private-udpapp10/11/12.dmp beside the client. Next: find what
+  advances WAITING+pending (server frames/module-3 time, snapshots, hotfix).

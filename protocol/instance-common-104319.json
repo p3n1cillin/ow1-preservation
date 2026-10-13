@@ -1,0 +1,35 @@
+{
+  "build": 104319,
+  "messages": [
+    {
+      "schema_hash": 2818293004,
+      "message_id": 21610,
+      "fields": [
+        {
+          "kind": 6,
+          "offset": 120,
+          "width": 4,
+          "count": 0
+        },
+        {
+          "kind": 8,
+          "offset": 128,
+          "width": 8,
+          "count": -1
+        }
+      ]
+    },
+    {
+      "schema_hash": 2818293004,
+      "message_id": 21627,
+      "fields": [
+        {
+          "kind": 10,
+          "offset": 120,
+          "width": 4,
+          "count": 0
+        }
+      ]
+    }
+  ]
+}

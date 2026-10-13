@@ -684,3 +684,71 @@ complete observed Training requests before replying. 23332's native handler
 0x006ce750 sets component-38 +0x10f9; its lifetime/meaning is unverified. The
 read-only `--queue-state` diagnostic emits that marker, four record counts and
 a referral-job-presence boolean. It exports no native bytes or session inputs.
+
+### Reliable records and the game-server welcome (2026-10-13, udpapp9..udpapp14)
+
+**Client-to-server bodies** start directly with the reliable module block: a
+present bit, a 4-bit primary record count and a 4-bit secondary count, then
+byte-aligned records `u32 sequence | u8 channel | u8 message delta | fields`,
+then the remaining module bits (observed as one zero byte). Record sequences
+are one counter across channels, starting at 0. `tools/instance_reliable.py`
+round-trips every captured client body exactly (138 udpflags7, 149 udpack8)
+for the two observed channel-1 messages, 21610 (i32 counter + u64[] times,
+every 250 ms) and 21627 (one float, 15.0 every ~10 s).
+
+**Server-to-client bodies** (receive callback 0x007ce110, type 1): compact u32
+server frame, then module prefixes 0..5 (module vtable +0x30), then a 7-bit
+entity count with per-entity identifiers and module presence bits.
+
+| Module | Prefix reader | Prefix layout |
+|---|---|---|
+| 0 reliable | 0x00c6a480 | present bit; 4-bit primary, 4-bit secondary counts; byte-aligned records as above. Primary records are delivered in sequence order (older dropped, newer buffered); secondary records are delivered unsequenced |
+| 1, 2 | 0x00d34a80 | none |
+| 3 | 0x007c0630 | compact u32 (acknowledged frame), 4 flag bits, time-present bit (+16 bits) |
+| 4 | 0x00787e70 | one bit; 1 is the normal path |
+| 5 | 0x007e3ff0 | bit-terminated lists (16-bit items; 8+8-bit items) |
+
+The instance connection carries 11 reliable channels (channel vtable +0x28 =
+first message id, +0x30 = last):
+
+| Channel | Schema | Messages |
+|---|---|---|
+| 0 | 0xc77f6403 | 20300-20323 (game server) |
+| 1 | 0xa7fbbd0c | 21600-21634 (common) |
+| 2 | 0x8f89e0df | 25000-25019 |
+| 3 | 0x82a2f991 | 27500-27502 |
+| 4 | 0x9f0a9f88 | 25800-25810 |
+| 5 | 0xa9385a52 | 30700-30777 |
+| 6 | 0x398e145e | 42900-42907 |
+| 7 | 0x741ec7b2 | 42800-42803 |
+| 8 | 0x716ad5d9 | 22300-22308 |
+| 9 | 0x145ce2da | 25700-25708 |
+| 10 | 0xcf043764 | 42700-42701 |
+
+The 20300 dispatcher is 0x007d2000. **20300 is the game-server welcome**: its
+handler 0x007d9400 rejects a record whose +0x500 differs from the client's
+simulation quanta (16000) or whose +0x519 hot-reload flag differs (false),
+then builds a world request (first field = message +0x4a8, then two settings
+u64s, the 32-byte array at +0x4b4, the settings record and the u64[] at +0x520)
+and calls 0x00b97f40. On success it submits through 0x00b4b1c0 and 0x00b4b430,
+the same sequence the client's local-world path 0x008359a0 uses.
+
+Private bounded runs, UI driven by window capture plus coordinate clicks:
+
+- A default-valued 20300 (quanta/hot-reload set) is accepted; the client
+  immediately sends a new reliable 21600 on channel 1 (local name, zeros,
+  empty blob) and creates no world request.
+- With +0x4a8 = the Practice Range header GUID `0790000000000688`, both world
+  managers hold a **pending world request** whose first field is that GUID,
+  the first world request observed in this project. State remains WAITING;
+  the UI stays on ENTERING GAME. No map is rendered.
+- Echoing each 21610 with two server times appended, sending a type-1 frame on
+  every reply, or pre-creating an empty local `104319\Hotfix` directory does
+  not change that result.
+
+The referral job is created only by 20600 (0x00775cd0) and consumed only on the
+instance-teardown path 0x007cdb60; its presence at shutdown means the instance
+connection was still up. The manager step function 0x00b52190 and world tick
+0x00b4b5f0 are control-flow obfuscated and were not traced. Field meanings of
+the 1,064-byte 20300 settings record are unknown. Captured bodies, generated
+inputs and dumps remain private.
