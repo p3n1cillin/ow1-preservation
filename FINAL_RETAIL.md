@@ -715,3 +715,21 @@ snapshot is not proof that a referral was rejected: the original consumer can
 copy and clear it. `instance-public1` ended with no job, zero queue records and
 world state WAITING/no pending request. No new game TCP connection, map load or
 playable hero is claimed.
+
+## Authenticated instance handshake continuation — 2026-10-13
+
+Read-only disassembly reconstructs both scrambled nonce/key blocks, matches
+our generated referral inputs and corrects the send/receive codec roles.
+The original state-1 receive transition requires flags 3. A bounded own-key
+reply experiment (`udpflags7`) now changes the Practice Range overlay to
+**ENTERING GAME**, advances acknowledgement state and produces nonempty type-1
+packets. All 161 client packets/100 replies authenticate and regenerate with
+`tools/instance_datagram.py`; its public fixtures contain only author-written
+inputs. See BGS_PROTOCOL.md for the envelope and observed state checks.
+
+This experiment uses a private responder with 100-reply/180-second bounds and
+returns no application payloads. The public receive-only observer described
+above still sends no replies. Reliable-message framing and game negotiation
+remain unresolved; the final world is WAITING/no request. No rendered map,
+controllable hero or completed game session is claimed. New RE/captures/keys
+remain in ignored project .local/ and existing input caches.

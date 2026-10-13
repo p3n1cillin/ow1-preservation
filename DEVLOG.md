@@ -1336,3 +1336,52 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   regression tests. All 16 CTest targets pass, including isolation and ACL tests.
   Original client hash/signature and baseline ACLs unchanged; owned processes
   and diagnostic listeners stopped. No client bytes or local secrets published.
+
+## 2026-10-13 — instance datagram format and authentication identified
+
+- Rebuilt the native launcher (the cached binary predated `--udp-forward`).
+  UDP diagnostics are limited to 180-second runs. A lost first run showed
+  "time out communicating with Battle.net" after I brought the game window to
+  the front during login; the desktop was unlocked. Leave the window alone
+  until the menu.
+- Private hex capture (ignored `.local/`) of the original client's 34-byte
+  instance packets, plus a wrapper that records the probe's locally generated
+  20600 inputs. Offline: AES-256-GCM, key = referral +0xae, nonce = 8 zero
+  bytes || u32 LE sequence, 22-byte plaintext header as AAD, tag truncated to
+  12 bytes at the front. Header fields come from builder 0x003f96d0; see
+  BGS_PROTOCOL.md "Instance datagram format". All packets regenerate exactly.
+- A mid-send full dump of our own client (outside Git) shows two live AEAD
+  codec objects (vft 0x025f5bd0) at peer +0x10/+0x18. Peer +0x20 is the
+  127.0.0.1:1119 endpoint; +0xa4 is the sequence.
+- First reply experiment (`udpreply6`): 39 sealed version-2 replies with key
+  +0xce, types 1..15, were delivered by the bridge but changed nothing.
+  The server-direction expectations are still unknown. No handshake, map or
+  hero is claimed. All 16 CTest targets pass; owned clients and listeners
+  were stopped.
+
+## 2026-10-13 — scrambled key reconstruction and native instance handshake progress
+
+- Continued the user's requested disassembly in the project directory,
+  preserving Claude's unfinished notes. Aligned branch targets and chained
+  unwind fragments recover the local five-qword nonce-prefix/key representation.
+  Both objects match our generated referral inputs; both nonce prefixes are zero.
+  Private inverse checks pass 4144 cases; two 40-byte blocks re-encode exactly.
+  Corrected peer roles: +0x10 send/+0xae, +0x18 receive/+0xce. No decoder,
+  native bytes or keys are published.
+- Traced authenticated receive -> pending packet list -> handshake processing.
+  State 1 requires `(flags & 3) == 3`; previous flags-1 replies cannot advance.
+  +0x140 is a received-sequence bitmap; +0xa8 is received sequence +1.
+  The original transitions remain enabled and unmodified.
+- Native udpflags7 uses own-key type-0/flags-3 replies. Direct Computer Use shows
+  ENTERING GAME after Practice Range. The client acknowledges replies and sends
+  nonempty type-1 payloads. Bridge totals 161 outbound/100 inbound; every packet
+  authenticates and regenerates with the new independent public envelope codec.
+  Payload sizes 13..123 do not match the complete lobby bootstrap/framing.
+- Responder bounded to 180 seconds/max 100 replies, no application payload replies.
+  Final world WAITING/no request, zero queues and no referral job. Map, hero and
+  a complete instance application session remain unresolved. Cleanup verifies
+  original hash/signature, both baseline ACLs and no owned processes/listeners.
+- Rebuilt native targets and all 17 CTest targets pass. Six new author-written
+  codec fixtures cover layout, payloads, all-byte authentication, wrong key/nonce,
+  truncation/bounds and authenticated unsupported headers. Private captures,
+  dumps and key reconstruction stay outside Git. Next is reliable-message framing.

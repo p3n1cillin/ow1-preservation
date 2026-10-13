@@ -216,3 +216,29 @@ After bounded shutdown, original EXE SHA256 matches and Authenticode remains
 Valid; both saved ACLs match exactly. Owned game/launcher processes and the
 TCP/UDP diagnostic listeners are gone. Source-only publication contains no
 packet payloads, credentials, keys, client assets or dumps.
+
+## 2026-10-13: key reconstruction and authenticated instance envelope
+
+Rebuilt native targets; **17/17 CTest targets pass**. The new
+`instance-datagram-codec` target runs six author-written fixtures covering the
+22-byte positional header and independent GCM comparison, empty/nonempty/max
+payloads, directional-key and nonce-prefix rejection, mutation of every packet
+byte, truncation and size/type bounds, and authenticated unsupported version or
+magic. Tests contain no native captures, client bytes or private keys.
+
+```powershell
+python tests/instance_datagram.py
+```
+
+Separate private evidence: read-only reconstruction passes 4144 inverse checks,
+both scrambled blocks re-encode exactly and match our own referral inputs.
+The public codec authenticates and regenerates udpreply6's 39 client/39 server
+packets and udpflags7's 161 client/100 server packets exactly, including nonempty
+payloads. This validation is local and is not a shipped capture fixture.
+
+Native udpflags7's flags-3 replies advance acknowledgements/receipt bitmap and
+produce nonempty type-1 traffic; direct window capture shows ENTERING GAME.
+The responder caps at 100 replies/180 seconds and supplies no application reply.
+The final dump remains WAITING/no pending world request. No map/hero or complete
+application session is claimed. After bounded shutdown, exact original EXE hash,
+Valid signature and both saved ACLs match; owned processes/listeners are gone.

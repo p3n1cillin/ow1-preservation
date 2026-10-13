@@ -249,3 +249,78 @@ the project directory; all new private RE and run files are in ignored .local/.
   UDP/pipe boundaries/guards/shutdown and isolation tests. Original EXE hash/
   signature and both baseline ACLs match; no owned native processes/listeners.
   Default account launcher is still the existing menu path.
+
+## Latest datagram checkpoint (2026-10-13, udpcap2..udpreply6)
+
+Supersedes the "Next: trace the native 34-byte datagram" line above.
+- Instance packets are AES-256-GCM: key = referral +0xae, nonce = 8 zero bytes
+  || u32 LE seq, 22-byte header (ver2<<4|type, seq, +0xa8, u64 +0x140, flags,
+  0xad) as AAD, 12-byte tag at the front. Verified by exact regeneration.
+  Table: docs/BGS_PROTOCOL.md "Instance datagram format".
+- Sealed replies (key +0xce, types 1..15, flags1) were delivered and ignored.
+  The user's later explicit request to continue key-handling disassembly is
+  handled in the checkpoint below; earlier key/nonce guesses are superseded.
+- Private helpers in .local/re: run-capture.ps1 (probe+capture/responder+client),
+  probe_record_inputs.py, udp_capture.py, udp_aead_reply.py, aead_search.py,
+  dump_on_datagram.py, dump_scan.py, stack_scan.py. Run the launcher with
+  `-UdpForward` (≤180 s). Leave the game window alone until the menu; then
+  click/view through Computer Use with fresh returned screenshot coordinates.
+  Do not assume a fixed frame scale or reuse stale window/screenshot handles.
+
+## Key-handling disassembly checkpoint (2026-10-13)
+
+- Continued from Claude's latest files in the project. Existing uncommitted
+  datagram notes were preserved. The user explicitly requested the scrambled
+  key path. New private disassembly/reconstruction files are in .local/re/.
+- Mid-send dump is actually in Claude's package-local input cache:
+  C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\dumps\instance-sending5.dmp.
+  Reuse read-only; do not copy the client image or create another workspace.
+- 0x3fa810 decode / 0x3fa380 encode: recovered aligned jump targets across
+  opaque branches; eight arithmetic inverse operations. Linear disassembly
+  drifts into junk. Function .pdata fragments can chain: follow UNW_FLAG_CHAININFO
+  (private unwind_chain.py), not just the fragment enclosing a call.
+- Private decode_instance_key.py reads only the dump, reconstructs both codec
+  blocks, compares with OUR udpcap5-generated +0xae/+0xce values and reports
+  booleans/counts. Both keys match exactly and both nonce prefixes are zero.
+  verify_instance_key_reconstruction.py: 4144 bidirectional primitive checks,
+  both 40-byte blocks re-encode exactly, and all 39 client/all 39 server udpreply6
+  packets authenticate independently. No key bytes are printed or published.
+- Correct codec roles: peer+0x10 SEND/+0xae, peer+0x18 RECEIVE/+0xce.
+  Native constructor 0x3f89e0, sender 0x3f96d0 and receive call 0x402bdc agree.
+  Earlier Claude slot labels were reversed; server +0xce key hypothesis was right.
+- Received authenticated packets: 0x4027f0 -> codec-open -> 0x401880 queues at
+  peer+0x188 -> 0x401500 -> 0x3f94f0. Native peer state 1 requires(flags&3)==3
+  at 0x3f95c4; flags 1 cannot advance. State 3 checks flag mask 2 plus later ack sequences.
+  0x3f9fc0 sets/shifts peer+0x140 as received-sequence BITMAP, not connection id,
+  and updates +0xa8 to receivedseq+1. Do not patch any of these fields.
+- Latest private files: instance-key-*.txt, instance-receive-*.txt,
+  instance-authenticated-handshake-dispatch.txt, instance-handshake-flags.txt;
+  reports .local/runs/instance-key-decode-peer-continuation.json and
+  instance-key-reconstruction-verified.json. Public docs contain semantics only.
+
+## Native flags-3 checkpoint (2026-10-13, udpflags7)
+
+- Private responder: type 0/flags 3, +0xce own key, zero nonce prefix, ack=client
+  sequence, bitmap 0, empty body; bounded 180 seconds/max 100 replies. This is a
+  handshake experiment, not the final ack/reliability implementation.
+- Fresh Computer Use selected No Thanks -> Training -> Practice Range after
+  the menu. Original UI showed ENTERING GAME; no map rendered. Client progressed
+  to flags 2, advancing next-sequence/receipt bitmap, then nonempty type-1 packets.
+- Bridge outbound 161/inbound 100. Independent cryptography validation and public
+  tools/instance_datagram.py authenticate/reseal every packet exactly. Nonempty
+  body sizes 13/33/43/63/73/93/103/123; neither full lobby bootstrap offer nor
+  three-byte lobby framing matches. The private responder's old tag_ok=False
+  on nonempty packets is an empty-body-only checker artifact.
+- Reports: .local/runs/udpflags7-authenticated-summary.json,
+  public-instance-codec-native-validation.json and udpflags7-final-state.json.
+  Dump beside existing client: retail-private-udpflags7.dmp. Captures/inputs and
+  key reconstruction stay private. Do not print their payloads or key bytes.
+- Bounded final world WAITING/no request; queues 0/0/0/0, referral job absent.
+  Original EXE SHA256/signature and both baseline ACLs match. Owned native PIDs
+  and TCP 21119/UDP 21120 listeners are gone. Stale window handles were discarded;
+  no post-shutdown game UI is claimed.
+- Rebuilt native targets; all 17 CTest targets pass, including six synthetic
+  instance datagram fixtures. No native state/verification/readiness patched.
+- Next: trace authenticated type-1 reliable-message framing and application
+  negotiation before attempting a game/map reply. Keep native peer transitions
+  intact; do not confuse envelope authentication with complete gameplay.
