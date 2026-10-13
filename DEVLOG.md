@@ -1260,3 +1260,26 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   several repeated groups of 6-7 message layouts (likely one per queue/game
   type) plus large records (23304, 23320). Which message advances "entering"
   to joining a game is not yet identified.
+
+## 2026-10-13 — path from queue reply to game-server session (static map)
+
+- 23300 family (server-to-client queue, dispatcher 0x007a8ad0): ten standalone
+  messages (23300-23303, 23310, 23311, 23318, 23319, 23332, 23333) and four
+  parallel groups of six forwarded to queue sub-objects at +0x10 (23304-23309),
+  +0x38 (23312-23317), +0x60 (23320-23325) and +0x88 (23326-23331); each group
+  has the same shapes (large record, two bool messages, two-i32 message, big
+  multi-struct record, string message). 23318 only formats a localized notice.
+  No handler calls the game join directly.
+- Game-server session: a session class (vtable 0x02677cd8, ctor 0x00e3bcb0)
+  whose Connect (0x00e3d9b0) parses host:port from the object (+0x48) and opens
+  a gateway connection (0x0056b430 -> 0x00563a50), logging "Connecting to %s";
+  related logs "Session loaded.", "Received header.", "Pause set to %s".
+  Created by 0x00e3ca60 ("Failed to open/start %s"), called from 0x00828580,
+  whose callers include the queue module's pending-game consumer
+  (~0x006d30d4, "Consuming pending tournament game %s", obfuscated).
+- Expected end-to-end path for Practice Range: 24000 -> queue reply stores a
+  pending game (address + credentials) -> 0x00828580 starts the session ->
+  second gateway connection to our "game server" -> game-server welcome
+  (20300 family, handler reaching RequestWorld 0x00b4b1c0) -> map load.
+  Not yet identified: which queue message carries the pending game and its
+  fields; the game-server gateway handshake and peer group.
