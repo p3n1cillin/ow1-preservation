@@ -2452,6 +2452,30 @@
           ]
         }
       ]
+    },
+    {
+      "schema_hash": 2800040086,
+      "message_id": 24000,
+      "fields": [
+        {
+          "kind": 2,
+          "offset": 120,
+          "width": 1,
+          "count": 0
+        },
+        {
+          "kind": 12,
+          "offset": 128,
+          "width": 40,
+          "count": 0
+        },
+        {
+          "kind": 7,
+          "offset": 168,
+          "width": 4,
+          "count": 0
+        }
+      ]
     }
   ]
 }

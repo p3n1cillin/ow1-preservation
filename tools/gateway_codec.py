@@ -10,12 +10,14 @@ FORMATS = {1:'b', 2:'B', 3:'B', 4:'h', 5:'H', 6:'i', 7:'I', 8:'Q', 9:'q', 10:'f'
 BLOB = 15  # u32 length + raw bytes (native writer 0x005668e0, reader case 15)
 MAX_BODY = 4096
 MAX_ITEMS = 1024
+MAX_SCHEMA_FILE = 262144
+MAX_SCHEMA_FIELDS = 4096
 
 
 def load_messages(path):
     with open(path, 'rb') as source:
-        data = source.read(65537)
-    if len(data) > 65536:
+        data = source.read(MAX_SCHEMA_FILE+1)
+    if len(data) > MAX_SCHEMA_FILE:
         raise ValueError('message schema size bound')
     document = json.loads(data)
     if not isinstance(document, dict) or document.get('build') != 104319:
@@ -23,7 +25,7 @@ def load_messages(path):
     messages = document.get('messages')
     if not isinstance(messages, list) or not 0 < len(messages) <= 32:
         raise ValueError('message schema count')
-    budget = [1024]
+    budget = [MAX_SCHEMA_FIELDS]
     def validate(fields, depth=0):
         if not isinstance(fields,list) or len(fields)>128 or depth>8:
             raise ValueError('field schema depth/count')

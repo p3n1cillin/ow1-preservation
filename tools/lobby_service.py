@@ -10,6 +10,7 @@ HELLO_SCHEMA = 0x3c7e3468
 WELCOME_SCHEMA = 0xf5ff548a
 PROFILE_SCHEMA = 0x1a9879a4
 PARTY_SCHEMA = 0x2411de56  # 20700 party state (handler 0x008529a0 -> component slot 20)
+QUEUE_SCHEMA = 0xa6e53896   # client game-queue requests (24000-24028)
 SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
@@ -110,3 +111,18 @@ class InitialLobby:
             raise ValueError('profile request without a player id')
         body = encode(self.messages[PROFILE_SCHEMA,20807], {0x78:target, 0x88:False, 0x90:{0x100:target}})
         return 20807, bytes((self.hashes.index(PROFILE_SCHEMA)+1, 20807-20800))+body
+
+    # Client request families we decode for the log but do not answer yet.
+    OBSERVED = {QUEUE_SCHEMA: 24000}
+
+    def describe(self, packet):
+        """Short decoded summary of a known, unanswered client request (or None)."""
+        if len(packet) < 2 or not 1 <= packet[0] <= len(self.hashes):
+            return None
+        schema = self.hashes[packet[0]-1]
+        base = self.OBSERVED.get(schema)
+        if base is None or (schema, base+packet[1]) not in self.messages:
+            return None
+        values = decode(self.messages[schema, base+packet[1]], packet[2:])
+        shown = {hex(k): (v[:40] if isinstance(v, bytes) else v) for k, v in values.items()}
+        return f'{base+packet[1]} {shown}'

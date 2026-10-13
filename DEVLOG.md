@@ -1243,3 +1243,20 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Clicking PRACTICE RANGE sends 24000 (8 B) on protocol 0xa6e53896
   (24000-24028, client-to-server game queue); the screen waits. Answering it is
   the matchmaking / game-server track. 22 probe tests pass.
+
+## 2026-10-13 — game-queue requests decoded (Training)
+
+- 24000 (protocol 0xa6e53896, client game queue; built by 0x004cf1e0, sent from
+  the queue routine 0x006ceab0 in the module that also holds the 23300-family
+  handlers) is {i8 mode, string, i32}. Live: Practice Range sends
+  {mode 2, "", 4} and the client shows "ENTERING PRACTICE RANGE" (spinner +
+  BACK) while it waits; Tutorial sends {mode 3, "", 4}; Practice vs. AI first
+  opens an Easy/Medium/Hard picker without a request.
+- The server now logs decoded fields of known client requests it does not
+  answer yet (`lobby request (not answered): ...`). Exported the 24000 layout;
+  the schema loader bounds grow to 256 KiB / 4096 fields for the larger
+  party/profile layouts.
+- Reply side: server-to-client family 23300 (0x21286b49, 34 messages) has
+  several repeated groups of 6-7 message layouts (likely one per queue/game
+  type) plus large records (23304, 23320). Which message advances "entering"
+  to joining a game is not yet identified.

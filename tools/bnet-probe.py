@@ -669,6 +669,8 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                     mid,reply = answer
                     raw.sendall(outbound.apply(gateway_frame(reply)))
                     emit(f'lobby request answered with {mid} ({len(reply)} B; contents omitted)')
+                elif lobby_service is not None and (summary := lobby_service.describe(payload)) is not None:
+                    emit(f'lobby request (not answered): {summary}')
                 if (lobby_service is not None and lobby_service.sent and not lobby_service.updates_sent
                         and time.monotonic() >= initial_due):
                     # Optionally deferred: sent on the first client packet (heartbeats
