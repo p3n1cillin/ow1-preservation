@@ -270,3 +270,48 @@ three-byte big-endian length prefix. The first captured body is 10 bytes and
 starts with byte 1. Its application schema/required reply remain unverified;
 the probe observes it and keeps the connection open until the client closes.
 No main menu, map, hero or gameplay is established by this handshake.
+
+## Gateway negotiation messages (post-credential, decoded)
+
+After the secure channel (peer+0x1053=1) the client runs a message-based
+negotiation over the Panama stream (3-byte BE length frames; reader rva
+0x0041a100). Each message body begins with a **u16 little-endian message id**;
+the dispatcher rva 0x0055e980 routes by id to a handler, and the id is also the
+message's descriptor field (reader rva 0x00565260):
+
+| id | handler rva | role |
+|---|---|---|
+| 1 | 0x005601e0 | offer (sent by the initiator; handler requires peer mode 2, a responder) |
+| 2 | 0x00560040 | the message a mode-1 initiator consumes in state 3 (-> sends id 3, state 5) |
+| 3 | 0x00560370 | final/ack (states 3/4) |
+| 4 | 0x0055e9e3 | — |
+
+The client is a **mode-1 initiator** (peer+0x1c==1): it sends id 1 (its offer)
+and waits in state 3 for the server's **id 2**. Captured id-1 offer (10 B):
+`01 00 | 01 00 00 00 | 94 21 d8 11` = id 1, record count 1 (u32), one record =
+the single schema hash 0x11d82194 (id-1's record field is type 6, a vector of
+fixed32).
+
+Message field layouts come from per-id field tables (id1 0x02cf0120, id2
+0x02cf0180, id3 0x02cf0030, id4 0x02cf0080). The **id-2** message (field table
+0x02cf0180) has two fields: a `{seq:u64, src:u64}` header (nested type 0x02cefb60,
+fields literally named `seq`/`src`) at object offset 0x78, then a repeated record
+at 0x88 whose element (field table 0x02cf0380) is:
+
+| field | type | wire |
+|---|---|---|
+| m_protocolCRC | 6 | u32 |
+| m_messageBase | 6 | u32 |
+| m_messageMax | 6 | u32 |
+| m_protocolFlags | 6 | u32 |
+| m_untrustedServer | 7 | bool |
+| m_protocolName | 12 | string |
+
+The primitive serializer (rva 0x00561e90) writes values **raw/inline, fixed
+width, no tags or length prefixes** (type bits 0x10/0x20/0x40/0x80/0x100 →
+1/2/4/8/16 bytes). String (type 12) and nested/vector framing use separate
+routines and are **not yet confirmed**; inline encodings of the id-2 body with
+u32/u16/u8 string-length prefixes were all rejected by the client (immediate
+close), so the exact string/nested framing is the remaining unknown for a
+working id-2 reply. No gateway session, menu, map, hero or gameplay is
+established.

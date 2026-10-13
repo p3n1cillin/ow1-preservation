@@ -842,3 +842,38 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   single-shot the generic serializer, and read the exact wire bytes. That gives
   ground truth for the id-2 body without guessing. Still unverified: main menu,
   gateway session, map, heroes, matchmaking.
+
+## 2026-10-13 — id-2 gateway message schema fully decoded; wire framing still unresolved
+
+- Enumerated all four bootstrap message descriptors (schema 0x11d82194):
+  id1 field table 0x02cf0120, id2 0x02cf0180, id3 0x02cf0030, id4 0x02cf0080.
+  Confirmed id-1 (the client's offer) = u16 id + a type-6 vector (u32 count +
+  u32 schema hashes), matching the captured 10-byte offer exactly.
+- Decoded the id-2 message (the reply the mode-1 client wants in state 3):
+  field 0 = a {seq:u64, src:u64} header (nested type 0x02cefb60, fields literally
+  named "seq"/"src") at object offset 0x78; field 1 = a repeated record at 0x88
+  whose element (field table 0x02cf0380) has named fields m_protocolCRC (u32),
+  m_messageBase (u32), m_messageMax (u32), m_protocolFlags (u32),
+  m_untrustedServer (bool, type 7), m_protocolName (string, type 12). The
+  bootstrap record values are {0x11d82194, 1, 5, 3, false, ""} (gateway-104319.json).
+- Reversed the primitive serializer rva 0x00561e90: primitives are written RAW,
+  fixed-width, inline — no field tags, no length prefixes (type bits
+  0x10/0x20/0x40/0x80/0x100 -> 1/2/4/8/16 bytes). So id-1's inline encoding
+  generalises to id-2's primitives.
+- Built and live-tested the full decoded id-2 body in many framings: inline
+  header + records with u32/u16/u8/omitted string-length prefixes, and
+  length-prefixed (u32) nested header and/or records, with and without the
+  header. EVERY variant still makes the client close immediately (it then retries
+  the referral); no candidate advanced it past connection phase 6.
+- So: message id (2), the record field set, and primitive encoding are known and
+  correct, but the exact framing of the nested {seq,src} header, the record
+  vector, the bool and the type-12 string (and possibly required seq/src values)
+  is not captured by inline or simple u32 length-prefix forms. The generic
+  field-walker + string/vector/nested routines are a separate obfuscated layer
+  (primitive writer 0x00561e90, record populate 0x00561ac0, write path 0x00560d90)
+  that resists the static xref method, and debugger attach crashes the client.
+- Documented the decoded schema in docs/BGS_PROTOCOL.md. Recommended path
+  (unchanged, now better scoped): a bounded owned-process observer that invokes
+  the client's own id-2 serializer (ctor 0x0056cb90 + the field walker) and dumps
+  the resulting wire bytes for ground truth, rather than guessing the framing.
+  Still unverified: gateway session, main menu, map, heroes, matchmaking.

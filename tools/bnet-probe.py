@@ -602,18 +602,32 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         # before the record vector at 0x88. Wire (positional) =
                         # u16 id, identity[16], count u32, hashes. Try identity
                         # variants; id-1 (client's own form) carries no identity.
-                        # Dispatcher rva 0x0055e980 routes by u16 id: id 2 -> the
-                        # state machine 0x00560040 that drives the mode-1 client's
-                        # state 3 -> 5. The id-1 offer carries NO wire identity
-                        # (just id + record vector), so try the symmetric id-2
-                        # (id + records) first, then identity-bearing variants.
-                        ident0 = bytes(16)
+                        # id-2 message (handler 0x00560040) decoded from the field
+                        # tables: u16 id, {seq:u64, src:u64} header (type-8 fields),
+                        # then a repeated record (field table 0x02cf0380):
+                        # m_protocolCRC u32, m_messageBase u32, m_messageMax u32,
+                        # m_protocolFlags u32, m_untrustedServer bool, m_protocolName
+                        # string. The bootstrap record (gateway-104319.json) is
+                        # {0x11d82194, 1, 5, 3, false, ""}. The only unknowns are
+                        # the generic bool/string encodings and whether nested
+                        # messages are length-prefixed, so vary just those.
+                        # Serializer 0x00561e90 writes primitives raw/inline (no
+                        # tags, no length prefix): type 0x10=1B, 0x20=2B, 0x40=4B,
+                        # 0x80=8B, 0x100=16B. So id-2 body = u16 id, {seq:u64,
+                        # src:u64}, u32 record count, then each record's fields:
+                        # CRC/base/max/flags (u32), untrustedServer (bool 1B),
+                        # protocolName (string, type 12 - separate routine, prefix
+                        # form unconfirmed). Vary only the string prefix.
+                        hdr = struct.pack('<QQ', 0, 0)
+                        rf = struct.pack('<IIII', 0x11d82194, 1, 5, 3) + b'\x00' + struct.pack('<I', 0)
+                        I = struct.pack('<H', 2)
+                        lp = lambda b: struct.pack('<I', len(b)) + b
                         candidates = [
-                            ("id2 hashlist noident", struct.pack('<H', 2) + count + hs),
-                            ("id2 empty",            struct.pack('<H', 2)),
-                            ("id2 count0 noident",   struct.pack('<H', 2) + struct.pack('<I', 0)),
-                            ("id2 ident0 hashlist",  struct.pack('<H', 2) + ident0 + count + hs),
-                            ("id3 hashlist noident", struct.pack('<H', 3) + count + hs),
+                            ("LPhdr count LPrec",  I + lp(hdr) + struct.pack('<I', 1) + lp(rf)),
+                            ("inlinehdr count LPrec", I + hdr + struct.pack('<I', 1) + lp(rf)),
+                            ("LPhdr count inlinerec", I + lp(hdr) + struct.pack('<I', 1) + rf),
+                            ("nohdr count LPrec",  I + struct.pack('<I', 1) + lp(rf)),
+                            ("LP wholebody", I + lp(hdr + struct.pack('<I', 1) + lp(rf))),
                         ]
                         label, response = candidates[_GW_PROBE_INDEX % len(candidates)]
                         _GW_PROBE_INDEX += 1
