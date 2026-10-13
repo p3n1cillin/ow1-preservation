@@ -1159,3 +1159,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   client, and keeps serving until the game closes.
 - Live: `play Mercy` -> login as Mercy#1002, 20500 for account 1002 accepted,
   main menu + tutorial prompt captured. 18 probe tests pass.
+
+## 2026-10-13 — interactive main menu; menu requests 22206/22207
+
+- Added scripts/Click-ClientWindow.ps1: posts a left click to the owned client's
+  window at window coordinates (pairs with Capture-ClientWindow.ps1).
+- Launcher sessions as Mercy#1002: 3 of 4 reached the main menu. One run stayed
+  on CONNECTING… and then showed the Battle.net timeout although its server log
+  matches a successful run line for line, so the variance is client-side and
+  still unexplained. In that run, LOGIN retried without sending any new RPC and
+  timed out again; EXIT TO DESKTOP closed the client cleanly.
+- In a successful run, NO THANKS dismissed the tutorial prompt; the interactive
+  menu showed the original tip "Play the tutorial at any time from the Training
+  menu". CAREER PROFILE opens its page (background, ESCAPE/BACK) but with no
+  content.
+- New client requests on protocol 0x75d32ae2 (entry 41): 22207 (i8 + i32, 7 B)
+  twice around the menu interaction and 22206 (two {seq,src} identities + i32,
+  38 B) when Career Profile opened, presumably the profile request. No replies
+  are sent yet; this is the next protocol frontier for the menu.
