@@ -92,11 +92,11 @@ restoration or rebuilding its executable.
   code writes fail Win32 87; ACG is not established (policy flags zero). Don't
   repeat failed hardware-debugger experiments as working diagnosis.
 
-Next: ~60 s after negotiation the client, with lobby #1 still up, asks for a
-new Balancer referral and opens another lobby. Find what the upper lobby layer
-awaits after the negotiated event (0x00562600 event 0; listener registered via
-0x00561240 at ctx+0x70; context created from 0x00563410/0x00563c3b) and which
-protocol entries/schemas it then uses. Gateway codec: send 0x00560d90 ->
+Use `--lobby-peer-group 13 --gateway-catalogue protocol/gateway-104319.json`:
+the client then offers all 86 lobby protocols, negotiates and sends hello
+21800 + 21809 on protocol 0x3c7e3468 (entry 25). Next: identify the flag-2
+reply it expects (receive dispatchers 0x007a8120-0x007ab630), using the
+schema dumps; see docs/BGS_PROTOCOL.md "Lobby service protocols". Gateway codec: send 0x00560d90 ->
 0x00568690 -> 0x005652b0; receive 0x00561ff0 -> 0x00567de0 -> 0x005670e0;
 per-state timers 0x00560b50/0x005609c0. Do not invent application replies.
 The 36-byte credential suffix is currently server-local (1,1),(cid,1),0;
