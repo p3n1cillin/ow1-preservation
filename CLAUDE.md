@@ -106,15 +106,31 @@ the client then offers all 86 lobby protocols, negotiates and sends hello
 initial identity reply 20500 (protocol 0xf5ff548a, sorted entry 83). Native
 20500 handler 0x774710 calls 0x6261e0 to install identities/strings and raise
 event 13; direct window capture in `lobby-identity3` showed **ENTERING GAME…**.
-The healthy connection sent no further application requests before bounded
-shutdown. Next: trace the initial account/configuration/menu gate; do not
+That identity-only connection sent no further application requests before
+bounded shutdown. New opt-in `--lobby-initial-data keys-hotfix-player` sends
+empty 20504 key lists, empty 20505 hotfix lists and our local 20502 player
+record. All three original handlers are traced. The key context's +0x40 changes
+0 -> 1; the player experiment then sends 60002 (entry 29/schema 0x49963fa6)
+and repeating 42600 (entry 80/schema 0xeb45ad29). Window captures are black,
+with a healthy connection; main menu remains unverified. Read-only snapshot:
+`python tools/retail_login_state.py --dump <owned-dump>`. It reports booleans
+only. The slot-22 +0x88 player marker is transient/meaning not fully established;
+it is false in the finished player run. Never label it persistent receipt.
+Related 59900-family handlers print account-migration data; 42400-family
+handlers process tournament data. Exact reply pairing/menu dependency remains
+unresolved. Next: trace initial account/configuration/loading/menu gates; do not
 blindly send all registered messages. 20801's traced handler only prints account
 information. Field meanings beyond observed identities remain experimental.
-Public numeric descriptors (20500/21800/21809) contain no payloads. The bounded
+Public numeric descriptors (20500/20502/20504/20505/21800/21809) contain no payloads. The bounded
 codec exactly roundtrips all 216 private hello-body bytes. Fourteen probe
-fixtures and all 14 CTest targets pass. Gateway codec: send 0x00560d90 ->
+fixtures grew to fifteen, and all 14 CTest targets pass. Gateway codec: send 0x00560d90 ->
 0x00568690 -> 0x005652b0; receive 0x00561ff0 -> 0x00567de0 -> 0x005670e0;
 per-state timers 0x00560b50/0x005609c0. Do not invent application replies.
+A final repeated player run (`initial-focused1`) confirms the same service
+requests. `@oai/sky` focus failed with `GetCursorPos ... Access is denied
+(0x80070005)`; refreshed selection found no window after bounded exit. The
+user already reported the desktop unlocked; do not infer a locked desktop or
+claim successful foreground verification. Screenshot-only captures are black.
 The 36-byte credential suffix is currently server-local group-13 ids
 `((13<<40)|1,1),((13<<40)|cid,1),0`; its other field semantics still need
 verification. Do not invent gameplay

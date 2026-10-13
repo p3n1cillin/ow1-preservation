@@ -152,3 +152,19 @@ with the already-extracted client, outside Git.
 The negotiation-only comparison reached hello/heartbeats without the identity
 reply, but ended before a window capture. Its repeat failed during TLS startup.
 No visual control or additional menu progress is claimed from those runs.
+
+## 2026-10-13: initial key/hotfix/player notifications
+
+All **14 CTest targets pass**, including **15 probe/codec/state fixtures**.
+Added independent positional bytes for empty 20504/20505 and local 20502,
+one-shot/order checks, unsupported/missing notification schema rejection, and
+the read-only native-state inspector's exact-profile/pointer/flag guards and
+secret omission. No original image or account payload appears in a fixture.
+
+Three separate 180-second native runs compare keys, keys+hotfix and
+keys+hotfix+player. Original key-context +0x40 is unset in identity-only and set
+in each new run. The player run starts 60002 and repeating 42600 requests.
+Heartbeats remain healthy; window captures are black, so no main menu/world is
+claimed. The slot-22 player marker is false in the completed dump and is reported
+as a snapshot only. Original EXE hash/signature and both saved ACLs remain
+unchanged after these runs; owned processes and listener were stopped.

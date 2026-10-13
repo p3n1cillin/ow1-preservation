@@ -25,6 +25,49 @@ class Fragmented:
 
 
 class ProbeTests(unittest.TestCase):
+    def test_read_only_login_state_guards_and_secret_omission(self):
+        import retail_login_state as state
+        class SparseDump:
+            image_base=0x10000000
+            def __init__(self):
+                self.memory={}
+                self.put(self.image_base,b'MZ')
+                self.put(self.image_base+0x3c,struct.pack('<I',0x80))
+                header=bytearray(84);header[:4]=b'PE\0\0'
+                struct.pack_into('<H',header,4,0x200)
+                struct.pack_into('<I',header,8,state.TIMESTAMP)
+                struct.pack_into('<H',header,24,0x20b)
+                struct.pack_into('<I',header,80,state.IMAGE_SIZE)
+                self.put(self.image_base+0x80,header)
+                root,table,login,keys=0x20000000,0x20001000,0x20002000,0x20004000
+                self.put(self.image_base+state.ROOT_RVA,struct.pack('<Q',root))
+                self.put(self.image_base+state.COOKIE_RVA,bytes(8))
+                self.put(root,struct.pack('<Q',self.image_base+state.ROOT_VFT))
+                self.put(root+0x140,struct.pack('<Q',state.TABLE_MASK^table))
+                self.put(table+9*8,struct.pack('<QQ',login,keys))
+                self.put(table+22*8,struct.pack('<Q',0x20006000))
+                self.put(login,struct.pack('<Q',self.image_base+state.LOGIN_VFT))
+                self.put(keys,struct.pack('<Q',self.image_base+state.KEYS_VFT))
+                self.put(login+0xe0,b'SECRET_ACCOUNT!!')
+                self.put(keys+0x40,b'\1')
+                self.put(0x20006000,struct.pack('<Q',self.image_base+state.PLAYER_VFT))
+                self.put(0x20006088,b'\0')
+            def put(self,address,value):
+                for index,byte in enumerate(value):self.memory[address+index]=byte
+            def read(self,address,size):
+                if any(address+i not in self.memory for i in range(size)):return b''
+                return bytes(self.memory[address+i] for i in range(size))
+        dump=SparseDump()
+        result=state.inspect(dump)
+        self.assertEqual(result,dict(build=104319,identity_installed=True,key_notification_received=True,player_update_marker=False))
+        self.assertNotIn('SECRET',json.dumps(result))
+        dump.put(0x20004040,b'\0')
+        self.assertFalse(state.inspect(dump)['key_notification_received'])
+        for address,value in ((0x20004040,b'\2'),(0x20006088,b'\2'),(0x20002000,bytes(8)),
+                              (dump.image_base+0x80+8,bytes(4)),(dump.image_base+state.ROOT_RVA,bytes(8))):
+            broken=SparseDump();broken.put(address,value)
+            with self.assertRaises(ValueError):state.inspect(broken)
+
     def test_compact_known_bytes_and_bounds(self):
         from gateway_codec import decode,encode
         fields=[dict(kind=0,offset=i,width=1,count=0) for i in range(3)]
@@ -69,6 +112,26 @@ class ProbeTests(unittest.TestCase):
             wrong=bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello)
             with self.assertRaises(ValueError):InitialLobby(hashes,messages).receive(wrong)
         with self.assertRaises(ValueError):InitialLobby(hashes,messages).receive(packet[:-1])
+        for option,expected in (('keys',((20504,bytes((83,4))+bytes(8)),)),
+                                ('keys-hotfix',((20504,bytes((83,4))+bytes(8)),(20505,bytes((83,5))+bytes(16))))):
+            service=InitialLobby(hashes,messages,initial_data=option)
+            self.assertEqual(service.initial_notifications(),())
+            hello[0x1bc]=104319
+            service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+            self.assertEqual(service.initial_notifications(),expected)
+            self.assertEqual(service.initial_notifications(),())
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='all')
+        with self.assertRaises(ValueError):InitialLobby(hashes,{(HELLO_SCHEMA,21800):messages[HELLO_SCHEMA,21800]},initial_data='keys')
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix-player')
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        notifications=service.initial_notifications()
+        self.assertEqual([mid for mid,_ in notifications],[20504,20505,20502])
+        mid,packet=notifications[-1]
+        # Independent positional wire fixture: two ids, three u64 counters,
+        # two u32 counters and the own tag, all on message delta 2.
+        expected=bytes((83,2))+struct.pack('<QQQQQQQII',1001,GAME_ACCOUNT_HIGH,1001,1<<56,0,0,0,0,0)+b'Preservation#1001\0'
+        self.assertEqual(packet,expected)
+        self.assertEqual(decode(messages[WELCOME_SCHEMA,mid],packet[2:])[0x78][0],identity)
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message

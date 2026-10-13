@@ -25,6 +25,13 @@ and the menu transition remain to be understood and implemented. Other peer
 identifier bits, identity-field meanings and the trailing credential uint32
 remain experimental; do not infer gameplay from this screen change.
 
+New initial-data experiments deliver empty key/hotfix lists (20504/20505) and
+our local player record (20502). The key context initializes through its original
+handler, and the player run produces new requests 60002 and 42600. Game-window
+captures are black; no main menu is verified. The snapshot tool reports guarded
+native booleans without exporting keys, identifiers or client bytes. Exact
+follow-up replies and the remaining loading/menu dependency are unresolved.
+
 Work continues in the project directory. New private analysis/run files use
 ignored `.local/`; existing native build/client/key caches are reused as inputs.
 

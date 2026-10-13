@@ -410,3 +410,46 @@ Two preceding attempts did not exercise this reply: one TLS context ended
 before CA retention; a 30-second TLS delay exceeded the client's timeout.
 The successful run used the established 15-second delay. Native trust checks
 and the original client file remained unchanged.
+
+## Initial key, hotfix and player notifications (2026-10-13)
+
+Three further messages share server protocol 0xf5ff548a (entry 83, no extra
+routing header). They are optional experiments, selected with
+`--lobby-initial-data keys`, `keys-hotfix` or `keys-hotfix-player`; the normal
+identity-only path remains available. The login schema contains their numeric
+field descriptors, with no original payloads or executable bytes.
+
+| message | compact body | native receive behavior |
+|---|---|---|
+| 20504 | u64[] and u8[] | 0x77a560 imports 16-byte key entries via 0x17253f0, then sets the key context's +0x40 flag (context-table slot 10) |
+| 20505 | four u64[] | 0x77a000 calls 0x57bba0, which feeds content override lists and balances initialization counters through 0x1719a20/0x1719a60 |
+| 20502 | nested record: two 128-bit ids, three u64, two u32, NUL string | 0x7752a0 marks context-table slot 22 at +0x88, updates player-record consumers via 0x619c90/0x619770 and additional login fields |
+
+Our server supplies **no additional keys or hotfix overrides**, so 20504 and
+20505 carry empty lists (10 and 18 total packet bytes). The optional 20502
+uses our same two local identity experiments, own battle tag, and zero counters
+(84 packet bytes for the default tag). Remaining field semantics are unverified.
+These packets exercise original receive handlers; no client readiness or
+verification result is written by the server/tool.
+
+Native comparisons: `initial-keys1` and `initial-hotfix1` keep heartbeating,
+with a black game-window capture and no visible menu. The saved key-context flag
+changes **0 -> 1** compared with the identity-only run. `initial-player1`
+additionally triggers **60002** (entry 29, schema 0x49963fa6) and repeating
+**42600** (entry 80, schema 0xeb45ad29); both observed bodies are two bytes,
+entry plus delta. Related server handlers cover migration and tournament data,
+but precise request/reply pairings and whether they gate the menu are not yet
+established. They are observed without invented replies.
+
+`tools/retail_login_state.py --dump <owned-dump>` reads only guarded native
+contexts and emits booleans. It checks the demonstrated runtime PE profile,
+root/context vtables and pointer bounds. The native runtime's header reports
+Machine 0x0200, while the unchanged file reports 0x8664; timestamp 1661534873
+and image size 58298368 match. `key_notification_received` is persistent in
+these runs. `player_update_marker` is a snapshot of +0x88, not proof that a
+player message was never received: it is false in the completed player run
+despite the newly observed requests. Neither flag establishes a menu or world.
+A repeated player run showed the same requests. Attempting to focus its window
+failed with Windows `GetCursorPos ... Access is denied (0x80070005)`; a refreshed
+selection after bounded shutdown found no window. Foreground rendering could
+not be verified, so black captures alone do not prove the menu's exact state.

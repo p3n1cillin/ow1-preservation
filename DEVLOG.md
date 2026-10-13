@@ -1028,3 +1028,32 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   its game window closed before capture. A repeat fails at TLS startup. Those
   runs do not establish a visual before/after control; the positive screen is
   directly observed. Owned processes/listener end and both ACLs are restored.
+
+## 2026-10-13 — key/hotfix/player notifications; new service requests
+
+- Continued in the requested project directory; private RE, captures and run
+  logs stay under ignored `.local/`. Previous public commit 0ffa8a6 passed CI.
+- Traced 20504 -> 0x77a560: key entries import through 0x17253f0, then context
+  slot 10/+0x40 initializes. Traced 20505 -> 0x77a000 -> 0x57bba0: content-list
+  override notifications balance native initialization counters. Added their
+  numeric schemas and opt-in empty lists for our server with no added keys or
+  hotfix overrides; no native verdict/readiness writes.
+- Traced 20502 -> 0x7752a0: player-record consumers at 0x619c90/0x619770 and
+  slot 22/+0x88 update marker. Added a local record with our same experimental
+  identities, own tag and zero unknown counters. Other field meanings remain
+  unverified.
+- Native runs initial-keys1 / initial-hotfix1 / initial-player1 each survive
+  their 180-second diagnostic with continuing gateway heartbeats. Key-context
+  flag changes 0 -> 1. Player run additionally sends 60002 and repeating 42600;
+  two-byte request bodies map to entries 29/80 and the published catalogues.
+  Related server handlers show migration and tournament data, without a proven
+  request/reply pairing or menu dependency. No speculative response is sent.
+- Window captures are black, not a visible main menu. Added a guarded,
+  read-only boolean dump inspector. Player marker is false in the completed
+  player dump; it is not a persistent receipt flag. All 14 CTest targets and
+  15 probe/codec/state fixtures pass. Original EXE hash/signature and both saved
+  ACLs are unchanged after the three runs. Initial loading/menu gate remains.
+- Repeated the player path as initial-focused1; same follow-up requests. Windows
+  rejected `@oai/sky` activation with GetCursorPos/Access denied 0x80070005.
+  Refresh/retry found no window after bounded exit. No successful foreground
+  check or functional menu is claimed from black screenshot captures.

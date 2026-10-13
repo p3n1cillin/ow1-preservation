@@ -662,6 +662,9 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                 elif lobby_service is not None and (response := lobby_service.receive(payload)) is not None:
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     emit(f'initial lobby identity reply 20500 sent ({len(response)} B; contents omitted)')
+                    for mid,update in lobby_service.initial_notifications():
+                        raw.sendall(outbound.apply(gateway_frame(update)))
+                        emit(f'initial-data notification {mid} sent ({len(update)} B; contents omitted)')
             return
         data = raw.recv(4096)
         emit(f"after server proof: client sent {len(data)} B" + (" (closed)" if not data else " (contents omitted)"))
@@ -700,6 +703,8 @@ def main():
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
     ap.add_argument("--lobby-login-schema", help="opt-in experimental 20500 reply using the numeric lobby login schemas")
+    ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player'),
+                    help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502); requires login schemas")
     ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
                     help="reply to the client's bootstrap offer: 'ack' sends empty message id 3, "
                          "which the 104319 client accepts (negotiated state, id-4 heartbeats); "
@@ -710,6 +715,8 @@ def main():
     credential = None
     gateway_hashes = None
     login_messages = None
+    if args.lobby_initial_data and not args.lobby_login_schema:
+        ap.error('initial data requires the initial lobby login reply and numeric schemas')
     if args.lobby_peer_group == 13:
         if not args.gateway_catalogue or not args.lobby_private_key or not args.lobby_integrity_key:
             ap.error('peer group 13 requires own credential inputs and a native interface catalogue')
@@ -722,6 +729,10 @@ def main():
         login_messages = load_messages(args.lobby_login_schema)
         if (0x3c7e3468,21800) not in login_messages or (0xf5ff548a,20500) not in login_messages:
             ap.error('initial lobby reply requires hello and identity reply schemas')
+        if args.lobby_initial_data:
+            initial_ids=(20504,) if args.lobby_initial_data=='keys' else (20504,20505,20502) if args.lobby_initial_data=='keys-hotfix-player' else (20504,20505)
+            if any((0xf5ff548a,mid) not in login_messages for mid in initial_ids):
+                ap.error('initial data requires each selected notification schema')
     if args.lobby_private_key or args.lobby_integrity_key:
         if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or args.referral_host != '127.0.0.1:1119':
             ap.error('own lobby credential requires --serve, both key inputs and the exact loopback referral')
@@ -767,7 +778,7 @@ def main():
                     print(line, flush=True); log.write(line + "\n"); log.flush()
                     if first == b"H" and args.serve:
                         from lobby_service import InitialLobby
-                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag) if login_messages is not None else None
+                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

@@ -633,3 +633,18 @@ accepted the own-key credential; that is observed, not yet explained.
 New run logs default to project `.local/runs`; `-LogRoot` overrides the location.
 Continue development and private analysis in this project directory, reusing
 the existing extracted original client and local native build/key caches.
+
+Add `--lobby-initial-data keys-hotfix-player` to exercise the new initial-data
+checkpoint: empty key/hotfix lists and our local player record. The key context
+initializes through its original handler and the client sends requests 60002
+and 42600. This is additional native protocol evidence; current game-window
+captures are black and the main menu is still unverified. Use `keys` or
+`keys-hotfix` to compare fewer notifications, or omit the option for identity
+only. See BGS_PROTOCOL.md for packet sizes, traced handlers and evidence limits.
+
+```powershell
+python tools/retail_login_state.py --dump "$dump"
+```
+
+This read-only diagnostic emits booleans and guards the native context profile.
+Its player marker is a current snapshot, not a persistent receipt/completion flag.
