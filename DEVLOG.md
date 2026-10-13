@@ -1385,3 +1385,25 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   codec fixtures cover layout, payloads, all-byte authentication, wrong key/nonce,
   truncation/bounds and authenticated unsupported headers. Private captures,
   dumps and key reconstruction stay outside Git. Next is reliable-message framing.
+
+## 2026-10-13 — native receipts and bitstream callback identified
+
+- Traced forward-only receipt semantics and added an independent bounded
+  ReceiptWindow. Bit0 acknowledges next-sequence-1; sequence wrap is rejected
+  in diagnostics to prevent nonce reuse. Added gap/duplicate/window-bound tests.
+- Native udpack8 sends next-sequence/receipt bitmap, connect flags 3 and later
+  flags 2. All 224 captured client packets/224 replies authenticate and match
+  receipt semantics. Payload sizes settle at 13/33 bytes in the captured interval,
+  compared with 13..123 previously. Multiple header fields changed together;
+  this is not a single-field causal control or complete application session.
+- Computer Use sees ENTERING GAME and later Training. Observer 180-second bound
+  ends before client 150-second bound; bridge 225 out/224 in. Final world WAITING,
+  no request/map/hero. Client hash/signature and saved ACLs match; cleanup complete.
+- Active transport has seven modules; event 4 reaches0x7ce110. It reads LSB-first
+  compact integers and module prefixes before a seven-bit message count. Added
+  independent bit primitives with written bytes, selector/truncation/bit-bound
+  tests. All 138/149 nonempty native bodies' first compact fields regenerate
+  exactly; reliable blocks/message contents are not yet fully decoded.
+- Rebuilt native targets; all 18 CTest targets pass (8 envelope/window fixtures,
+  4 bitstream fixtures). Previous 8540434 CI passed. Public changes contain own
+  code and semantic notes only; native code, captures and generated keys private.

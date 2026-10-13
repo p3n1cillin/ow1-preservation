@@ -34,6 +34,30 @@ class Header:
                            self.next_sequence, self.receipt_bitmap, self.flags, 0xad)
 
 
+class ReceiptWindow:
+    """Observed forward-only receive window for bounded diagnostic peers.
+
+    Bit zero acknowledges next_sequence-1; older packets are not inserted.
+    Sequence wrap is rejected so a diagnostic cannot silently reuse a nonce.
+    Call record only after authenticating a packet from the selected peer.
+    """
+
+    def __init__(self):
+        self.next_sequence = 0
+        self.bitmap = 0
+
+    def record(self, sequence):
+        if type(sequence) is not int or not 0 <= sequence < 0xffffffff:
+            raise ValueError('instance receive sequence bound or wrap')
+        gap = sequence - self.next_sequence
+        if gap < 0 or gap >= 0x80000000:
+            return False
+        shift = gap + 1
+        self.bitmap = 1 if shift >= 64 else ((self.bitmap << shift) | 1) & 0xffffffffffffffff
+        self.next_sequence = sequence + 1
+        return True
+
+
 def _inputs(key, prefix):
     if type(key) is not bytes or len(key) != 32:
         raise ValueError('instance AES-256 key requires 32 bytes')

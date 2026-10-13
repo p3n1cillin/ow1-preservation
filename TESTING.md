@@ -242,3 +242,27 @@ The responder caps at 100 replies/180 seconds and supplies no application reply.
 The final dump remains WAITING/no pending world request. No map/hero or complete
 application session is claimed. After bounded shutdown, exact original EXE hash,
 Valid signature and both saved ACLs match; owned processes/listeners are gone.
+
+## 2026-10-13: receipt windows and compact body primitives
+
+Native targets rebuilt and **18/18 CTest targets pass**. Eight envelope/window
+fixtures now include explicitly expected receipt bitmap values for gaps,
+duplicates, signed-distance bounds, 64-bit window resets and wrap rejection.
+Four bitstream fixtures use written expected bytes at 18/24/32-bit selector
+boundaries, exhaust every shorter bit limit, cross unaligned/64-bit boundaries,
+check padding/nonminimal input and reject type/size/value errors without
+partially writing a compact value. No native input is used by CI fixtures.
+
+Private native udpack8 verification: **224 client packets / 224 replies** open
+and reseal exactly, and every reply matches next-sequence/receipt bitmap.
+Counts by plaintext size: 0=75,13=4,33=145. This compares combined receipt and
+normal-flag corrections; no application body reply is sent. Observer 180 seconds
+started before client 150 seconds, and ended earlier. Bridge 225 out/224 in;
+the extra outbound packet is not in the observer capture. UI ENTERING GAME,
+later Training; final world WAITING/no request. Map/hero remain unverified.
+
+Public compact-field primitives separately reproduce all 138/149 nonempty
+type-1 bodies' first field from udpflags7/udpack8. This is a prefix comparison,
+not complete message decoding. Native disassembly/captures/keys remain ignored.
+Final cleanup checks original hash/Valid signature, exact saved ACLs and zero
+owned native processes or diagnostic listeners. 8540434 Windows CI passed.

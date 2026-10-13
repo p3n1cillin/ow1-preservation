@@ -33,9 +33,13 @@ payloads, game assignment, complete application negotiation and map load remain 
 the 24000/20600 pairing is an experiment, not a demonstrated complete protocol.
 The default launcher continues to use the verified menu path.
 
-Latest source checkpoint: **17/17 CTest targets pass**, including six synthetic
-instance-envelope fixtures. The codec covers authentication and packet bounds;
-native evidence comes from the separate bounded run. No map or hero is claimed.
+Latest source checkpoint: **18/18 CTest targets pass**, including eight
+envelope/receipt-window and four compact-bitstream fixtures. The corrected
+native receipt comparison authenticates 224 client packets/224 replies and
+limits captured nonempty bodies to 13/33 bytes. It still shows ENTERING GAME,
+later Training, with no map. The observer ended before client shutdown; no
+complete application session or long-term stability is claimed. The first
+compact field is verified; conditional reliable blocks and messages remain unresolved.
 
 Numeric schemas cover all 34 queue-family messages and the 20600 referral.
 `retail_login_state.py --queue-state` reports bounded queue-record counts and

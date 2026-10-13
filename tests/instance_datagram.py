@@ -6,7 +6,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from instance_datagram import Header, MAX_PACKET, OVERHEAD, open_packet, seal
+from instance_datagram import Header, MAX_PACKET, OVERHEAD, ReceiptWindow, open_packet, seal
 
 
 class InstanceDatagramTests(unittest.TestCase):
@@ -59,6 +59,30 @@ class InstanceDatagramTests(unittest.TestCase):
             c=Cipher(algorithms.AES(self.key),modes.GCM(bytes(12))).encryptor()
             c.authenticate_additional_data(aad);c.finalize()
             with self.assertRaisesRegex(ValueError,'unsupported'):open_packet(self.key,c.tag[:12]+aad)
+
+    def test_receipts_gaps_and_duplicates(self):
+        window = ReceiptWindow()
+        # Receipts 0, 2, 3: bitmap bits mark sequence 3, 2, gap at 1, then 0.
+        for sequence, expected in ((0, (1, 1)), (2, (3, 5)), (3, (4, 11))):
+            self.assertTrue(window.record(sequence))
+            self.assertEqual((window.next_sequence, window.bitmap), expected)
+        for sequence in (0, 1, 2, 3, 0x80000004):
+            self.assertFalse(window.record(sequence))
+            self.assertEqual((window.next_sequence, window.bitmap), (4, 11))
+        for sequence in (-1, True, 0xffffffff, 2**32):
+            with self.assertRaises(ValueError): window.record(sequence)
+
+    def test_receipt_window_boundary(self):
+        window = ReceiptWindow()
+        window.record(0)
+        window.record(63)
+        self.assertEqual((window.next_sequence, window.bitmap), (64, (1 << 63) | 1))
+        window.record(127)
+        self.assertEqual((window.next_sequence, window.bitmap), (128, 1))
+        # Receipt bitmap bit index = next_sequence - 1 - acknowledged sequence.
+        packet = seal(self.key, Header(0, 1, window.next_sequence, window.bitmap, 2))
+        header, payload = open_packet(self.key, packet)
+        self.assertEqual((header.next_sequence, header.receipt_bitmap, payload), (128, 1, b''))
 
 
 if __name__=='__main__':unittest.main()

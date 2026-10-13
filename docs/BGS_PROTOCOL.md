@@ -627,6 +627,56 @@ version/magic. It does not implement peer state, replay handling, reliability
 or game messages. Fixtures use author-written bytes only; all captures, input
 keys, dumps and the private key-storage reconstruction remain outside Git.
 
+### Receipt tracking and application-body frontier (2026-10-13, udpack8)
+
+The original receive updater 0x003f9fc0 accepts forward sequences, shifts its
+64-bit bitmap by `received_sequence - next_sequence + 1`, sets bit zero and
+advances next-sequence to received-sequence +1. A gap of at least 64 clears
+the old bitmap. Older packets are rejected rather than inserted into missing
+bits. At the sender, a queued sequence is acknowledged by bitmap bit
+`next_sequence - 1 - queued_sequence`. These receipts cover datagrams, not
+completion of the reliable messages carried inside them.
+
+`tools/instance_datagram.py` now includes an independent `ReceiptWindow` for
+authenticated bounded peers. It rejects sequence wrap; start a new session
+with fresh keys instead of reusing an AES-GCM nonce. Our earlier private replies
+echoed the received sequence and sent bitmap 0, which did not match this updater.
+
+Native `udpack8` uses next-sequence/bitmap receipts, flags 3 on the connect reply
+and flags 2 thereafter, with empty type-0 bodies. All **224 client packets and
+224 replies** authenticate and regenerate exactly; all replies match the
+receipt-window calculation. Client plaintext sizes are 0 (75 packets), 13 (4)
+and 33 (145); no 43..123-byte bodies occur in the captured interval. This combined
+acknowledgement/flag correction changes the traffic compared with udpflags7;
+the run does not isolate which individual field caused the change.
+
+Fresh Computer Use verifies menu -> Training -> Practice Range -> ENTERING GAME
+and later a return to Training, with no map. The observer's 180-second lifetime
+started before the client's 150-second run and ended before client shutdown;
+this is not a stability test. The bridge counts 225 outbound/224 inbound, one
+more outbound than the observer captured. Final world WAITING/no request,
+zero queues/no referral job. Original hash/signature and both ACLs match;
+owned processes and listeners are gone. No application payload reply was sent.
+
+Read-only inspection identifies the active instance transport (vtable 0x2616458)
+with seven modules. Authenticated event 4 reaches its original receive callback
+0x007ce110 via vtable+0xb0. The callback reads an LSB-first bitstream, a compact
+u32, six module prefixes, a seven-bit message count, encoded message identifiers
+and per-module handlers. The reliable-channel module has its own conditional
+block; complete framing and application-message semantics remain unresolved.
+The separate 0x00e3af00 session callback expects a different fixed 32-byte control
+body and is not the active callback identified in the mid-send dump.
+
+`tools/instance_bits.py` implements only the independently written bounded bit
+reader/writer and compact u32 primitive traced at 0x00db0e60: selector 1 +18 value
+bits, selector 0/1 +24 bits, or selector 0/0 +32 bits, all least-significant bit
+first. Written fixtures cover exact bytes, selector boundaries, truncation,
+unaligned/64-bit crossings, padding and bounds. Private validation reproduces
+the first compact field exactly in all 138 udpflags7 and 149 udpack8 nonempty
+type-1 bodies. All use 19 bits; later bodies include both absent and present
+conditional module blocks. This is prefix validation, not complete packet or
+game-message decoding. Captured plaintext remains private.
+
 `protocol/queue-104319.json` holds all 34 queue-message layouts as numeric
 metadata only, compactly serialized within the existing size/field budget.
 The opt-in empty-notification control requires the selected schema and decodes
