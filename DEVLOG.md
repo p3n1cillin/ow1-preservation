@@ -1283,3 +1283,35 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   (20300 family, handler reaching RequestWorld 0x00b4b1c0) -> map load.
   Not yet identified: which queue message carries the pending game and its
   fields; the game-server gateway handshake and peer group.
+
+## 2026-10-13 — plain instance-referral job after Practice Range
+
+- Continued from the current main-menu/Training commits and preserved the
+  unfinished queue-reply experiment. Exported all 34 numeric queue layouts
+  (3086 fields, compact JSON within existing 256 KiB/4096-field bounds); schema
+  message-count limit is now 64. No payloads or native code are exported.
+- Queue controls now require explicit layouts/protocol registration, decode the
+  whole 24000 request, reject malformed bodies and restrict experiments to the
+  observed Training shapes. Default local-account play behavior is unchanged.
+- Traced 20600's dispatcher -> 0x775cd0 -> 0xe3e940 -> 0xe1e6f0. Its outer bool
+  false selects a plain record; host/port go through the original formatter and
+  parser. Added an explicit loopback-only instance-referral profile with locally
+  generated session inputs. Unverified field meanings stay documented.
+- Live private prototype (referral-plain3) and public code (instance-public1):
+  Computer Use screenshots/input show the main menu and Training, then
+  ENTERING PRACTICE RANGE; request 24000 is answered with 20600 (242 B). A
+  guarded read-only check immediately observes a slot-120 referral job. Later
+  snapshots show no job: the native consumer can copy and clear it. This is
+  handler/job acceptance, not a verified complete matchmaking sequence.
+- No additional TCP connection observed; final public dump has zero queue
+  records, world WAITING and no pending world request. Game transport, map load
+  and controllable hero remain unresolved. A default-menu 3D backdrop is also
+  still absent. Added queue/job count and boolean diagnostics without exporting
+  identities, session inputs or proprietary bytes.
+- Two intervening launches failed before application traffic in guarded TLS
+  setup; neither tested the referral reply. The 1090-byte mapped CA / 15-second
+  TLS delay succeeded in the subsequent bounded runs. The initial seed0 scratch
+  had mismatched transform signaling and is not counted as a rejection control.
+- All 14 CTest targets pass (24 probe fixtures), including every exported queue
+  layout's empty-body roundtrip, malformed Training requests, experiment scope,
+  fixed endpoint/session-input generation and read-only diagnostic guards.

@@ -5,24 +5,40 @@ schema is verified; downstream meanings of several fields remain unknown.
 Unknown flags/counters stay zero. This is a diagnostic, not a game server.
 """
 from gateway_codec import decode, encode
+from instance_referral import INSTANCE_SCHEMA, local_referral
 
 HELLO_SCHEMA = 0x3c7e3468
 WELCOME_SCHEMA = 0xf5ff548a
 PROFILE_SCHEMA = 0x1a9879a4
 PARTY_SCHEMA = 0x2411de56  # 20700 party state (handler 0x008529a0 -> component slot 20)
 QUEUE_SCHEMA = 0xa6e53896   # client game-queue requests (24000-24028)
+QUEUE_REPLY_SCHEMA = 0x21286b49  # server game-queue messages (23300-23333)
 SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
 class InitialLobby:
-    def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001):
+    def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
+                 queue_reply=None, instance_referral=False):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
             raise ValueError('local battle tag length/NUL')
         if type(account_id) is not int or not 1<=account_id<2**32:raise ValueError('local account id bounds')
         self.account_id=account_id
+        if queue_reply is not None:
+            if type(queue_reply) is not int or not 23300<=queue_reply<23334:
+                raise ValueError('queue reply experiment id bounds')
+            if (QUEUE_REPLY_SCHEMA not in hashes or QUEUE_SCHEMA not in hashes
+                    or (QUEUE_REPLY_SCHEMA,queue_reply) not in messages or (QUEUE_SCHEMA,24000) not in messages):
+                raise ValueError('queue reply experiment needs registered request/reply schemas')
+        self.queue_reply=queue_reply
+        if type(instance_referral) is not bool:raise ValueError('instance experiment must be boolean')
+        if instance_referral and (queue_reply is not None or INSTANCE_SCHEMA not in hashes
+                or QUEUE_SCHEMA not in hashes or (INSTANCE_SCHEMA,20600) not in messages
+                or (QUEUE_SCHEMA,24000) not in messages):
+            raise ValueError('instance experiment requires its registered schemas and no queue-reply experiment')
+        self.instance_referral=instance_referral
         self.hello_entry=hashes.index(HELLO_SCHEMA)+1
         self.welcome_entry=hashes.index(WELCOME_SCHEMA)+1
         if len(hashes)>255: raise ValueError('unsupported extended protocol entries')
@@ -98,8 +114,28 @@ class InitialLobby:
         its +0x88 flag false carries an inline profile record that 0x00ba48a0
         files under the record's +0x100 id. We send that id with every list,
         counter and string empty: no stats or progress are invented.
+        Training experiments are explicit: either one empty queue-family
+        notification or a plain loopback instance referral. Neither supplies
+        a working game server or proves a correct matchmaking reply sequence.
         """
-        if not self.sent or SOCIAL_SCHEMA not in self.hashes:
+        if not self.sent:
+            return None
+        if ((self.queue_reply is not None or self.instance_referral) and QUEUE_SCHEMA in self.hashes
+                and packet[:2] == bytes((self.hashes.index(QUEUE_SCHEMA)+1, 0))):
+            # Diagnostic only: select one 23300-family default notification or
+            # the demonstrated plain 20600 referral profile. Decode the
+            # entire request before replying and restrict this experiment to
+            # the observed Training modes; no matchmaking result is invented.
+            request = decode(self.messages[QUEUE_SCHEMA,24000],packet[2:])
+            if request[0x78] not in (2,3) or request[0x80] or request[0xa8]!=4:
+                return None
+            if self.instance_referral:
+                body=encode(self.messages[INSTANCE_SCHEMA,20600],local_referral())
+                return 20600,bytes((self.hashes.index(INSTANCE_SCHEMA)+1,0))+body
+            mid = self.queue_reply
+            body = encode(self.messages[QUEUE_REPLY_SCHEMA, mid], {})
+            return mid, bytes((self.hashes.index(QUEUE_REPLY_SCHEMA)+1, mid-23300))+body
+        if SOCIAL_SCHEMA not in self.hashes:
             return None
         if packet[:2] != bytes((self.hashes.index(SOCIAL_SCHEMA)+1, 22206-22200)):
             return None

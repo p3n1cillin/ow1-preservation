@@ -18,6 +18,9 @@ ROOT_VFT = 0x2612358
 LOGIN_VFT = 0x26113c8
 KEYS_VFT = 0x2611510
 PLAYER_VFT = 0x2610ea0
+QUEUE_VFT = 0x2610c68
+QUEUE_SERVICE_VFT = 0x260cd68
+INSTANCE_VFT = 0x26775f0
 # World-state manager (ctor 0x00b4a5b0): state byte +0x18, pending request +0x20.
 WORLD_VFT = 0x2655d88
 WORLD_STATES = ('SHUTDOWN', 'SHUTTING DOWN', 'WAITING', 'ABANDONING SCENES', 'HOTFIXING',
@@ -78,18 +81,52 @@ def world_states(dump, limit=8):
     return out
 
 
+def queue_states(dump):
+    """Read queue-record counts and the native instance-referral job presence.
+
+    A job being present does not prove connection, authentication or map load.
+    The 23332 marker's lifetime/meaning beyond its traced setter is unverified.
+    No identifiers, endpoints, session inputs or native bytes are returned.
+    """
+    inspect(dump)  # exact image/root/initial-data identities must match first
+    image = dump.image_base
+    def read(address, size):
+        data = dump.read(address,size)
+        if len(data)!=size:raise ValueError('incomplete queue diagnostic memory')
+        return data
+    def u(address):return struct.unpack('<Q',read(address,8))[0]
+    root=u(image+ROOT_RVA)
+    table=((TABLE_MASK-u(image+COOKIE_RVA))&0xffffffffffffffff)^u(root+0x140)
+    queue,instance,service=u(table+38*8),u(table+120*8),u(root+0x220)
+    for pointer,vft in ((queue,QUEUE_VFT),(instance,INSTANCE_VFT),(service,QUEUE_SERVICE_VFT)):
+        if not pointer or pointer%8 or u(pointer)!=image+vft:
+            raise ValueError('original queue/instance service identity differs')
+    counts=[]
+    for offset in (0x10,0x38,0x60,0x88):
+        count=struct.unpack('<i',read(service+offset+0x10,4))[0]
+        if not 0<=count<=1024:raise ValueError('queue record count bound')
+        counts.append(count)
+    marker=read(queue+0x10f9,1)[0]
+    if marker not in (0,1):raise ValueError('invalid 23332 marker')
+    return dict(record_counts=counts,reply_23332_marker=bool(marker),
+                instance_referral_job_present=bool(u(instance+0x20)))
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dump',required=True)
     parser.add_argument('--out',help='optional exclusive-created JSON report')
     parser.add_argument('--world-state',action='store_true',
                         help='also scan for world-state manager state (slow on full dumps)')
+    parser.add_argument('--queue-state',action='store_true',
+                        help='also inspect bounded native queue and instance-referral state')
     args=parser.parse_args()
     spec=importlib.util.spec_from_file_location('owned_dump',Path(__file__).parent/'offline-launch/re/mdump.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     dump=module.Dump(args.dump)
     try:
         result=inspect(dump)
+        if args.queue_state:result['queue_state']=queue_states(dump)
         if args.world_state:result['world_state']=world_states(dump)
     finally:dump.f.close()
     text=json.dumps(result,indent=2)+'\n'

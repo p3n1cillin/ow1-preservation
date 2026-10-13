@@ -168,3 +168,23 @@ Heartbeats remain healthy; window captures are black, so no main menu/world is
 claimed. The slot-22 player marker is false in the completed dump and is reported
 as a snapshot only. Original EXE hash/signature and both saved ACLs remain
 unchanged after these runs; owned processes and listener were stopped.
+
+## 2026-10-13: queue layouts and plain instance-referral experiment
+
+All **14 CTest targets pass**, with **24 probe fixtures**. New checks cover all
+34 queue layouts, independent Training request bytes, malformed/trailing request
+bodies, required protocol/schema identities, mutually exclusive experiments,
+fixed mapped-loopback endpoint and locally generated session inputs. Native-state
+fixtures guard queue counts/markers and omit identifiers/session contents.
+
+Live `referral-plain3` and `instance-public1` reproduce main-menu input and
+Training -> Practice Range via Computer Use. The original client receives plain
+20600 (242 B); an immediate read-only inspection sees a transient native
+instance-referral job. The final public dump has no job, zero queue records and
+world WAITING/no request; no additional TCP connection or map/hero is verified.
+The earlier seed0 prototype is an invalid transform control; plain1/plain2 fail
+before application traffic and provide no referral acceptance/rejection evidence.
+
+After the completed runs, the original EXE SHA256 and Authenticode signature
+remain unchanged/valid, both saved ACLs match exactly, and no owned game,
+launcher or port-21119 listener remains.

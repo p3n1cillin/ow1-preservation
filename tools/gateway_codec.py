@@ -12,6 +12,7 @@ MAX_BODY = 4096
 MAX_ITEMS = 1024
 MAX_SCHEMA_FILE = 262144
 MAX_SCHEMA_FIELDS = 4096
+MAX_SCHEMA_MESSAGES = 64
 
 
 def load_messages(path):
@@ -23,7 +24,7 @@ def load_messages(path):
     if not isinstance(document, dict) or document.get('build') != 104319:
         raise ValueError('message schema build')
     messages = document.get('messages')
-    if not isinstance(messages, list) or not 0 < len(messages) <= 32:
+    if not isinstance(messages, list) or not 0 < len(messages) <= MAX_SCHEMA_MESSAGES:
         raise ValueError('message schema count')
     budget = [MAX_SCHEMA_FIELDS]
     def validate(fields, depth=0):

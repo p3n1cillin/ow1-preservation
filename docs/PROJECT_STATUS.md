@@ -15,22 +15,23 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M10: automatic 6v6 matchmaking | Not implemented or verified. |
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
-Current frontier: group 13 in the credential's peer identifiers selects the
-86 lobby-service schemas. The client offers them in a 350-byte packet, accepts
-`00 02`, then sends hello 21800 and message 21809. Our opt-in message 20500
-on protocol 0xf5ff548a advances the original UI from the connection stage to
-**ENTERING GAME…**, with continuing heartbeats until bounded shutdown. No
-further application request was observed. Initial account/configuration data
-and the menu transition remain to be understood and implemented. Other peer
-identifier bits, identity-field meanings and the trailing credential uint32
-remain experimental; do not infer gameplay from this screen change.
+Current frontier: the `full` initial-data sequence reaches the original main
+menu, and the party of one enables Training. Direct Computer Use screenshots
+and input reproduced Training -> Practice Range on 2026-10-13. The client
+sends 24000 and shows **ENTERING PRACTICE RANGE**. An opt-in plain 20600
+loopback referral creates a native slot-120 instance-referral job, observed
+immediately in both the private prototype and reproducible public probe.
+This job is transient: later snapshots report it absent. No additional TCP
+connection was observed, and the final world state is WAITING with no pending
+request. Game assignment, instance transport and map load remain unresolved;
+the 24000/20600 pairing is an experiment, not a demonstrated complete protocol.
+The default launcher continues to use the verified menu path.
 
-New initial-data experiments deliver empty key/hotfix lists (20504/20505) and
-our local player record (20502). The key context initializes through its original
-handler, and the player run produces new requests 60002 and 42600. Game-window
-captures are black; no main menu is verified. The snapshot tool reports guarded
-native booleans without exporting keys, identifiers or client bytes. Exact
-follow-up replies and the remaining loading/menu dependency are unresolved.
+Numeric schemas cover all 34 queue-family messages and the 20600 referral.
+`retail_login_state.py --queue-state` reports bounded queue-record counts and
+native job/marker booleans without exporting session inputs. Peer-identifier
+bits, referral fields beyond the traced endpoint and several identity fields
+remain experimental.
 
 Work continues in the project directory. New private analysis/run files use
 ignored `.local/`; existing native build/client/key caches are reused as inputs.

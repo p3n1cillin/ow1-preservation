@@ -721,6 +721,12 @@ def main():
     ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings','full'),
                     help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502) "
                          "and default account preferences (20802); requires login schemas")
+    ap.add_argument("--lobby-queue-reply", type=int, choices=range(23300, 23334),
+                    help="diagnostic: answer game-queue request 24000 with this empty 23300-family message")
+    ap.add_argument("--lobby-queue-schema", help="numeric 23300-family layouts for an explicit queue-reply experiment")
+    ap.add_argument("--lobby-instance-referral", action='store_true',
+                    help="experimental plain 20600 loopback referral for Training; game transport remains unverified")
+    ap.add_argument("--lobby-instance-schema", help="numeric 20600 layout for the instance-referral experiment")
     ap.add_argument("--lobby-initial-delay", type=int, choices=range(0, 31), default=0,
                     help="seconds to wait after the 20500 identity reply before sending the initial data")
     ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
@@ -737,6 +743,15 @@ def main():
     login_messages = None
     if args.lobby_initial_data and not args.lobby_login_schema:
         ap.error('initial data requires the initial lobby login reply and numeric schemas')
+    if args.lobby_queue_reply is not None and (not args.lobby_login_schema or not args.lobby_queue_schema):
+        ap.error('queue-reply experiments require initial login and queue schemas')
+    if args.lobby_queue_schema and args.lobby_queue_reply is None:
+        ap.error('queue schemas require an explicit queue-reply experiment')
+    if args.lobby_instance_referral and (not args.lobby_login_schema or not args.lobby_instance_schema
+                                        or args.lobby_queue_reply is not None):
+        ap.error('instance experiment requires initial login and instance schemas and no queue-reply experiment')
+    if args.lobby_instance_schema and not args.lobby_instance_referral:
+        ap.error('instance schemas require an explicit instance-referral experiment')
     if args.lobby_peer_group == 13:
         if not args.gateway_catalogue or not args.lobby_private_key or not args.lobby_integrity_key:
             ap.error('peer group 13 requires own credential inputs and a native interface catalogue')
@@ -747,8 +762,28 @@ def main():
             ap.error('initial lobby reply requires peer group 13 and the accepted gateway acknowledgement')
         from gateway_codec import load_messages
         login_messages = load_messages(args.lobby_login_schema)
+        if args.lobby_queue_schema:
+            queue_messages = load_messages(args.lobby_queue_schema)
+            if login_messages.keys() & queue_messages.keys():
+                ap.error('queue schemas duplicate initial login schemas')
+            login_messages.update(queue_messages)
+            from lobby_service import QUEUE_SCHEMA, QUEUE_REPLY_SCHEMA
+            if ((QUEUE_SCHEMA,24000) not in login_messages
+                    or (QUEUE_REPLY_SCHEMA,args.lobby_queue_reply) not in login_messages
+                    or QUEUE_REPLY_SCHEMA not in gateway_hashes):
+                ap.error('queue experiment requires its request, selected reply and registered protocol')
         if (0x3c7e3468,21800) not in login_messages or (0xf5ff548a,20500) not in login_messages:
             ap.error('initial lobby reply requires hello and identity reply schemas')
+        if args.lobby_instance_schema:
+            instance_messages=load_messages(args.lobby_instance_schema)
+            if login_messages.keys() & instance_messages.keys():
+                ap.error('instance schemas duplicate initial login schemas')
+            login_messages.update(instance_messages)
+            from instance_referral import INSTANCE_SCHEMA
+            from lobby_service import QUEUE_SCHEMA
+            if ((INSTANCE_SCHEMA,20600) not in login_messages or (QUEUE_SCHEMA,24000) not in login_messages
+                    or INSTANCE_SCHEMA not in gateway_hashes):
+                ap.error('instance experiment requires registered request/referral schemas')
         if args.lobby_initial_data:
             from lobby_service import InitialLobby
             initial_ids={'keys':(20504,),'keys-hotfix':(20504,20505),'keys-hotfix-player':(20504,20505,20502),
@@ -801,7 +836,8 @@ def main():
                     print(line, flush=True); log.write(line + "\n"); log.flush()
                     if first == b"H" and args.serve:
                         from lobby_service import InitialLobby
-                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id) if login_messages is not None else None
+                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
+                                                     args.lobby_queue_reply,args.lobby_instance_referral) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

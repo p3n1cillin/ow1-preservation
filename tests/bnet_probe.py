@@ -61,12 +61,102 @@ class ProbeTests(unittest.TestCase):
         result=state.inspect(dump)
         self.assertEqual(result,dict(build=104319,identity_installed=True,key_notification_received=True,player_update_marker=False))
         self.assertNotIn('SECRET',json.dumps(result))
+        # Queue diagnostics retain only counts/booleans, even if a native job
+        # pointer is present. They never dereference or export session inputs.
+        queue,instance,service=0x20008000,0x2000a000,0x2000c000
+        dump.put(0x20001000+38*8,struct.pack('<Q',queue))
+        dump.put(0x20001000+120*8,struct.pack('<Q',instance))
+        dump.put(0x20000000+0x220,struct.pack('<Q',service))
+        for pointer,vft in ((queue,state.QUEUE_VFT),(instance,state.INSTANCE_VFT),(service,state.QUEUE_SERVICE_VFT)):
+            dump.put(pointer,struct.pack('<Q',dump.image_base+vft))
+        for offset,count in zip((0x10,0x38,0x60,0x88),(1,0,0,2)):
+            dump.put(service+offset+0x10,struct.pack('<i',count))
+        dump.put(queue+0x10f9,b'\1')
+        dump.put(instance+0x20,struct.pack('<Q',0x30000000))
+        self.assertEqual(state.queue_states(dump),dict(record_counts=[1,0,0,2],
+                         reply_23332_marker=True,instance_referral_job_present=True))
+        self.assertNotIn('SECRET',json.dumps(state.queue_states(dump)))
+        dump.put(service+0x20,struct.pack('<i',-1))
+        with self.assertRaises(ValueError):state.queue_states(dump)
+        dump.put(service+0x20,struct.pack('<i',1025))
+        with self.assertRaises(ValueError):state.queue_states(dump)
+        dump.put(service+0x20,struct.pack('<i',1))
+        dump.put(queue+0x10f9,b'\2')
+        with self.assertRaises(ValueError):state.queue_states(dump)
         dump.put(0x20004040,b'\0')
         self.assertFalse(state.inspect(dump)['key_notification_received'])
         for address,value in ((0x20004040,b'\2'),(0x20006088,b'\2'),(0x20002000,bytes(8)),
                               (dump.image_base+0x80+8,bytes(4)),(dump.image_base+state.ROOT_RVA,bytes(8))):
             broken=SparseDump();broken.put(address,value)
             with self.assertRaises(ValueError):state.inspect(broken)
+
+    def test_training_queue_experiment_scope_and_layouts(self):
+        from gateway_codec import load_messages,encode,decode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,QUEUE_SCHEMA,QUEUE_REPLY_SCHEMA
+        root=Path(__file__).resolve().parents[1]
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        replies=load_messages(root/'protocol/queue-104319.json')
+        self.assertEqual(len(replies),34)
+        for (schema,mid),fields in replies.items():
+            self.assertEqual(schema,QUEUE_REPLY_SCHEMA)
+            self.assertTrue(23300<=mid<23334)
+            wire=encode(fields,{})
+            self.assertEqual(encode(fields,decode(fields,wire)),wire)
+        messages.update(replies)
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        entry=hashes.index(QUEUE_SCHEMA)+1
+        request=bytes((entry,0))+bytes.fromhex('020004000000')
+        service=InitialLobby(hashes,messages,queue_reply=23332)
+        self.assertIsNone(service.answer(request))  # before native hello
+        service.sent=True
+        self.assertEqual(service.answer(request),(23332,bytes((hashes.index(QUEUE_REPLY_SCHEMA)+1,32))))
+        # Optional experiment only; the normal launcher still waits for a
+        # demonstrated game assignment instead of inventing a queue result.
+        normal=InitialLobby(hashes,messages);normal.sent=True
+        self.assertIsNone(normal.answer(request))
+        for body in (b'',bytes.fromhex('02000400'),bytes.fromhex('02000400000000')):
+            with self.assertRaises(ValueError):service.answer(bytes((entry,0))+body)
+        for mode,name,value in ((1,b'',4),(2,b'nontraining',4),(2,b'',5)):
+            self.assertIsNone(service.answer(bytes((entry,0))+encode(messages[QUEUE_SCHEMA,24000],{0x78:mode,0x80:name,0xa8:value})))
+        for reply in (True,23299,23334):
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages,queue_reply=reply)
+        with self.assertRaises(ValueError):InitialLobby(tuple(h for h in hashes if h!=QUEUE_REPLY_SCHEMA),messages,queue_reply=23332)
+        with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(QUEUE_SCHEMA,24000)},queue_reply=23332)
+
+    def test_plain_instance_referral_is_explicit_and_loopback_only(self):
+        from gateway_codec import load_messages,decode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,QUEUE_SCHEMA
+        from instance_referral import INSTANCE_SCHEMA,local_referral,signed_chars
+        root=Path(__file__).resolve().parents[1]
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        messages.update(load_messages(root/'protocol/instance-104319.json'))
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        service=InitialLobby(hashes,messages,instance_referral=True)
+        request=bytes((hashes.index(QUEUE_SCHEMA)+1,0))+bytes.fromhex('020004000000')
+        self.assertIsNone(service.answer(request))
+        service.sent=True
+        mid,packet=service.answer(request)
+        self.assertEqual((mid,packet[:2],len(packet)),(20600,bytes((hashes.index(INSTANCE_SCHEMA)+1,0)),242))
+        values=decode(messages[INSTANCE_SCHEMA,20600],packet[2:])
+        self.assertFalse(values[0x78])
+        record=values[0x80]
+        self.assertEqual(record[0],{0:1,8:1})
+        self.assertEqual(record[0x2c],1119)
+        host=bytes(v&255 for v in record[0x2e])
+        self.assertEqual(host,b'127.0.0.1'+bytes(55))
+        self.assertEqual((len(record[0xae]),len(record[0xce])),(32,32))
+        self.assertTrue(1<=record[0x10]<2**31)
+        self.assertNotEqual(local_referral()[0x80][0x6e],record[0x6e])
+        self.assertEqual(signed_chars(b'\xff',2),[-1,0])
+        with self.assertRaises(ValueError):signed_chars(bytes(65),64)
+        for broken in (b'',request[2:-1],request[2:]+b'x'):
+            with self.assertRaises(ValueError):service.answer(request[:2]+broken)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=1)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,queue_reply=23332)
+        with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(INSTANCE_SCHEMA,20600)},instance_referral=True)
+        self.assertIsNone(InitialLobby(hashes,messages).answer(request))
 
     def test_local_account_store(self):
         import tempfile

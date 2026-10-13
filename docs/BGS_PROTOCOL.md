@@ -482,3 +482,30 @@ candidate is the hotfix state machine at rva ~0x00b4cd70: it re-polls every
 (error 8/6/-5/4 via 0x0060eca0) after an elapsed time compared against a
 configurable 81.0 s value. Whether this state is reached in our runs is not yet
 checked.
+
+## Training instance-referral frontier (2026-10-13)
+
+24000 is the observed Training request; 20600 (schema 0x074dad18) is a separate
+instance connection referral. Answering Training with it is currently an explicit
+experiment, not proof of the correct complete queue/game-allocation sequence.
+The original 20600 handler is 0x00775cd0 (dispatcher 0x007a99c0). Outer bool at
++0x78 false skips its conditional record transform. Nested +0x2e is the fixed
+64-byte host and +0x2c the port used by the original `%s:%d` formatter/parser.
+
+The public probe's profile targets only mapped loopback 127.0.0.1:1119 and uses
+locally generated session inputs. `protocol/instance-104319.json` contains the
+numeric layout. Handler -> 0x00e3e940 -> 0x00e1e6f0 creates a component-slot-120
+(vft 0x026775f0) referral job at +0x20. This was observed immediately after
+Practice Range in two bounded live runs. The original 0x00e3e700 consumer checks
+an initial integer, copies the parameter prefix and clears/frees the job.
+Job absence later does not establish rejection. The remaining field semantics,
+queue assignment and transport are unresolved. No extra TCP connection was
+observed; the final world state is WAITING/no request.
+
+`protocol/queue-104319.json` holds all 34 queue-message layouts as numeric
+metadata only, compactly serialized within the existing size/field budget.
+The opt-in empty-notification control requires the selected schema and decodes
+complete observed Training requests before replying. 23332's native handler
+0x006ce750 sets component-38 +0x10f9; its lifetime/meaning is unverified. The
+read-only `--queue-state` diagnostic emits that marker, four record counts and
+a referral-job-presence boolean. It exports no native bytes or session inputs.

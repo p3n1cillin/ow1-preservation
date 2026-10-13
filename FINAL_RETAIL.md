@@ -668,5 +668,39 @@ python tools/ow1_launcher.py play Tracer
 account id from 1001), launches the bounded client and keeps serving until the
 game is closed. Close any earlier test client first: the game runs one
 instance. Verified: the original client reaches the main menu and first-run
-tutorial prompt as Mercy#1002. View it with `scripts/Capture-ClientWindow.ps1`
-if desktop screenshots are masked. Nothing past the menu is verified.
+tutorial prompt as Mercy#1002. Computer Use (`@oai/sky`) also directly captured
+and drove the main menu and Training in the later runs. A playable map is
+still unverified.
+
+## Experimental Training instance referral — 2026-10-13
+
+To the private probe command above, add:
+
+```powershell
+--lobby-initial-data full --lobby-instance-referral --lobby-instance-schema protocol/instance-104319.json
+```
+
+Use the normal bounded private launch, dismiss the first-run Tutorial prompt,
+then select Training -> Practice Range. The probe answers the observed 24000
+request with a 242-byte plain 20600 referral to mapped loopback 127.0.0.1:1119.
+All session inputs are generated locally. The original handler creates an
+instance-referral job; it does not advance the visible entering screen in the
+tested runs. The complete queue/game-assignment sequence and game transport
+remain unverified. The default launcher does not enable this experiment.
+
+Independent queue-notification controls use
+`--lobby-queue-schema protocol/queue-104319.json --lobby-queue-reply <23300..23333>`.
+Select one notification deliberately; do not cycle through all handlers as if
+they were interchangeable successful match replies. These controls accept only
+the demonstrated Training request shapes and reject truncated/trailing bodies.
+They cannot be combined with the instance-referral experiment.
+
+```powershell
+python tools/retail_login_state.py --dump "$dump" --queue-state --world-state
+```
+
+The queue snapshot contains counts and booleans only. Job absence in a late
+snapshot is not proof that a referral was rejected: the original consumer can
+copy and clear it. `instance-public1` ended with no job, zero queue records and
+world state WAITING/no pending request. No new game TCP connection, map load or
+playable hero is claimed.

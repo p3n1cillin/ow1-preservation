@@ -166,3 +166,45 @@ See `docs/PROJECT_STATUS.md`, `FINAL_RETAIL.md`, `ROADMAP.md`, `RESEARCH.md`,
 existing status/research/matrix/test/log equivalents requested in the handoff.
 Distinguish implementation, compilation, synthetic tests and native runtime
 evidence. Successful relay tests do not complete original-gameplay milestones.
+
+## Latest Training checkpoint (2026-10-13, instance-public1)
+
+Continue from the current menu/Training implementation, not the historical black
+window notes above. `@oai/sky` directly captured the original main menu and drove
+No Thanks -> Training -> Practice Range in this run. No focus workaround was
+needed. Use the Computer Use plugin for Windows UI when available.
+
+- Public opt-in: `--lobby-instance-referral --lobby-instance-schema
+  protocol/instance-104319.json`, with initial-data `full`. It answers only the
+  observed Training 24000 shapes (mode 2 or 3, empty name, final integer 4).
+- 20600/schema 0x074dad18 -> original handler 0x775cd0. Outer +0x78 false skips
+  the conditional transform. Native '%s:%d' uses nested host +0x2e/port +0x2c;
+  our endpoint is exactly 127.0.0.1:1119. Local generated session inputs only.
+- 0xe3e940 creates a referral job through 0xe1e6f0 in component slot 120
+  (vft 0x26775f0, job pointer +0x20). Immediate read-only checks saw the job in
+  both referral-plain3 and instance-public1. This proves handler/job acceptance,
+  not a complete queue reply sequence, successful connection or gameplay.
+- The original consumer 0xe3e700 compares the job's initial integer, copies its
+  parameter prefix and clears/frees the job. Later snapshots are false; do not
+  label that rejection or persistent completion. The meaning of +0x28=2 and
+  remaining referral fields is still experimental.
+- `tools/retail_login_state.py --queue-state` guards image/root/context vfts and
+  emits counts/booleans only. Native queue component slot 38 is vft 0x2610c68;
+  root+0x220 queue-service vft 0x260cd68 owns four record lists.
+- All 34 numeric 23300-family layouts are in protocol/queue-104319.json. The
+  explicit empty-notification control is `--lobby-queue-schema <that file>
+  --lobby-queue-reply <id>`; cannot combine with instance referral. Not enabled
+  by the default account launcher. No successful game allocation is invented.
+- 180-second public run: UI stays ENTERING PRACTICE RANGE, no extra TCP
+  connection, final world WAITING/no request, queue records [0,0,0,0].
+  Next trace the queue assignment and instance job consumer/transport. Do not
+  assume the game protocol is the BSON relay or the raw lobby protocol.
+- Private logs/snapshots/harnesses: project .local/. Dumps retained beside the
+  existing client: retail-private-referral-seed0.dmp,
+  retail-private-referral-plain2-startup.dmp, retail-private-referral-plain3.dmp,
+  retail-private-instance-public1.dmp. First seed0 prototype had a mismatched
+  outer transform flag; it is not a valid protocol-rejection control.
+  Plain1/plain2 failed before application traffic (TLS context/suspension guard).
+  Known 1090-byte mapped CA with TLS delay 15 worked in subsequent runs.
+- All 14 CTest targets pass, including 24 probe fixtures. No native code,
+  readiness or verification flags were changed for the instance experiment.

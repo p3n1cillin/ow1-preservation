@@ -1,0 +1,105 @@
+{
+  "build": 104319,
+  "messages": [
+    {
+      "schema_hash": 122531096,
+      "message_id": 20600,
+      "fields": [
+        {
+          "kind": 0,
+          "offset": 120,
+          "width": 1,
+          "count": 0
+        },
+        {
+          "kind": 14,
+          "offset": 128,
+          "width": 240,
+          "count": 0,
+          "fields": [
+            {
+              "kind": 14,
+              "offset": 0,
+              "width": 16,
+              "count": 0,
+              "fields": [
+                {
+                  "kind": 8,
+                  "offset": 0,
+                  "width": 8,
+                  "count": 0
+                },
+                {
+                  "kind": 8,
+                  "offset": 8,
+                  "width": 8,
+                  "count": 0
+                }
+              ]
+            },
+            {
+              "kind": 8,
+              "offset": 16,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 8,
+              "offset": 24,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 8,
+              "offset": 32,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 6,
+              "offset": 40,
+              "width": 4,
+              "count": 0
+            },
+            {
+              "kind": 4,
+              "offset": 44,
+              "width": 2,
+              "count": 0
+            },
+            {
+              "kind": 1,
+              "offset": 46,
+              "width": 1,
+              "count": 64
+            },
+            {
+              "kind": 1,
+              "offset": 110,
+              "width": 1,
+              "count": 64
+            },
+            {
+              "kind": 2,
+              "offset": 174,
+              "width": 1,
+              "count": 32
+            },
+            {
+              "kind": 2,
+              "offset": 206,
+              "width": 1,
+              "count": 32
+            },
+            {
+              "kind": 0,
+              "offset": 238,
+              "width": 1,
+              "count": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
