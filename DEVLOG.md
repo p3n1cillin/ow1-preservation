@@ -1057,3 +1057,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   rejected `@oai/sky` activation with GetCursorPos/Access denied 0x80070005.
   Refresh/retry found no window after bounded exit. No successful foreground
   check or functional menu is claimed from black screenshot captures.
+
+## 2026-10-13 — server-to-client protocol roles mapped; 60002/42600 identified
+
+- Continued from codex's initial-data runs. Built (scratch, outside Git) a
+  decoder for the client's XOR-obfuscated strings (4,270 decoded) and a map of
+  every flag-2 receive dispatcher to its handlers and their log strings.
+- 20501 is `LobbySystem_C::LobbyConnectHelloErrorHandler` (localized error and
+  connection state 3/4/5): an error notice, not a success reply.
+- The client's 60002 (0x49963fa6) is an account-migration query; its reply
+  family 59900 is log-only (migration servers/queue status). 42600 (0xeb45ad29)
+  is a tournament status poll (~12 s); 42401 logs eSports match data. Neither is
+  evidenced as the menu gate, so no reply is sent for them.
+- Other families: 20800 player profile/settings, 24300/24900 unlocks,
+  26400/60900 currencies, 28000 achievements, 39800 weekly arcade,
+  40900/51800/53000 custom games/replays (docs/BGS_PROTOCOL.md table).
+- Candidate gate for later checking: hotfix state machine (~0x00b4cd70, 15 s
+  re-poll, "hotfix timeout" after a configurable 81 s in state 4). Not verified.
+- No live run in this step; main menu remains unverified.

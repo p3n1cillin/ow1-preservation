@@ -453,3 +453,32 @@ A repeated player run showed the same requests. Attempting to focus its window
 failed with Windows `GetCursorPos ... Access is denied (0x80070005)`; a refreshed
 selection after bounded shutdown found no window. Foreground rendering could
 not be verified, so black captures alone do not prove the menu's exact state.
+
+## Server-to-client protocol roles (static, 2026-10-13)
+
+Roles below come from the client's own receive dispatchers (rva
+0x007a8120-0x007ab630, `id - first_id` switch) and the obfuscated log strings
+their handlers decode. They identify what each family carries; they are not
+live-verified replies and must not be sent speculatively.
+
+Client-to-server (flag 1) and server-to-client (flag 2) families sit in
+adjacent id hundreds (e.g. 59900 f2 / 60000 f1, 42400 f2 / 42500 f1).
+
+| family | handler evidence | role |
+|---|---|---|
+| 20500 (0xf5ff548a) | 20501 -> 0x7744d0 `LobbySystem_C::LobbyConnectHelloErrorHandler`, "Lobby couldn't create player."; shows a localized error by code, then drives connection states 3/4/5 | 20501 is a **hello error / disconnect** notice; never send it as a success reply. 20506 is ignored (handler returns 0); 20507 logs dynamic-configuration update success/failure |
+| 20800 (0x1a9879a4) | 20801 prints ID/Name/Persistent ID/Version/Experience/Level; 20802 "Low Violence" | player profile and account settings |
+| 24300, 24900 | "Active Unlocks", "All Unlocks for 0x%016llx" | unlock inventory |
+| 26400, 60900 | "Currency", "Virtual currency granted/spent/reversed" | currencies |
+| 28000 | ID/Name + "Achievements" | achievements |
+| 39800 | weekly wins / first-win rewards | arcade weekly progress |
+| 40900, 51800, 53000 | custom-game links, saved matches/replays, instance state | custom games and replays |
+| 42400 (0x5f8c3add) | 42401 logs eSports tournament match ("Tourny Name", "Ready To Play") | tournament data; the client's empty **42600** (0xeb45ad29) repeats every ~12 s and is a tournament status poll |
+| 59900 (0x2558bd8d) | "# Migration Servers", migration type/state/source, "Queue Status ... Approx Position", "Received add migration response" | account-migration status, log-only; the client's empty **60002** is a migration query |
+
+Neither 60002 nor 42600 is evidenced as the main-menu gate. A separate
+candidate is the hotfix state machine at rva ~0x00b4cd70: it re-polls every
+15000 ms and, while its state byte (+0x18) is 4, reports "hotfix timeout"
+(error 8/6/-5/4 via 0x0060eca0) after an elapsed time compared against a
+configurable 81.0 s value. Whether this state is reached in our runs is not yet
+checked.
