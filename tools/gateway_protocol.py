@@ -1,9 +1,10 @@
 """Bounded, demonstrated engine gateway negotiation for final OW1 104319.
 
 Bootstrap protocol 0x11d82194 has message ids 1..4 (m_messageBase 1). Each
-packet is a protocol entry byte, then one byte (message id - 1), then the body.
-id 1 is the initiator's uint32 hash vector, id 2 the responder's record reply,
-id 3 the initiator's empty completion and id 4 an empty heartbeat. No game
+packet starts with entry 1 for group 0, or entry 0 for group 13, then one byte
+(message id - 1), then the body. id 1 is the initiator's uint32 hash vector,
+id 2 the newer-mode record reply, id 3 the accepted empty acknowledgement
+for the demonstrated mode, and id 4 an empty heartbeat. No game
 state or account bytes are bundled.
 """
 import struct

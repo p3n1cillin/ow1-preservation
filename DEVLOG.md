@@ -991,7 +991,40 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   empty optional records. Captures stay local under private-tls/mapped/cap13.
 - Flag-2/10 group-13 protocols have client receive dispatchers
   (0x007a8120-0x007ab630); flag-1 ones are client-to-server. The reply to
-  21800 is therefore some flag-2 message, not yet identified.
+  21800 is therefore some flag-2 message, not yet identified in that session.
 - Probe: the `ack` reply accepts bootstrap-only or the exact group catalogue
   and logs the offered count; per-connection packet bound raised to 1024.
-- Still unverified: lobby login result, main menu, map, heroes, matchmaking.
+- Still unverified in that session: lobby login result, main menu, map, heroes,
+  matchmaking.
+
+## 2026-10-13 — initial identity reply advances the original UI
+
+- Continued Claude's current `main` in the requested project directory. New
+  private RE/run files live in ignored `.local/`; original client/build/key
+  caches are reused, with no new checkout. Added `-LogRoot` and project-default
+  private launch logs.
+- Mapped native dispatcher 0x7a9860: 20500 -> 0x774710 -> 0x6261e0. The last
+  helper copies identity/string fields into the login context and raises event
+  13. Exported numeric schemas only for 20500/21800/21809. No image bytes,
+  captured account payloads, keys or assets are included in source.
+- Added bounded compact decoding/encoding. All 216 bytes of a private native
+  21800 body decode and re-encode exactly. Public fixtures cover known bytes,
+  bool alignment, strings, arrays, truncation, schema bounds and recursive/
+  ambiguous descriptor rejection.
+- Opt-in `--lobby-login-schema` answers the exact granted local account/build
+  once with message 20500 (sorted entry 83, delta 0). Uses local identities and
+  battle tag; unknown flags/counters stay zero. Original client state, verifiers
+  and readiness bits are untouched.
+- Native `lobby-identity3`: TLS/credential/group-13 negotiation succeed, the
+  81-byte reply is sent, and direct window capture shows **ENTERING GAME…**.
+  Heartbeats continue until the 120-second owned run ends; no further application
+  request or main menu appears. Two earlier runs fail at TLS timing and do not
+  exercise the new reply.
+- All 14 CTest targets pass; the probe target contains 14 fixtures. Original
+  EXE SHA256/signature and client-folder/launcher ACLs match the saved baseline.
+  Next: initial account/configuration/menu gate. 20801's traced handler only
+  prints account data; sending that message is not an established solution.
+- Negotiation-only comparison also reaches hello/heartbeats without 20500, but
+  its game window closed before capture. A repeat fails at TLS startup. Those
+  runs do not establish a visual before/after control; the positive screen is
+  directly observed. Owned processes/listener end and both ACLs are restored.

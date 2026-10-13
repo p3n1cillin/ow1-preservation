@@ -1,6 +1,10 @@
 # OW1 preservation continuation
 
 Continue the existing implementation; do not restart or replace working systems.
+Work in the project directory `Y:\repos\WIP\OW1` (the UNC path is equivalent),
+as requested by the user. New private research/run artifacts belong in ignored
+`.local/` here. Reuse the existing original client, keys and native build cache
+as inputs; do not create a separate source checkout or scratch workspace.
 Public AGPL-3.0 fork: https://github.com/p3n1cillin/ow1-preservation.
 Upstream: https://github.com/saturn-xvi/prometheus. Active branch is `main`, which
 includes `codex/public-preservation` and Claude's continuation. Historical
@@ -38,6 +42,8 @@ The client sees container loopback port 1119 through a named-pipe bridge.
 No Internet/LAN capabilities are granted. Bounded runs stop owned jobs, save
 a local dump and restore scoped ACLs. Wait for launcher exit before checking
 restoration or rebuilding its executable.
+Private launcher logs now default to project `.local/runs`; `-LogRoot` can
+select another directory. BuildRoot still selects the existing native executable.
 
 ## Real frontier, 2026-10-13
 
@@ -82,7 +88,8 @@ restoration or rebuilding its executable.
   Stop previous probe on 21119 before any run; exclusive socket bind prevents
   accidental sharing. Wait for owned client exit before rebuilding/testing ACLs.
 - Private launches automatically disable the guarded ShowIntro option: skip the
-  cutscene ourselves. Visual capture has been unreliable; native state does not
+  cutscene ourselves. Current computer-use `@oai/sky` window capture works;
+  native state does not
   establish a rendered world. No debugger attachment mode is shipped.
 - Map track: original Practice header loads, default loading context activates,
   updates return state 4, but readiness/cache remain zero. SDK kind 13 is LOCAL
@@ -94,13 +101,23 @@ restoration or rebuilding its executable.
 
 Use `--lobby-peer-group 13 --gateway-catalogue protocol/gateway-104319.json`:
 the client then offers all 86 lobby protocols, negotiates and sends hello
-21800 + 21809 on protocol 0x3c7e3468 (entry 25). Next: identify the flag-2
-reply it expects (receive dispatchers 0x007a8120-0x007ab630), using the
-schema dumps; see docs/BGS_PROTOCOL.md "Lobby service protocols". Gateway codec: send 0x00560d90 ->
+21800 + 21809 on protocol 0x3c7e3468 (entry 25). Add
+`--lobby-login-schema protocol/lobby-login-104319.json` for the live-verified
+initial identity reply 20500 (protocol 0xf5ff548a, sorted entry 83). Native
+20500 handler 0x774710 calls 0x6261e0 to install identities/strings and raise
+event 13; direct window capture in `lobby-identity3` showed **ENTERING GAME…**.
+The healthy connection sent no further application requests before bounded
+shutdown. Next: trace the initial account/configuration/menu gate; do not
+blindly send all registered messages. 20801's traced handler only prints account
+information. Field meanings beyond observed identities remain experimental.
+Public numeric descriptors (20500/21800/21809) contain no payloads. The bounded
+codec exactly roundtrips all 216 private hello-body bytes. Fourteen probe
+fixtures and all 14 CTest targets pass. Gateway codec: send 0x00560d90 ->
 0x00568690 -> 0x005652b0; receive 0x00561ff0 -> 0x00567de0 -> 0x005670e0;
 per-state timers 0x00560b50/0x005609c0. Do not invent application replies.
-The 36-byte credential suffix is currently server-local (1,1),(cid,1),0;
-its downstream field semantics still need verification. Do not invent gameplay
+The 36-byte credential suffix is currently server-local group-13 ids
+`((13<<40)|1,1),((13<<40)|cid,1),0`; its other field semantics still need
+verification. Do not invent gameplay
 from handshake success. Refer to FINAL_RETAIL.md current reproduction checkpoint
 and docs/BGS_PROTOCOL.md for the tested protocol boundary.
 

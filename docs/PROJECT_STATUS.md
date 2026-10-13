@@ -8,23 +8,25 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 |---|---|
 | M1: existing project/build understood | Source, continuation and native captures inspected; build/test evidence in TESTING.md. |
 | M2: original client communicates with private backend | Real TLS 1.2, WebSocket, Connect, Logon, GameUtilities referral, lobby proofs and own-key credential handshake exercised. |
-| M3: independent authentication/menu | Local 'Pro' account grant accepted and enters logged-in referral flow. Native lobby reaches handshake state 6 with our key. Main menu and persistent application session unverified. |
+| M3: independent authentication/menu | Local 'Pro' account grant and own-key credential accepted. Group-13 gateway negotiates and heartbeats. Our initial identity reply advances the original UI to **ENTERING GAME…**. Main menu remains unverified. |
 | M4: original map | Practice header loads and default context activates; context unready. No rendered final map. |
 | M5–M6: playable hero/roster | No controllable final-retail hero or verified combat/abilities. |
 | M7–M9: authoritative multiplayer/6v6 | Not implemented or verified against real final clients. |
 | M10: automatic 6v6 matchmaking | Not implemented or verified. |
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
-Current frontier: after the encrypted lobby credential is accepted, the client
-sends a 10-byte bootstrap negotiation offer. Replying with the empty
-completion message `01 02` (live-verified 2026-10-13) puts the gateway into
-its negotiated state: the client heartbeats every 5 s and keeps the lobby open
-for the whole bounded run. About 60 s later it nevertheless requests a new
-referral and opens another lobby, so an application-level exchange after
-negotiation is still missing. Decode it before inventing responses or
-claiming menu access. The two 128-bit identifiers and trailing uint32 in the credential
-envelope are server-assigned experiment values; downstream semantics remain
-unverified.
+Current frontier: group 13 in the credential's peer identifiers selects the
+86 lobby-service schemas. The client offers them in a 350-byte packet, accepts
+`00 02`, then sends hello 21800 and message 21809. Our opt-in message 20500
+on protocol 0xf5ff548a advances the original UI from the connection stage to
+**ENTERING GAME…**, with continuing heartbeats until bounded shutdown. No
+further application request was observed. Initial account/configuration data
+and the menu transition remain to be understood and implemented. Other peer
+identifier bits, identity-field meanings and the trailing credential uint32
+remain experimental; do not infer gameplay from this screen change.
+
+Work continues in the project directory. New private analysis/run files use
+ignored `.local/`; existing native build/client/key caches are reused as inputs.
 
 The opt-in launcher installs our RSA-2048/e=65537 public modulus into a guarded
 native heap key. Original RSA/address/HMAC verifiers remain enabled. A native

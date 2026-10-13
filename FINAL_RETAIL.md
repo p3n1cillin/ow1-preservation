@@ -588,7 +588,9 @@ diagnostic processes/listeners have ended.
 
 Historical handshake-only/error-1016 descriptions above are superseded. Native
 local login and referral now work, and the own-key diagnostic lobby completes
-its credential handshake. Main-menu access and gameplay remain unverified.
+its credential handshake. The group-13 gateway negotiates and accepts our
+initial identity reply, advancing the original UI to **ENTERING GAME…**.
+Main-menu access and gameplay remain unverified.
 See docs/BGS_PROTOCOL.md for the observed transport, the verified gateway
 negotiation and the current post-negotiation application frontier.
 
@@ -609,19 +611,25 @@ rerunning that export over them. Cert CN/SAN must include `::ffff:127.0.0.1`
 Start exactly one host probe; stop it before starting a replacement:
 
 ```powershell
-python tools/bnet-probe.py --cert "$local\server.pem" --key "$local\server-key.pem" --log "$local\observer.log" --tls-max 1.2 --handshake-delay 15 --serve --lobby-private-key "$local\lobby-key.pem" --lobby-integrity-key "$local\lobby-integrity.credential-key"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-PrivateClient.ps1 -RunForSeconds 60 -TrustCaCertificate "$local\root.pem" -ObserveTls -TrustSocketCa -TrustLobbyKey "$local\lobby-public.modulus"
+New-Item -ItemType Directory -Force .local\runs | Out-Null
+python tools/bnet-probe.py --cert "$local\server.pem" --key "$local\server-key.pem" --log .local\runs\observer.log --tls-max 1.2 --handshake-delay 15 --serve --lobby-private-key "$local\lobby-key.pem" --lobby-integrity-key "$local\lobby-integrity.credential-key" --lobby-peer-group 13 --gateway-catalogue protocol/gateway-104319.json --lobby-login-schema protocol/lobby-login-104319.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Start-PrivateClient.ps1 -RunForSeconds 120 -TrustCaCertificate "$local\root.pem" -ObserveTls -TrustSocketCa -TrustLobbyKey "$local\lobby-public.modulus"
 ```
 
 Use separate shells for the server and launcher. The server delay gives the
 owned key installer time to find the pipe; it is not a protocol requirement.
 Expected native evidence: guarded heap key installed at state 4, then
 `native_handshake_state=6 native_connection_phase=6`. Expected server evidence:
-valid client proof, a 10-byte post-credential bootstrap offer
-(`message_delta=0`), the probe's 2-byte negotiation reply, then 2-byte client
-heartbeats (`message_delta=3`) every 5 s for as long as the run lasts. About
-60 s after negotiation the client also requests a new referral and opens a
-second lobby; the application exchange that would stop this is still unknown.
+valid client proof, a 350-byte group-13 offer (`message_delta=0`), the probe's
+`00 02` acknowledgement, hello 21800, our 81-byte reply 20500, and heartbeat
+`00 03` every 5 s. Direct window capture showed **ENTERING GAME…**, still
+waiting until the 120-second diagnostic ended. No further application request
+or main menu was observed. Omit `--lobby-login-schema` for the negotiation-only
+control. Group 0 is the earlier bootstrap-only experiment which retries referral
+after about 60 seconds; group 13 selects the actual lobby-service schemas.
 Original RSA/address/integrity checks execute unchanged, and the original
 executable on disk is untouched. In the 2026-10-13 runs the retry lobby also
 accepted the own-key credential; that is observed, not yet explained.
+New run logs default to project `.local/runs`; `-LogRoot` overrides the location.
+Continue development and private analysis in this project directory, reusing
+the existing extracted original client and local native build/key caches.

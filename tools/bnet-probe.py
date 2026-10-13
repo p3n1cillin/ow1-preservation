@@ -486,7 +486,7 @@ def read_lobby_frame(conn):
 
 
 def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credential_delay=0, packet_capture=None,
-                peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='offer'):
+                peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='ack', lobby_service=None):
     """Lobby (game-service gateway) handshake at the referral hostv4, as the
     client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
     are raw little-endian bytes, one per TCP send, with no framing:
@@ -570,17 +570,18 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                 payload = read_lobby_frame(decrypted)
                 if packet_capture is not None:
                     if len(payload) > 4096:
-                        raise ValueError('first gateway packet exceeds capture bound')
-                    try:
+                        emit('gateway packet capture skipped (over 4096-byte bound)')
+                    else:
                         from pathlib import Path
                         target = Path(packet_capture)
                         if capture_count > 1:
                             target = target.with_stem(f'{target.stem}-{captured}')
-                        with open(target, 'xb') as output:
-                            output.write(payload)
-                        emit(f"first gateway packet captured locally ({len(payload)} B)")
-                    except FileExistsError:
-                        emit('first gateway packet capture already exists; preserving it')
+                        try:
+                            with open(target, 'xb') as output:
+                                output.write(payload)
+                            emit(f"gateway packet {captured+1} captured locally ({len(payload)} B)")
+                        except FileExistsError:
+                            emit('gateway packet capture already exists; preserving it')
                     captured += 1
                     if captured >= capture_count:
                         packet_capture = None
@@ -658,6 +659,9 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                 elif (response := heartbeat_response(payload,bootstrap_channel)) is not None:
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     emit('gateway heartbeat exchanged (bootstrap version 4)')
+                elif lobby_service is not None and (response := lobby_service.receive(payload)) is not None:
+                    raw.sendall(outbound.apply(gateway_frame(response)))
+                    emit(f'initial lobby identity reply 20500 sent ({len(response)} B; contents omitted)')
             return
         data = raw.recv(4096)
         emit(f"after server proof: client sent {len(data)} B" + (" (closed)" if not data else " (contents omitted)"))
@@ -691,10 +695,11 @@ def main():
                     help="bounded scheduling delay for the owned client key installer (0..30 seconds)")
     ap.add_argument("--lobby-packet-capture", help="optional bounded first gateway packet capture outside Git")
     ap.add_argument("--gateway-capture-count", type=int, choices=range(1,5), default=1,
-                    help="capture at most 1..4 packets, each at most 4096 bytes")
+                    help="try capturing the first 1..4 packets; candidates over 4096 bytes are skipped")
     ap.add_argument("--lobby-peer-group", type=int, choices=(0,13), default=0,
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
+    ap.add_argument("--lobby-login-schema", help="opt-in experimental 20500 reply using the numeric lobby login schemas")
     ap.add_argument("--gateway-reply", choices=("offer", "ack", "probe", "id2"), default="ack",
                     help="reply to the client's bootstrap offer: 'ack' sends empty message id 3, "
                          "which the 104319 client accepts (negotiated state, id-4 heartbeats); "
@@ -704,11 +709,19 @@ def main():
     args = ap.parse_args()
     credential = None
     gateway_hashes = None
+    login_messages = None
     if args.lobby_peer_group == 13:
         if not args.gateway_catalogue or not args.lobby_private_key or not args.lobby_integrity_key:
             ap.error('peer group 13 requires own credential inputs and a native interface catalogue')
         from gateway_protocol import load_catalogue
         gateway_hashes = load_catalogue(args.gateway_catalogue, 13)
+    if args.lobby_login_schema:
+        if args.lobby_peer_group != 13 or args.gateway_reply != 'ack':
+            ap.error('initial lobby reply requires peer group 13 and the accepted gateway acknowledgement')
+        from gateway_codec import load_messages
+        login_messages = load_messages(args.lobby_login_schema)
+        if (0x3c7e3468,21800) not in login_messages or (0xf5ff548a,20500) not in login_messages:
+            ap.error('initial lobby reply requires hello and identity reply schemas')
     if args.lobby_private_key or args.lobby_integrity_key:
         if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or args.referral_host != '127.0.0.1:1119':
             ap.error('own lobby credential requires --serve, both key inputs and the exact loopback referral')
@@ -753,10 +766,12 @@ def main():
                                else f"non-TLS first byte 0x{first[0]:02x}"))
                     print(line, flush=True); log.write(line + "\n"); log.flush()
                     if first == b"H" and args.serve:
+                        from lobby_service import InitialLobby
+                        lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
-                                  args.gateway_reply), daemon=True).start()
+                                  args.gateway_reply, lobby_service), daemon=True).start()
                     else:
                         threading.Thread(target=observe_raw, args=(raw, addr, accepted, log), daemon=True).start()
                     continue

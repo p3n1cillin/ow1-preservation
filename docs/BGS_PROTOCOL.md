@@ -361,5 +361,52 @@ seq/src), decoded from a local capture with all 216 body bytes consumed:
 
 21809 carries one string (empty in the capture). The protocol's other messages
 (21801-21815) are small: empty, bool, u32, u64+bool, or one/two strings.
-Which flag-2 message the client expects in reply is not yet identified. No
-menu, map or gameplay is established.
+The initial identity reply is now identified and live-tested below. No menu,
+map or gameplay is established.
+
+## Initial lobby identity reply (20500, live-verified 2026-10-13)
+
+Server-to-client protocol **0xf5ff548a**, first id 20500, flags 2, group 13.
+Its sorted catalogue entry is 83 (verify from the catalogue rather than
+hardcoding an index). The wire prefix is the entry byte then delta 0; flags 2
+add no routing header. Message descriptor 0x02ca6ca0 points to field table
+0x02ca69a0. Dispatcher 0x007a9860 maps 20500 to 0x00774710. That handler calls
+0x006261e0, which stores identities/strings in the login context and raises
+event 13. This identifies the initial connection reply; it does not establish
+every field's original semantic name.
+
+| native offset | compact type | our local experiment |
+|---|---|---|
+| 0x78, 0x88 | two `{u64,u64}` records | game-account and BGS-account ids from our own grant |
+| 0x98 | fixed two-u64 record | local persistent-id experiment `(1001,0)` |
+| 0xa8, 0xd0, 0xf8, 0x120 | four NUL-terminated strings | own battle tag, then empty strings |
+| 0x148..0x14a | three packed bools | false |
+| 0x14c, 0x150 | two i32 | zero |
+| 0x154..0x156 | three packed bools | false |
+
+`protocol/lobby-login-104319.json` includes numeric schemas for 21800, 21809
+and 20500. It contains no captured payloads, executable bytes or account data.
+`tools/gateway_codec.py` implements the bounded compact subset used by these
+messages: positional integers, adjacent bool bits, NUL strings, fixed/repeated
+arrays and nested records. All **216 body bytes** of the private hello decode
+and re-encode exactly. The public tests use author-created fixtures only.
+
+Opt in with `--lobby-login-schema protocol/lobby-login-104319.json`, group 13
+and the normal `ack` reply. `InitialLobby` validates the build and exact local
+account granted by this diagnostic server, answers once and rejects duplicates.
+Unknown flags/counters stay zero; neither game state nor client verdicts are
+written. Capture files remain ignored/private and bounded to four packets.
+Oversized capture candidates are skipped without closing a valid connection.
+
+Native run `lobby-identity3` sent the **81-byte** reply and continued exchanging
+heartbeats until owned shutdown. Direct game-window capture showed
+**ENTERING GAME…**. No subsequent application request or main menu appeared.
+The next frontier is initial account/configuration delivery and the menu gate;
+do not blindly send all registered messages. In particular, 20801's traced
+handler only prints account information, so its descriptor alone is insufficient
+evidence that sending it will satisfy the initial-data gate.
+
+Two preceding attempts did not exercise this reply: one TLS context ended
+before CA retention; a 30-second TLS delay exceeded the client's timeout.
+The successful run used the established 15-second delay. Native trust checks
+and the original client file remained unchanged.

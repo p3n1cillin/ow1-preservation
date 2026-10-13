@@ -1,6 +1,7 @@
 """Export bounded interface metadata from an owned final-client dump.
 
-Output contains protocol hashes, id ranges, flags and group numbers only.
+Output contains protocol hashes, id ranges, flags, groups and optional numeric
+message field descriptors only.
 No executable bytes, keys, game assets or account data are exported.
 """
 import argparse
@@ -8,6 +9,48 @@ import importlib.util
 import json
 from pathlib import Path
 import struct
+
+
+def extract_message(dump, schema_hash, message_id):
+    """Read numeric field descriptors for a selected registered message only."""
+    image = dump.image_base
+    if type(schema_hash) is not int or type(message_id) is not int or not 0<schema_hash<=0xffffffff or not 0<message_id<65536:
+        raise ValueError('message identity bounds')
+    area = dump.read(image+0x2c80000, 0x80000)
+    needle = struct.pack('<IH', schema_hash, message_id)
+    matches = []
+    start = 0
+    while (index := area.find(needle, start)) >= 0:
+        if index >= 24:
+            pointer = struct.unpack_from('<Q', area, index-8)[0]
+            if image+0x2c80000 <= pointer < image+0x2f00000:
+                matches.append(pointer)
+        start = index+1
+    if len(matches) != 1:
+        raise ValueError('message metadata is absent or ambiguous')
+    remaining = [1024]
+    def fields(table, ancestors=()):
+        if table in ancestors or len(ancestors) >= 8:
+            raise ValueError('recursive/deep message field table')
+        result = []
+        for index in range(128):
+            raw = dump.read(table+index*48, 48)
+            if len(raw) != 48:
+                raise ValueError('incomplete message field table')
+            _, kind, offset, width, count, child, _, _ = struct.unpack('<QIIIiQQQ', raw)
+            if kind == 17:
+                return result
+            remaining[0] -= 1
+            if remaining[0] < 0 or kind not in range(15) or count < -1 or count > 1024 or offset > 65536 or not 0<width<=65536:
+                raise ValueError('unsupported message descriptor/bounds')
+            record = dict(kind=kind, offset=offset, width=width, count=count)
+            if kind == 14:
+                if not image+0x2c80000 <= child < image+0x2f00000:
+                    raise ValueError('nested field table outside descriptor region')
+                record['fields'] = fields(child, ancestors+(table,))
+            result.append(record)
+        raise ValueError('unterminated message field table')
+    return dict(schema_hash=schema_hash, message_id=message_id, fields=fields(matches[0]))
 
 
 def extract(dump, peer):
@@ -45,12 +88,20 @@ def main():
     parser.add_argument('--dump', required=True)
     parser.add_argument('--peer-va', type=lambda value:int(value,0), required=True)
     parser.add_argument('--out', required=True)
+    parser.add_argument('--message', action='append', default=[], help='optional schema-hash:message-id numeric descriptors')
     args = parser.parse_args()
     spec = importlib.util.spec_from_file_location('local_dump', Path(__file__).parent/'offline-launch/re/mdump.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     dump = module.Dump(args.dump)
     try:
         result = extract(dump, args.peer_va)
+        if args.message:
+            result['messages'] = []
+            for value in args.message:
+                schema, message = (int(part,0) for part in value.split(':'))
+                if not any(row['schema_hash']==schema and row['first_id']<=message<row['end_id'] for row in result['protocols']):
+                    raise ValueError('message outside registered protocol range')
+                result['messages'].append(extract_message(dump, schema, message))
     finally:
         dump.f.close()
     with open(args.out, 'x', encoding='utf-8') as output:

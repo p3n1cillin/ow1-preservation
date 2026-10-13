@@ -22,8 +22,10 @@ kind-13 result is a local Hotfix-enumeration error, not an empty backend reply.
 The private loopback backend now serves real TLS/WebSocket RPC, a local login
 grant and a Balancer referral. With our public key installed in the owned
 diagnostic process, the native lobby verifies our credential and completes its
-encrypted handshake. The next gateway application exchange remains unresolved;
-main-menu access is unverified. Bounded diagnostics and findings are recorded in
+encrypted handshake. The lobby gateway now negotiates its service schemas,
+exchanges heartbeats, and accepts our initial identity reply: the original UI
+advances to **ENTERING GAME…**. Initial data and main-menu access remain
+unresolved. Bounded diagnostics and findings are recorded in
 [FINAL_RETAIL](FINAL_RETAIL.md) and [project status](docs/PROJECT_STATUS.md).
 No rendered final map, hero or private session is verified.
 

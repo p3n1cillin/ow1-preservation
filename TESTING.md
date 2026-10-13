@@ -127,4 +127,28 @@ same credential and sends no post-handshake packet. Exact original executable
 SHA256/signature and saved client-folder/launcher-file ACLs remain unchanged;
 owned clients, launchers and observers were stopped. Main menu, rendered final
 map, controllable hero and private multiplayer remain unverified. The next
-required implementation is the gateway's application negotiation/reply.
+required implementation was the gateway's application negotiation/reply;
+the newer checkpoint below supersedes that frontier.
+
+## 2026-10-13: initial lobby identity and entering-game screen
+
+**14/14 CTest targets pass** with 14 probe/codec fixtures. Added known-byte
+bool/integer/string/fixed-array encoding, exhaustive truncation of that fixture,
+oversized repeated counts, duplicate/invalid schemas, descriptor ambiguity and
+recursive-table rejection. The initial reply only accepts build 104319 and the
+server's local account and rejects duplicate hellos. No client bytes or account
+captures are used by the tests. The native launcher is unchanged; new private
+launcher logs default to ignored project `.local/runs` (`-LogRoot` overrides).
+
+Native `lobby-identity3`: normal own-key credential/group-13 negotiation;
+21800 body fully decoded/re-encoded (216 bytes), 81-byte reply 20500, continuing
+heartbeats and direct UI observation of **ENTERING GAME…**. The run ended at
+its 120-second bound. Main menu, rendered map, hero and private match remain
+unverified. Two earlier TLS-timing failures never reached the application reply
+and are not counted as reply rejection. Original EXE SHA256/signature and both
+saved ACLs were checked unchanged after the completed run. Server/client logs,
+captures and RE scratch are private in `.local/`; original full dumps remain
+with the already-extracted client, outside Git.
+The negotiation-only comparison reached hello/heartbeats without the identity
+reply, but ended before a window capture. Its repeat failed during TLS startup.
+No visual control or additional menu progress is claimed from those runs.

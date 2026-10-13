@@ -25,6 +25,89 @@ class Fragmented:
 
 
 class ProbeTests(unittest.TestCase):
+    def test_compact_known_bytes_and_bounds(self):
+        from gateway_codec import decode,encode
+        fields=[dict(kind=0,offset=i,width=1,count=0) for i in range(3)]
+        fields += [dict(kind=7,offset=4,width=4,count=0),dict(kind=12,offset=8,width=40,count=0),
+                   dict(kind=8,offset=48,width=8,count=2)]
+        wire=b'\x05\x78\x56\x34\x12fixture\0'+struct.pack('<QQ',3,4)
+        values={0:True,1:False,2:True,4:0x12345678,8:b'fixture',48:[3,4]}
+        self.assertEqual(decode(fields,wire),values)
+        self.assertEqual(encode(fields,values),wire)
+        for size in range(len(wire)):
+            with self.assertRaises(ValueError):decode(fields,wire[:size])
+        with self.assertRaises(ValueError):decode(fields,wire+b'x')
+        for bad in ({**values,0:1},{**values,8:b'embedded\0NUL'},{**values,48:[3]},
+                    {**values,4:-1},{**values,99:0}):
+            with self.assertRaises(ValueError):encode(fields,bad)
+        array=[dict(kind=2,offset=0,width=1,count=-1)]
+        for packet in (struct.pack('<I',1025),struct.pack('<I',10)+b'x'):
+            with self.assertRaises(ValueError):decode(array,packet)
+
+    def test_initial_lobby_reply_is_scoped_to_own_hello(self):
+        from gateway_codec import load_messages,decode,encode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,HELLO_SCHEMA,WELCOME_SCHEMA,GAME_ACCOUNT_HIGH
+        root=Path(__file__).resolve().parents[1]
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        identity={0:1001,8:GAME_ACCOUNT_HIGH}
+        hello={0xb8:{0:identity},0x1bc:104319}
+        entry=hashes.index(HELLO_SCHEMA)+1
+        packet=bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello)
+        service=InitialLobby(hashes,messages,'Fixture#1001')
+        self.assertIsNone(service.receive(b'\0\x03'))
+        reply=service.receive(packet)
+        self.assertEqual(reply[:2],bytes((hashes.index(WELCOME_SCHEMA)+1,0)))
+        values=decode(messages[WELCOME_SCHEMA,20500],reply[2:])
+        self.assertEqual(values[0x78],identity)
+        self.assertEqual(values[0xa8],b'Fixture#1001')
+        self.assertFalse(values[0x148])
+        with self.assertRaises(ValueError):service.receive(packet)
+        for value in (103000,0):
+            hello[0x1bc]=value
+            wrong=bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello)
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages).receive(wrong)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages).receive(packet[:-1])
+
+    def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
+        from gateway_catalogue import extract_message
+        class SparseDump:
+            image_base=0x10000000
+            def __init__(self):
+                self.area=bytearray(0x80000)
+                struct.pack_into('<Q',self.area,16,self.image_base+0x2c81000)
+                struct.pack_into('<IH',self.area,24,123,100)
+                struct.pack_into('<QIIIiQQQ',self.area,0x1000,0,7,120,4,0,0,0,0)
+                struct.pack_into('<QIIIiQQQ',self.area,0x1030,0,17,0,0,0,0,0,0)
+            def read(self,address,size):
+                start=address-self.image_base-0x2c80000
+                return bytes(self.area[start:start+size]) if start>=0 else b''
+        dump=SparseDump()
+        result=extract_message(dump,123,100)
+        self.assertEqual(result['fields'],[dict(kind=7,offset=120,width=4,count=0)])
+        struct.pack_into('<QIIIiQQQ',dump.area,0x1000,0,14,120,16,0,dump.image_base+0x2c81000,0,0)
+        with self.assertRaises(ValueError):extract_message(dump,123,100)
+        dump=SparseDump()
+        struct.pack_into('<Q',dump.area,0x2010,dump.image_base+0x2c81000)
+        struct.pack_into('<IH',dump.area,0x2018,123,100)
+        with self.assertRaises(ValueError):extract_message(dump,123,100)
+        with self.assertRaises(ValueError):extract_message(dump,123,101)
+
+    def test_message_schema_loader_bounds(self):
+        from gateway_codec import load_messages
+        field=dict(kind=7,offset=0,width=4,count=0)
+        message=dict(schema_hash=123,message_id=100,fields=[field])
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'schema.json'
+            for document in ([],{'build':1,'messages':[message]},
+                             {'build':104319,'messages':[message,message]},
+                             {'build':104319,'messages':[{**message,'fields':[field,field]}]},
+                             {'build':104319,'messages':[{**message,'fields':[{**field,'kind':True}]}]},
+                             {'build':104319,'messages':[{**message,'fields':[{**field,'count':1025}]}]}):
+                path.write_text(json.dumps(document))
+                with self.assertRaises(ValueError):load_messages(path)
+
     def test_fragmentation_and_secret_omission(self):
         header = b'\x08\x00\x10\x01\x28\x06\x6a\x06SECRET'
         frame = struct.pack('>H', len(header)) + header + b'SECRET'
