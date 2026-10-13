@@ -973,3 +973,25 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   packet's entry byte and message delta only. Unit tests: 10 pass.
 - Still unverified: application lobby session, main menu, map, heroes,
   matchmaking.
+
+## 2026-10-13 — lobby service protocols negotiated (peer group 13); first application messages decoded
+
+- The offered protocol list comes from the gateway peer id's group
+  (0x00561ac0 -> channel query by `(id >> 40) & 0xffff`); 0x00563410 adopts the
+  server id from the credential suffix before the offer. With group 0 only the
+  bootstrap protocol is offered, which is why the client re-requested a
+  referral ~60 s later.
+- Live run with `--lobby-peer-group 13`: 350-byte offer of all 86 group-13
+  hashes (exact catalogue match), `00 02` accepted, heartbeats every 5 s, and the
+  client immediately sent protocol 0x3c7e3468 messages 21800 (218 B) and 21809
+  (3 B) on entry 25. No re-referral during the 112 s run.
+- Decoded 21800 against the client's own field table (all 216 body bytes
+  consumed), confirming the compact codec end to end: a client hello carrying
+  the granted game account id, locale/platform, build, product string and
+  empty optional records. Captures stay local under private-tls/mapped/cap13.
+- Flag-2/10 group-13 protocols have client receive dispatchers
+  (0x007a8120-0x007ab630); flag-1 ones are client-to-server. The reply to
+  21800 is therefore some flag-2 message, not yet identified.
+- Probe: the `ack` reply accepts bootstrap-only or the exact group catalogue
+  and logs the offered count; per-connection packet bound raised to 1024.
+- Still unverified: lobby login result, main menu, map, heroes, matchmaking.

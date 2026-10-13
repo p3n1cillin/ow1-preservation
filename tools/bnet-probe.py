@@ -566,7 +566,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
             captured = 0
             # Serve the demonstrated hash negotiation, then observe the next
             # application interface. Never invent game/session replies.
-            for _ in range(64):
+            for _ in range(1024):
                 payload = read_lobby_frame(decrypted)
                 if packet_capture is not None:
                     if len(payload) > 4096:
@@ -642,9 +642,15 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         emit(f"gateway id-2 reply sent ({len(response)} B) -> {response.hex()}")
                     else:
                         builder = catalogue_offer if gateway_reply == 'offer' else offer_response
-                        response = builder(payload, gateway_hashes) if gateway_hashes is not None else builder(payload)
-                        emit(f"gateway {gateway_reply} reply sent ({len(response)} B); "
-                             f"hashes={[hex(h) for h in parse_offer(payload)]}")
+                        hashes = parse_offer(payload)
+                        # The client offers the protocols of the peer group in its
+                        # gateway peer id (0x00561ac0); accept bootstrap-only or the
+                        # exact exported group catalogue, nothing else.
+                        catalogue_match = gateway_hashes is not None and hashes == gateway_hashes
+                        response = builder(payload, gateway_hashes) if catalogue_match else builder(payload)
+                        emit(f"gateway {gateway_reply} reply sent ({len(response)} B); offered "
+                             f"{len(hashes)} protocol hash(es), catalogue group match={catalogue_match}"
+                             + (f", hashes={[hex(h) for h in hashes]}" if len(hashes) <= 4 else ""))
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     offered = True
                 elif payload == bytes((bootstrap_channel,2)):

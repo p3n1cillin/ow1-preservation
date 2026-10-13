@@ -322,3 +322,44 @@ client asks GameUtilities for another Balancer referral and opens a second
 lobby. The upper layer is therefore still waiting for an application-level
 message after the negotiation event (0x00562600 event 0). No main menu,
 map, hero or gameplay is established.
+
+## Lobby service protocols (peer group 13, live-verified 2026-10-13)
+
+The client chooses which protocols to offer from the **peer group** in the
+gateway peer id (`(id >> 40) & 0xffff`, offer builder 0x00561ac0). For the
+lobby, 0x00563410 adopts the server peer id carried in the credential suffix
+before emitting the offer. With the probe's credential ids built as
+`(13 << 40) | n` (`--lobby-peer-group 13 --gateway-catalogue
+protocol/gateway-104319.json`):
+
+- the offer is 350 B on entry 0: all 86 group-13 protocol hashes (exact match
+  with the exported catalogue, sorted by unsigned hash);
+- `00 02` (id 3) completes negotiation; heartbeats `00 03` follow every 5 s;
+- the client immediately sends two application messages on **entry 25**
+  (entry n = n-th sorted group-13 protocol, 1-based), protocol **0x3c7e3468**
+  (ids 21800-21815): message **21800** (218 B) and **21809** (3 B);
+- unlike group 0, the client does not request a new referral during a 112 s run.
+
+Direction: every flag-2 (and flag-10) group-13 protocol has a client receive
+dispatcher (rva 0x007a8120-0x007ab630, `id - first_id` switch); flag-1
+protocols such as 0x3c7e3468 have none, so they are client-to-server and the
+server's replies arrive on flag-2 protocols.
+
+Message 21800 schema (field table rva 0x02cbdc20; field names stripped except
+seq/src), decoded from a local capture with all 216 body bytes consumed:
+
+| field | type | observed |
+|---|---|---|
+| +0x078 | string | empty |
+| +0x0a0 | {seq,src} | zero |
+| +0x0b0 | i32 | 0 |
+| +0x0b8 | struct: {seq,src} account id, 4 x u32, u8[] , 5 x string | game account id as granted at login; platform/locale fourCCs; build 104319; 32-byte zero blob; product `Overwatch/1.74.0.0/104319`; OS description; `PC` |
+| +0x1b8, +0x1b9 | bool | false |
+| +0x1bc | u32 | 104319 |
+| +0x1c0 | i32 | 1 |
+| +0x1c8, +0x240, +0x298 | three records (u64/u32 ids, bools, strings, string lists) | empty |
+
+21809 carries one string (empty in the capture). The protocol's other messages
+(21801-21815) are small: empty, bool, u32, u64+bool, or one/two strings.
+Which flag-2 message the client expects in reply is not yet identified. No
+menu, map or gameplay is established.
