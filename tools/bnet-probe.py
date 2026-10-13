@@ -485,7 +485,7 @@ def read_lobby_frame(conn):
 
 
 def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credential_delay=0, packet_capture=None,
-                peer_group=0, gateway_hashes=None, capture_count=1):
+                peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='offer'):
     """Lobby (game-service gateway) handshake at the referral hostv4, as the
     client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
     are raw little-endian bytes, one per TCP send, with no framing:
@@ -559,7 +559,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
         raw.settimeout(60)
         if credential is not None:
             decrypted = DecryptedConnection(raw, inbound)
-            from gateway_protocol import offer_response, frame as gateway_frame, parse_offer, heartbeat_response
+            from gateway_protocol import offer_response, catalogue_offer, frame as gateway_frame, parse_offer, heartbeat_response
             offered = False
             bootstrap_channel = None
             captured = 0
@@ -585,11 +585,13 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                         packet_capture = None
                 emit(f"post-credential packet: body_bytes={len(payload)} first_byte={payload[0]} (remaining contents omitted)")
                 if not offered:
-                    response = offer_response(payload, gateway_hashes) if gateway_hashes is not None else offer_response(payload)
+                    builder = catalogue_offer if gateway_reply == 'offer' else offer_response
+                    response = builder(payload, gateway_hashes) if gateway_hashes is not None else builder(payload)
                     bootstrap_channel = payload[0]
                     raw.sendall(outbound.apply(gateway_frame(response)))
                     offered = True
-                    emit(f"gateway protocol offer acknowledged (bootstrap version 3); hashes={[hex(h) for h in parse_offer(payload)]}")
+                    emit(f"gateway {gateway_reply} reply sent ({len(response)} B); "
+                         f"hashes={[hex(h) for h in parse_offer(payload)]}")
                 elif payload == bytes((bootstrap_channel,2)):
                     emit('gateway negotiation acknowledgement received (bootstrap version 3)')
                 elif (response := heartbeat_response(payload,bootstrap_channel)) is not None:
@@ -632,6 +634,10 @@ def main():
     ap.add_argument("--lobby-peer-group", type=int, choices=(0,13), default=0,
                     help="native peer-id protocol group: 0 bootstrap or 13 lobby service interfaces")
     ap.add_argument("--gateway-catalogue", help="104319 interface metadata exported from the owned client")
+    ap.add_argument("--gateway-reply", choices=("offer", "ack"), default="offer",
+                    help="state-2 reply to the client's bootstrap offer: 'offer' mirrors a "
+                         "catalogue offer (hash list, what the native parser consumes); 'ack' "
+                         "sends the 2-byte acknowledgement (prior unverified hypothesis)")
     args = ap.parse_args()
     credential = None
     gateway_hashes = None
@@ -686,7 +692,8 @@ def main():
                     if first == b"H" and args.serve:
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
-                                  args.lobby_peer_group, gateway_hashes, args.gateway_capture_count), daemon=True).start()
+                                  args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
+                                  args.gateway_reply), daemon=True).start()
                     else:
                         threading.Thread(target=observe_raw, args=(raw, addr, accepted, log), daemon=True).start()
                     continue

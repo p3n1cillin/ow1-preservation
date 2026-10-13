@@ -731,3 +731,42 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   success signal; iterate the `version` byte (0 vs the role the native mode-2
   responder expects) and whether an identity prefix is required. Still unverified:
   main menu, gateway session, map, heroes, matchmaking.
+
+## 2026-10-13 — own-key gateway run with catalogue-offer reply; state model corrected
+
+- Reconstructed the key inputs codex had only in a virtualized FS: regenerated
+  lobby-public.modulus and the 64-byte lobby-integrity.credential-key from
+  private-tls/lobby_key.pem via tools/lobby_credential.py (RSA roundtrip passes),
+  and rebuilt the launcher so the committed `-TrustLobbyKey` is in the binary.
+- Added a selectable state reply: `gateway_protocol.catalogue_offer` mirrors the
+  client's offered hash list back (channel,version 0,count,hashes), and
+  `bnet-probe.py --gateway-reply {offer,ack}` (default offer). All 9 unit tests pass.
+- **State model corrected (important).** The lobby negotiation initiator (rva
+  0x0055ff60) sets state by peer role at ctx+0x1c: the CLIENT is mode 1
+  (initiating), so after emitting its offer (0x00562810 -> message ctor 0x0056cb90)
+  it goes to state **3**, not 2. In state 3 the receive handler 0x00560040 parses
+  the server's incoming message (0x00561890 over the record vector at msg+0x88),
+  and on success sends the client's FINAL message (ctor 0x0056ccc0) and advances
+  to state **5** (negotiated). State 2 is the mode-2 responder path.
+- Live own-key run (retail-gw1): CA + socket setter + heap key install all pass;
+  own credential accepted; client reaches handshake state 6 / connection phase 6
+  and sends its 10-byte offer. Our catalogue-offer reply (the client's own 10
+  bytes echoed) did NOT advance it: the client closed the lobby immediately
+  ("peer closed"), then sent bgs KeepAlives and re-requested a referral (~60 s
+  backoff). The earlier `01 02` ack failed the same way. So neither reply is
+  structurally accepted.
+- Conclusion: the blocker is the reply's exact WIRE serialization / message type,
+  not the negotiation semantics. The mode-1 client in state 3 likely requires the
+  responder's distinct "response" message (ctor 0x0056cc50, vtable rva 0x02609cd8;
+  it zeroes +0x78/+0x80/+0x88), NOT an echoed offer (ctor 0x0056cb90, vtable
+  0x02609cf8). The three bootstrap message types' vtables are adjacent
+  (0x02609cf8 offer, 0x02609cd8 response, and the final type). Their visible vtable
+  slots (0x0056d040/0x0056d190/0x0056d210) are clone/factory methods; the actual
+  field serialization is a visitor framework invoked by the transport (0x00560d90
+  send path) — reversing that framework is the next concrete RE target.
+- Next: (1) capture the exact decrypted 10-byte offer with `--lobby-packet-capture`
+  to pin the on-wire record encoding empirically; (2) reverse the serialize/
+  deserialize visitor to build the responder "response" message (opcode/type 2)
+  correctly; (3) rerun and use the client advancing to negotiation state 5 (and
+  not retrying the referral) as the success signal. Still unverified: main menu,
+  gateway session, map, heroes, matchmaking.

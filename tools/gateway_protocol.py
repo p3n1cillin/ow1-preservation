@@ -61,6 +61,20 @@ def offer_response(packet, allowed=(BOOTSTRAP_HASH,)):
     return bytes((packet[0],2))
 
 
+def catalogue_offer(packet, allowed=(BOOTSTRAP_HASH,)):
+    """Reply to the client's bootstrap offer with the server's own catalogue
+    offer carrying the same resolvable protocol hash list. The client's state-2
+    receiver (rva 0x00560040 -> 0x00561890 -> per-record 0x00561730) parses an
+    incoming record vector and validates each schema hash against its local
+    catalogue (0x00569a70); a 2-byte ack has no records for it to parse. The
+    wire form mirrors the offer: channel, version 0, uint32 count, uint32 hashes.
+    """
+    hashes = parse_offer(packet)
+    if hashes != allowed:
+        raise ValueError('gateway offer includes an unsupported protocol')
+    return bytes((packet[0], 0)) + struct.pack('<I', len(hashes)) + struct.pack(f'<{len(hashes)}I', *hashes)
+
+
 def heartbeat_response(packet, channel=1):
     heartbeat = bytes((channel,3))
     return heartbeat if packet == heartbeat else None

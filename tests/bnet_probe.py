@@ -77,7 +77,7 @@ class ProbeTests(unittest.TestCase):
             conn, log = Fragmented(client), io.StringIO()
             credential = bytes([9])*256
             with mock.patch.object(probe.os, 'urandom', side_effect=[challenge,server_random]), mock.patch.object(probe.time, 'sleep'):
-                probe.serve_lobby(conn, ('127.0.0.1',1), 1, log, credential=credential)
+                probe.serve_lobby(conn, ('127.0.0.1',1), 1, log, credential=credential, gateway_reply='ack')
             self.assertTrue(conn.closed)
             self.assertIn('client_proof_valid=True', log.getvalue())
             self.assertIn('body_bytes=10 first_byte=2', log.getvalue())
@@ -108,6 +108,12 @@ class ProbeTests(unittest.TestCase):
                        b'\x01\x00'+struct.pack('<II',257,gateway.BOOTSTRAP_HASH)):
             with self.assertRaises(ValueError): gateway.parse_offer(packet)
         with self.assertRaises(ValueError): gateway.offer_response(b'\x01\x00'+struct.pack('<II',1,123))
+        # The catalogue-offer reply mirrors the offered hash list back (what the
+        # native state-2 parser consumes), not a 2-byte ack.
+        self.assertEqual(gateway.catalogue_offer(offer), offer)
+        self.assertEqual(gateway.catalogue_offer(b'\x01\x00'+struct.pack('<II',1,123),(123,)),
+                         b'\x01\x00'+struct.pack('<II',1,123))
+        with self.assertRaises(ValueError): gateway.catalogue_offer(b'\x01\x00'+struct.pack('<II',1,123))
 
     def test_gateway_catalogue_bounds(self):
         import gateway_protocol as gateway
