@@ -9,6 +9,7 @@ from gateway_codec import decode, encode
 HELLO_SCHEMA = 0x3c7e3468
 WELCOME_SCHEMA = 0xf5ff548a
 PROFILE_SCHEMA = 0x1a9879a4
+SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
@@ -77,3 +78,25 @@ class InitialLobby:
             packets.append((mid,bytes((self.hashes.index(schema)+1,mid-base))+body))
         self.updates_sent=True
         return tuple(packets)
+
+    def answer(self, packet):
+        """Reply to a client request after login, or None if not handled.
+
+        22206 (protocol 0x75d32ae2, built by 0x00773f00) asks for a player's
+        profile: {target id, related id, i32}. 20807 (handler 0x00779280) with
+        its +0x88 flag false carries an inline profile record that 0x00ba48a0
+        files under the record's +0x100 id. We send that id with every list,
+        counter and string empty: no stats or progress are invented.
+        """
+        if not self.sent or SOCIAL_SCHEMA not in self.hashes:
+            return None
+        if packet[:2] != bytes((self.hashes.index(SOCIAL_SCHEMA)+1, 22206-22200)):
+            return None
+        if (SOCIAL_SCHEMA,22206) not in self.messages or (PROFILE_SCHEMA,20807) not in self.messages:
+            return None
+        request = decode(self.messages[SOCIAL_SCHEMA,22206], packet[2:])
+        target = request[0x78]
+        if not any(target.values()):
+            raise ValueError('profile request without a player id')
+        body = encode(self.messages[PROFILE_SCHEMA,20807], {0x78:target, 0x88:False, 0x90:{0x100:target}})
+        return 20807, bytes((self.hashes.index(PROFILE_SCHEMA)+1, 20807-20800))+body

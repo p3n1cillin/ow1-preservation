@@ -89,6 +89,37 @@ class ProbeTests(unittest.TestCase):
             store.delete('Mercy')
             self.assertEqual(AccountStore(path).create('Genji')['account_id'],1003)
 
+    def test_profile_request_gets_minimal_profile(self):
+        from gateway_codec import load_messages,decode,encode
+        from gateway_protocol import load_catalogue
+        from lobby_service import InitialLobby,HELLO_SCHEMA,PROFILE_SCHEMA,SOCIAL_SCHEMA,GAME_ACCOUNT_HIGH
+        root=Path(__file__).resolve().parents[1]
+        hashes=load_catalogue(root/'protocol/gateway-104319.json',13)
+        messages=load_messages(root/'protocol/lobby-login-104319.json')
+        target={0:1002,8:1<<56}
+        request=bytes((hashes.index(SOCIAL_SCHEMA)+1,6))+encode(messages[SOCIAL_SCHEMA,22206],{0x78:target,0x98:7})
+        service=InitialLobby(hashes,messages,'Mercy#1002',None,1002)
+        self.assertIsNone(service.answer(request))  # not before login
+        service.receive(bytes((hashes.index(HELLO_SCHEMA)+1,0))+encode(messages[HELLO_SCHEMA,21800],
+                        {0xb8:{0:{0:1002,8:GAME_ACCOUNT_HIGH}},0x1bc:104319}))
+        mid,reply=service.answer(request)
+        self.assertEqual((mid,reply[:2]),(20807,bytes((hashes.index(PROFILE_SCHEMA)+1,7))))
+        profile=decode(messages[PROFILE_SCHEMA,20807],reply[2:])
+        self.assertEqual((profile[0x78],profile[0x88],profile[0x90][0x100]),(target,False,target))
+        self.assertEqual(profile[0x218],b'')
+        self.assertIsNone(service.answer(b'\x01\x03'))
+        empty=bytes((hashes.index(SOCIAL_SCHEMA)+1,6))+encode(messages[SOCIAL_SCHEMA,22206],{})
+        with self.assertRaises(ValueError):service.answer(empty)
+
+    def test_compact_blob_and_float_fields(self):
+        from gateway_codec import encode,decode
+        fields=[{'kind':15,'offset':0,'width':40,'count':0},{'kind':11,'offset':40,'width':8,'count':0}]
+        body=encode(fields,{0:b'abc',40:1.5})
+        self.assertEqual(body,struct.pack('<I',3)+b'abc'+struct.pack('<d',1.5))
+        self.assertEqual(decode(fields,body),{0:b'abc',40:1.5})
+        with self.assertRaises(ValueError):decode(fields,struct.pack('<I',99)+b'abc'+bytes(8))
+        with self.assertRaises(ValueError):encode(fields,{40:1})
+
     def test_launcher_detects_start_conflicts(self):
         import tempfile
         import ow1_launcher as launcher

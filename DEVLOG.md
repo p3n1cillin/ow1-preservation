@@ -1200,3 +1200,23 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Probe/launcher gain `--lobby-initial-delay` / `--initial-delay` (default 0) to
   defer the initial data; not needed for reliability (baseline is 0).
   19 probe tests pass.
+
+## 2026-10-13 — Career Profile answered (22206 -> 20807)
+
+- 22206 (protocol 0x75d32ae2, sent by 0x00773f00 from UI code) is "view a
+  player's profile": {target player id, related id, i32}; it records the target
+  in component slot 50 (+0x68). The only server-to-client handler that fills
+  that component is 20807 (profile protocol 0x1a9879a4, handler 0x00779280):
+  {player id, compressed flag, inline profile record (0x188 B), blob}. With the
+  flag false the inline record goes to 0x00ba48a0, keyed by record +0x100; the
+  display name comes from the 20502 player record.
+- Codec gains blob fields (kind 15: u32 length + bytes, native writer 0x005668e0)
+  and f32/f64 (kinds 10/11); the schema exporter accepts kind 15. Exported the
+  numeric 22206 and 20807 descriptors (no payloads).
+- lobby_service answers 22206 after login with a 20807 carrying only the
+  requested id (outer and record +0x100), flag false and every list, counter,
+  string and blob empty: no stats or progress are invented.
+- Live (play Mercy): after the request the original Career Profile shows
+  OVERVIEW / STATISTICS / ACHIEVEMENTS / PLAYER ICON, the default player icon,
+  "MERCY", "0 / 0" and "CAREER PROFILE IS EMPTY" — the correct state for a new
+  account. 21 probe tests pass.

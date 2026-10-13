@@ -6,7 +6,8 @@ offsets, not guessed semantic names. No account or native image data is bundled.
 import json
 import struct
 
-FORMATS = {1:'b', 2:'B', 3:'B', 4:'h', 5:'H', 6:'i', 7:'I', 8:'Q', 9:'q'}
+FORMATS = {1:'b', 2:'B', 3:'B', 4:'h', 5:'H', 6:'i', 7:'I', 8:'Q', 9:'q', 10:'f', 11:'d'}
+BLOB = 15  # u32 length + raw bytes (native writer 0x005668e0, reader case 15)
 MAX_BODY = 4096
 MAX_ITEMS = 1024
 
@@ -32,7 +33,7 @@ def load_messages(path):
             if not isinstance(field,dict) or budget[0]<0:
                 raise ValueError('field schema bound')
             kind,offset,width,count = (field.get(key) for key in ('kind','offset','width','count'))
-            if any(type(value) is not int for value in (kind,offset,width,count)) or kind not in (0,*FORMATS,12,13,14):
+            if any(type(value) is not int for value in (kind,offset,width,count)) or kind not in (0,*FORMATS,12,13,14,BLOB):
                 raise ValueError('unsupported field schema types')
             if not 0<=offset<=65536 or offset in offsets or not 0<width<=65536 or not -1<=count<=MAX_ITEMS:
                 raise ValueError('field schema bounds/duplicate offset')
@@ -78,6 +79,10 @@ class Reader:
             value=self.take(end-self.pos+1)
             return value[:-1]
         if kind==14: return self.fields(field['fields'])
+        if kind==BLOB:
+            size=struct.unpack('<I',self.take(4))[0]
+            if size>len(self.data)-self.pos: raise ValueError('compact blob length bound')
+            return bytes(self.take(size))
         raise ValueError('unsupported compact kind')
 
     def fields(self, fields):
@@ -114,20 +119,24 @@ class Writer:
             if value:self.data[-1]|=self.mask
             self.mask=(self.mask<<1)&255
         elif kind in FORMATS:
-            if type(value) is not int: raise ValueError('compact integer type')
+            if (type(value) is not float if kind in (10,11) else type(value) is not int):
+                raise ValueError('compact number type')
             try:self.put(struct.pack('<'+FORMATS[kind],value))
             except struct.error as error:raise ValueError('compact integer bound') from error
         elif kind in (12,13):
             if not isinstance(value,bytes) or b'\0' in value:raise ValueError('compact string type/NUL')
             self.put(value+b'\0')
         elif kind==14:self.fields(field['fields'],value)
+        elif kind==BLOB:
+            if not isinstance(value,bytes):raise ValueError('compact blob type')
+            self.put(struct.pack('<I',len(value))+value)
         else:raise ValueError('unsupported compact kind')
     def fields(self,fields,values):
         if not isinstance(values,dict) or values.keys()-{f['offset'] for f in fields}:
             raise ValueError('compact record fields')
         for field in fields:
             kind,count=field['kind'],field['count']
-            default={} if kind==14 else False if kind==0 else b'' if kind in (12,13) else 0
+            default={} if kind==14 else False if kind==0 else b'' if kind in (12,13,BLOB) else 0.0 if kind in (10,11) else 0
             value=values.get(field['offset'],[] if count else default)
             if count:
                 if not isinstance(value,list) or len(value)>MAX_ITEMS or (count>0 and len(value)!=count):

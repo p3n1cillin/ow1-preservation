@@ -41,7 +41,7 @@ def extract_message(dump, schema_hash, message_id):
             if kind == 17:
                 return result
             remaining[0] -= 1
-            if remaining[0] < 0 or kind not in range(15) or count < -1 or count > 1024 or offset > 65536 or not 0<width<=65536:
+            if remaining[0] < 0 or kind not in range(16) or count < -1 or count > 1024 or offset > 65536 or not 0<width<=65536:
                 raise ValueError('unsupported message descriptor/bounds')
             record = dict(kind=kind, offset=offset, width=width, count=count)
             if kind == 14:
