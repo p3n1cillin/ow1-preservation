@@ -877,3 +877,35 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   the client's own id-2 serializer (ctor 0x0056cb90 + the field walker) and dumps
   the resulting wire bytes for ground truth, rather than guessing the framing.
   Still unverified: gateway session, main menu, map, heroes, matchmaking.
+
+## 2026-10-13 — gateway serializer framework investigated; static decode of wire framing blocked
+
+- Traced the message serialize path from 0x00560d90: it calls the message's
+  vt+0x28 (0x005651f0) then a generic walker 0x00568690, which iterates the field
+  table (stride 0x30, terminator type 0x11) and per field calls 0x00568050
+  (single) / 0x00568150 (repeated) -> leaf 0x00568250, bracketed by 0x003f4e40 /
+  0x003f5200 / 0x003f5620.
+- Determined 0x003f4e40/0x003f5200/0x003f5620 are **trace-scope markers**, not wire
+  writers: they push/pop a scope stack at obj+0x1e0 and call a formatter 0x003f5480
+  with format strings. Likewise 0x00568250's type dispatch (jump table at
+  0x00568630, type <= 0x10) passes each field's **name pointer** (e.g.
+  "m_protocolCRC") to per-type encoders 0x00566xxx. Passing field names means this
+  whole 0x00568690 path is a **named/trace serializer** (message logging/dump),
+  distinct from the compact wire form (the captured id-1 offer has no field names).
+- The real wire primitive writer is 0x00561e90 (raw, fixed-width, no names/tags),
+  but the wire-side field walker that drives it for a full message was not cleanly
+  isolated: the send path interleaves the trace walker and the wire writer, and
+  the framework is obfuscated enough that the exact nested/vector/string wire
+  framing could not be pinned by static reading. Debugger attach crashes the client.
+- Net: the id-2 message schema and primitive encoding are known; the per-field
+  wire framing (header/count/string) is still not确定. Pure static RE and black-box
+  probing are exhausted for this.
+- Refined recommended approach: capture a **genuine** id-2 from the client by
+  flipping it to a mode-2 responder. The gateway negotiation context holds the
+  role at ctx+0x1c (==1 initiator; id-1 handler 0x005601e0 requires ==2). Using
+  the lobby-key installer's find + bounded guarded-write pattern
+  (retail_lobby_key.h), locate the negotiation context after the credential and
+  set ctx+0x1c=2 before it emits (0x0055ff60); then send it our known id-1 offer
+  and record the id-2 message it serializes and sends on the wire. That yields the
+  exact bytes without guessing or in-process code injection. Still unverified:
+  gateway session, main menu, map, heroes, matchmaking.
