@@ -1,0 +1,22 @@
+{
+  "build": 104319,
+  "messages": [
+    {
+      "schema_hash": 3347014659,
+      "message_id": 20318,
+      "fields": [
+        { "kind": 2, "offset": 120, "width": 1, "count": 32 },
+        {
+          "kind": 14, "offset": 152, "width": 76, "count": 0,
+          "fields": [
+            { "kind": 7, "offset": 0, "width": 4, "count": 0 },
+            { "kind": 7, "offset": 4, "width": 4, "count": 0 },
+            { "kind": 6, "offset": 8, "width": 4, "count": 0 },
+            { "kind": 2, "offset": 12, "width": 1, "count": 32 },
+            { "kind": 2, "offset": 44, "width": 1, "count": 32 }
+          ]
+        }
+      ]
+    }
+  ]
+}

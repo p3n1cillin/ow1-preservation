@@ -1446,3 +1446,28 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   chains/counts/memory, profile validation and report omissions. No new native
   game launch or map/hero success is claimed. Next: original header preloading
   path during private application negotiation, before further settings sweeps.
+
+## 2026-10-14 — metadata accepted; acquisition exhausts retries
+
+- Continued in the project directory. Native udpmeta24/25/26 runs were bounded
+  to 150 seconds with loopback-only TCP/UDP bridges. Explicit reuse of Claude's
+  original client cache made Computer Use capture/input work. Drove the tutorial
+  dismissal, Training and Practice ourselves. The map did not load.
+- Traced 20318 to original handler 0x7d8010 and registration 0x684310. The gate
+  at +0x98 is format 1, not client build 104319. Published numeric fields only,
+  with written-message fixtures and a bounded read-only metadata reader.
+- Empty diagnostic registration creates one entry. Saved udpmeta22/24/25/26
+  all end with flags 0xa0, ten acquisition attempts and no current context.
+  Creating the owned Hotfix directory, then granting only its own package SID
+  modify access, did not fix this. No speculative storage option was shipped.
+- Native tracing corrected private field interpretations: +0x80 is a retry
+  deadline and +0x88 counts completed acquisitions. The apparent intermediate
+  marker 7 was seven attempts, not processing success. Kind-14 acquisition is
+  separate from kind-13 local enumeration. Six live-referenced completed
+  requests in udpmeta26 all return 3/2/-3; native -3 means "failed to open".
+  The underlying file-provider error and valid content descriptor remain open.
+- Final udpmeta26 still has pending WAITING world requests and no header/mode
+  load-cache object (raw state 0), despite catalogue entries and 29 other loads.
+  Exact scoped ACLs were restored, owned processes/listeners/profile removed,
+  and original EXE hash/signature retained. Native targets build; 21/21 CTest
+  targets pass. Earlier checkpoint 041c327 also passed public Windows CI.

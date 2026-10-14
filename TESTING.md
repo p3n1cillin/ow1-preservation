@@ -293,3 +293,24 @@ the load cache (raw state 0). udpapp21's optional mode resource has the same
 result; udpapp10 has no request. Private arithmetic interpretation validates
 the independent resource hash against the original routine. No new interactive
 game run or rendered-map claim accompanies this source checkpoint.
+
+## Metadata registration/retry checkpoint — 2026-10-14
+
+Native targets build and **21/21 CTest targets pass**. Five new synthetic
+fixtures cover registration versus content/context state, bounded/empty
+samples, malformed owners/arrays/entries/flags, identifier/address omission,
+and an independently written 108-byte 20318 message. All message truncations,
+trailing bytes and incorrect fixed-array sizes are rejected. No captured
+payload or proprietary bytes are used as fixtures.
+
+The public read-only `--metadata-state` reader rechecks owned udpmeta22/24/25/26
+dumps: one default-identifier entry, format 1, flags 0xa0, ten completed
+acquisition attempts, no content and no current context. The entry's +0x80 is
+a retry deadline and +0x88 a counter; earlier private pointer/marker names are
+superseded. In udpmeta26 six completed kind-14 requests were additionally
+sampled through live original service references; each failed with 3/2/-3.
+The native error formatter classifies -3 as "failed to open", not a specific
+Windows error. Own-directory creation and own-package-only modify access did
+not make acquisition succeed. The original client still waits for an unrequested
+map header. The latest owned-process/listener/profile cleanup and exact scoped
+ACL restoration checks pass; the original signed executable remains unchanged.

@@ -451,3 +451,47 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   map-header resource. Existing standalone PracticeResources proves native
   resource request 0x171e8e0 can load it; invoking that adapter is a diagnostic,
   not completion of the original application negotiation.
+
+## Latest native metadata checkpoint — 2026-10-14, udpmeta26
+
+- Work stays in this project. Use the existing original client explicitly from
+  Claude's package cache for bounded live launches; Computer Use capture/input
+  work from that path. Do not use `sky.launch_app` for the game or infer the
+  desktop is locked. The last run's window disappears at its bounded exit.
+- 20318/channel 0/schema 0xc77f6403 -> handler 0x7d8010 -> registrar 0x684310.
+  Checked field +0x98 is format **1**, not client build 104319. Public numeric
+  profile: protocol/instance-metadata-104319.json. Remaining descriptor fields
+  and valid content payload are unresolved; the empty diagnostic is not content.
+- Original registrar adds one entry in udpmeta22/24/25/26. Saved final flags
+  0xa0, ten completed acquisition attempts, content absent, current context
+  absent. Empty identifier matches resident default 0x321ff30; constructor
+  0x684610 skips metadata lookup for that default. Association with the world
+  request is not proved by accepting this record.
+- CORRECTION to older private reports: entry +0x80 is a retry deadline, NOT an
+  action pointer; +0x88 is a completed-attempt counter, NOT a state marker.
+  Consumer 0x67fd70/0x68018b increments it on kind-14 completion and schedules
+  retry at +0x80 or sets failure bit 0x80 at the configured limit. Flags:
+  1 content present, 0x40 acquisition in flight, 0x80 acquisition failed.
+- Run 22 shows HF-503. Owned empty-directory initialization in 24 and scoped
+  own-package modify grants in 25/26 fail to resolve the final result. Do not
+  ship or describe these as a working fix. `GetAppContainerFolderPath` can
+  already return the AC directory: never append a second AC blindly. Aborted
+  23 created nothing and its cleanup passed.
+- Kind-14 request ctor 0x81c270, vft 0x26188d8, worker 0x81dfc0. Opens a native
+  Hotfix temporary file through 0x1858f30 with flags 0x321 before transfer.
+  Read-only live observer captured SIX completed requests still held by the
+  original metadata service queue in 26: all status/tag/code **3/2/-3**.
+  Native formatter 0x185e3a0 labels -3 "failed to open"; underlying Windows
+  error not established. Do not conflate this with kind-13 enumeration 3/2/-1.
+- Public `retail_login_state.py --metadata-state` validates native identities
+  and exports only flags/counts/retry/context booleans. Corrected saved reports:
+  .local/runs/udpmeta{22,24,25}-metadata-corrected.json and
+  udpmeta26-final-state.json. Private live evidence: udpmeta26-live-sdk-errors.jsonl.
+- Final 26: WAITING/pending, header and optional mode in catalogue but no load
+  cache object/raw state 0, 29 other loads. No map/hero success. All owned runs,
+  servers and observer have ended; exact baseline scoped ACLs/hash/signature
+  checks pass. Do not run builds/isolation tests while the game is alive.
+- New five-fixture metadata target brings CTest to 21/21; native build passes.
+  041c327 public CI passed. Next: original file-provider open failure (including
+  path/mount/actual error), valid descriptor/content/context association and
+  original map-header preload. No readiness/verifier/transport code patches.

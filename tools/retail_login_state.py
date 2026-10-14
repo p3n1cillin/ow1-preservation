@@ -1,6 +1,6 @@
 """Read-only 104319 dump checks for initial lobby notifications.
 
-Reports booleans only: no native bytes, account identifiers, keys or strings.
+Reports flags/counts/statuses only: no native bytes, identifiers, keys or strings.
 These snapshots describe initial-data state, not menu/gameplay completion.
 """
 import argparse
@@ -122,6 +122,8 @@ def main():
                         help='also inspect bounded native queue and instance-referral state')
     parser.add_argument('--world-resource-state',action='store_true',
                         help='inspect catalogue/load-cache gates of WAITING world requests (slow)')
+    parser.add_argument('--metadata-state',action='store_true',
+                        help='inspect bounded metadata registration/processing flags')
     args=parser.parse_args()
     spec=importlib.util.spec_from_file_location('owned_dump',Path(__file__).parent/'offline-launch/re/mdump.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -133,6 +135,9 @@ def main():
         if args.world_resource_state:
             from retail_resource_state import world_resource_states
             result['world_resource_state']=world_resource_states(dump)
+        if args.metadata_state:
+            from retail_metadata_state import metadata_state
+            result['metadata_state']=metadata_state(dump)
     finally:dump.f.close()
     text=json.dumps(result,indent=2)+'\n'
     if args.out:

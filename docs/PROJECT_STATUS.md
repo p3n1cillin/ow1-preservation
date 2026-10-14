@@ -33,7 +33,7 @@ assignment, application negotiation and map load remain unresolved;
 the 24000/20600 pairing is an experiment, not a demonstrated complete protocol.
 The default launcher continues to use the verified menu path.
 
-Latest source checkpoint: **20/20 CTest targets pass**. Primary common-channel
+Latest source checkpoint: **21/21 CTest targets pass**. Primary common-channel
 reliable records 21600/21610/21627 are decoded; 1003 complete saved client
 bodies across three welcome runs authenticate and re-encode exactly. A 20300
 server welcome is accepted and answered by the original client with 21600.
@@ -44,8 +44,23 @@ map-header load state and advances only at status 3. Saved udpapp11/21 requests
 have catalogue entries but no header load-cache object (status 0), despite 28
 other cache entries. A read-only diagnostic reproduces this distinction.
 The normal application path that initiates and retains that load remains
-unresolved. This continuation inspected existing captures/dumps; no new live
-map test or long-term stability claim was made.
+unresolved. Later bounded native runs udpmeta22/24/25/26 accept a 20318
+metadata record into the original cache, but its empty diagnostic descriptor
+exhausts ten acquisition attempts without content. The current context remains
+absent, the header remains unrequested, and the world remains WAITING.
+Creating the owned Hotfix directory and granting only its own package SID
+modify access did not resolve this. A read-only observer in udpmeta26 catches
+six completed, live-referenced kind-14 requests with error 3/2/-3: the native
+filesystem label is "failed to open". Its underlying cause remains unresolved.
+The earlier private names "action pointer/marker" were incorrect: the metadata
+entry's +0x80 is a retry deadline and +0x88 counts completed attempts.
+
+`retail_login_state.py --metadata-state` separates registration, native content
+presence, acquisition failure/retries and current-context presence. The numeric
+20318 profile contains no payloads; accepted registration does not establish
+a valid Hotfix descriptor or playable map. Native verifiers remain enabled;
+the original EXE hash/signature match. All owned runs have ended and scoped
+ACLs were restored.
 
 Numeric schemas cover all 34 queue-family messages and the 20600 referral.
 `retail_login_state.py --queue-state` reports bounded queue-record counts and

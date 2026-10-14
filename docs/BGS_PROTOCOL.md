@@ -811,3 +811,44 @@ layout, all 1003 complete authenticated client bodies in udpapp10/11/21 roundtri
 exactly, including the previously undecoded 21600 records. The public profile
 supports only 21600/21610/21627 on primary channel 1; it is not a complete game
 protocol or a server-to-client encoder.
+
+### Instance content metadata 20318 — 2026-10-14
+
+Channel 0/schema 0xc77f6403 message 20318 routes through dispatch 0x7d2000
+and handler 0x7d8010 to the original metadata registration routine 0x684310.
+The checked uint32 at message +0x98 must equal **1**, the resident format
+constant; it is not the client build number. `instance-metadata-104319.json`
+contains only its numeric layout: a fixed 32-byte identifier at +0x78 and a
+76-byte nested record at +0x98 (two uint32s, one int32, two fixed 32-byte
+arrays). The serialized field body is 108 bytes. Further field semantics,
+including valid content digests and sizes, are unresolved.
+
+An empty diagnostic descriptor sent through the authenticated transport is
+registered in native runs udpmeta22/24/25/26. The final cache contains one
+entry with flags 0xa0, no content-present bit, and ten completed acquisition
+attempts. There is no current content context. The default empty identifier
+matches the resident default at 0x321ff30; constructor 0x684610 bypasses the
+metadata lookup for that default. Registration of this record therefore does
+not prove association with the pending world request.
+
+Entry +0x78 contains flags (1: content present, 0x40: acquisition in flight,
+0x80: acquisition failed). **+0x80 is a retry deadline; +0x88 is a completed
+attempt counter**, not an action pointer or state enum. Consumer 0x67fd70
+submits kind-14 requests via 0x67e120/0x81c270, increments the counter on
+completion, sets bit 1 on success, and schedules another attempt or sets the
+failure bit at the configured limit. The live 7-to-final-10 change in udpmeta25
+was retries, not progress past the failure.
+
+Kind 14's vtable is 0x26188d8 and worker method is 0x81dfc0. The worker opens
+a local temporary file with flags 0x321 via 0x1858f30 before transferring
+content. Its file-open error path returns status/tag 3/2 and the filesystem
+code. In udpmeta26, a read-only observer validated six completed requests
+still referenced by the original service queue: each reports 3/2/-3. Native
+error formatter 0x185e3a0 labels -3 "failed to open". This generic code does
+not establish the underlying Windows error. Empty-directory initialization
+and an own-package-only modify grant both failed to resolve it.
+
+`retail_login_state.py --metadata-state` exposes only bounded counts, flags,
+retry information and context-presence booleans. SDK kind 13 remains local
+directory enumeration; it must not be confused with kind 14 acquisition.
+No proprietary descriptor payload, packet, identifier, digest or key is public.

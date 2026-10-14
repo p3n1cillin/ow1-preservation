@@ -754,3 +754,42 @@ resource request can satisfy this prerequisite. The remaining work is to find
 the original initiation path during server application negotiation. Guessed
 settings/server frames have not done so. No new game launch, rendered map or
 playable hero is claimed by this saved-dump continuation.
+
+## Native metadata registration and acquisition retries — 2026-10-14
+
+Later bounded interactive runs udpmeta22/24/25/26 reproduce the main menu,
+Training and Practice selection through Computer Use, using the existing
+original client in Claude's cache. That explicit client path restores working
+window capture/input. The completed native runs terminate at their bound;
+new private evidence stays in project
+`.local/`. The default launcher has not gained a speculative filesystem fix.
+
+The authenticated 20318 record reaches the original metadata registrar. Its
+checked format value is 1, not build 104319. A diagnostic empty descriptor
+creates one cache entry but no content, and ends after ten acquisition attempts
+with flags 0xa0 and no current context. The public numeric profile and read-only
+`--metadata-state` reader make this distinction reproducible without publishing
+identifiers, digest bytes, native memory or packets.
+
+Run udpmeta22 visibly reports HF-503 (insufficient write permissions). Creating
+only the owned Hotfix directory in udpmeta24, then adding an own-package-only
+modify grant in udpmeta25/26, does not resolve the final failure. Earlier private
+reports called +0x80/+0x88 an action pointer/marker. Aligned native tracing
+corrects them to **retry deadline/completed-attempt counter**. The apparent
+7-to-10 change was further failed attempts.
+
+The original acquisition requests are kind 14, distinct from the earlier
+kind-13 enumeration. A read-only observer in udpmeta26 captures six completed
+requests while their original service/control-block references remain live.
+Every sample reports error 3/2/-3; the native file-error label is "failed to
+open". The kind-14 worker attempts to open a local temporary file before
+content transfer. The generic error alone does not identify the underlying
+Windows failure, and the descriptor still lacks valid content information.
+
+Final udpmeta26 state remains WAITING with pending requests, catalogue-present
+but load-cache-absent header/mode resources (raw state 0), and 29 other cache
+entries. No map or playable hero is verified. Cleanup confirms owned processes
+and listeners gone, exact captured installation/launcher ACLs restored, the
+ephemeral profile removed, and the original EXE hash/signature unchanged.
+Next: trace the native file-provider open failure and establish valid metadata
+association/content; separately retain the original map-header load path.
