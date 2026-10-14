@@ -387,8 +387,14 @@ class ProbeTests(unittest.TestCase):
         service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
         hotfix=dict(service.initial_notifications())[20505]
         self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IIQ',0,1,*graphs)+bytes(8))
-        for bad in ((0x02e000000000006e,),(0x0580000000000000,),graphs*2):
+        for bad in ((0x02e000000000006e,),(0x0580000000000000,),graphs*2,(0x0400000000000000,)):
             with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',resource_list=bad)
+        # Entity definitions (type 3) share list 1 with graphs.
+        mixed=(0x0580000000000c8e,0x04000000000004bf)
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix',resource_list=mixed)
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        hotfix=dict(service.initial_notifications())[20505]
+        self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IIQQ',0,2,*mixed)+bytes(8))
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message

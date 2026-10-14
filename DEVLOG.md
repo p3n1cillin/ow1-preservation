@@ -1842,3 +1842,24 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   streams new packets (2354 undecoded bodies; the private responder hit its
   2000-reply bound). No health or server movement replication yet. All cleanup
   audits pass for runs 89-93.
+
+## 2026-10-14 — movement, command acks, health; hero-select investigation
+
+- Client module-3 input: after the empty module-0 header (9 bits), `[1][u32 bit
+  length]` then `u16, u8, u8 count, u32 oldest sequence` and delta-coded commands
+  (writer 0x00c2ddc0). The server module-3 compact field acknowledges commands
+  (0x007cadd0 acks up to value-1); acking the newest drops unacked commands from 32
+  to 2-3 per packet (liveack94).
+- livenosnap95: without our per-tick "unchanged" hero snapshots the hero walks and
+  strafes under client prediction. livehealth96: a health pool in the hero create's
+  component-51 state (3x16 pool structs `{u32, f32 value, f32 max, enum, 4 x u8}`;
+  first pool 200/200) removes the critical-health vignette.
+- Weapons are statescript-driven (component 49 has no replicated state). Creating the
+  definition's weapon graphs (0x15, 0x254) works; activating weapon-graph states
+  11/68/69/70 in a full snapshot fatal-exits the client (liveherostates99). State 11
+  is a CosmeticEntity that spawns definition 0x04000000000004bf; the 20505 list 1
+  now also accepts type-3 definitions (`--lobby-preload-definition`) for that test.
+- Not yet: load-in hero-select screen and spawning in the spawn room. Prometheus
+  (beta build) shows hero selection as a statescript UI action that the client
+  reports; retail candidates are instance messages 21605 `{u64,u64,i32}` and 21607
+  `{u64,bool,bool}`. The Practice graph tree has 62 graphs, 16 with UI presenters.
