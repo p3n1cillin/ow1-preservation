@@ -1338,3 +1338,12 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
     GRAPH_COUNTS[0x288b] = (32 sync vars, 146 states); instance 4 = 0x288b in the
     run-110 recipe. Delivering a game message to the client (0x06e4) is not yet
     implemented (statescript message records RMFr/RMSz/TrID, 0xa0cca0).
+- Runs 112/113 (2026-10-15): run-111b recipe + -ControllerStates '4:35'
+  -ControllerStatesDelay 63 (full snapshot activating 0x288b state 35; responder needs
+  GRAPH_COUNTS[0x288b]=(32,146)). 112 is INVALID: responder crashed at the first
+  snapshot (module-level --controller-comp74 code rebound global _mask; fixed by
+  renaming to _c74mask), the client then timed out back to Training. 113: no crash,
+  hero select + Tracer pick work, CONTINUE no longer closes the screen, but the
+  client still sends only 21616 0x1360 (same blob), no 0x1361. Next: confirm on the
+  dump that state 35 is active / var 2163 true, then the 4208 gate (state 71 + game
+  message 0x06e4, or m_60DB8F99 semantics on #1033), and the server's #1227 result.
