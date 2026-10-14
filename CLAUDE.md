@@ -1171,3 +1171,9 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   1 -> 0xd53330 flag+4 bits, then 0x99654f bit ...); 0xd531b0 flag+u8. The reader
   queues the payload (0xa132e0, time +0x1f40); semantic application is deferred.
   Next: emulate the deferred statescript consumer on dump state.
+- Statescript sync decoder 0x996450 (FourCC-tagged field readers, edx = tag):
+  'SFSF' 0xd53000 (flag+u16) -> obj+0 base frame; 'SFDt' 0xd531b0 (flag+u8) ->
+  obj+4 = base+delta; bit -> optional 'Part' 0xd53320 (obj+8 index, else -1) and a
+  bit at obj+0xc (likely last part); 'Size' 0xd531b0 -> 0x7c0f00 copies a raw blob
+  into obj+0x18 (bit buffer). The queued object (0x58 B, 0xa07ef0) is later consumed
+  by the statescript system; blob format is the next layer to decode.
