@@ -1,5 +1,16 @@
 # Build and verification
 
+Latest verification (2026-10-14): native targets build and **22/22 CTest targets
+pass**. The metadata target now has eight synthetic fixtures, including separate
+active/staged contexts, default-context readiness, initialization completion/error
+lifetime and malformed identities/reference/count bounds. Reinspection of saved
+udpmeta26/27/28/29 confirms the reader against original objects. These checks do
+not establish map rendering or gameplay; no new game launch occurred.
+The new preloader target has four synthetic fixtures covering bounded native
+identities/arrays, resource-type classification, submission versus completion
+and omitted identifiers/addresses. Its reader also reproduces empty engine
+preload queues in saved udpapp11/21/udpmeta26/29.
+
 Final-retail update 2026-10-12: the supplied `1.74.0.0.104319` archive passed full extraction integrity; original EXE and selected CASC manifests match their hashes. Title/login display is directly observed. Native Practice request ownership and header availability are verified; repeated world/loading calls stay at idle state 2. Gameplay remains unverified. See [FINAL_RETAIL.md](FINAL_RETAIL.md) for reproduction. **CTest 12/12 passed**, plus the separate source-built manifest decoder’s synthetic input/output/bounds checks.
 
 Disc update 2026-10-12: the signed disc client `1.0.1.27578` reaches its native title screen and, in the earlier missing-voice request probe, world-loaded state 5 / partial Hanamura rendering beneath the loading overlay. The new catalogue-import probe publishes an author-written empty catalogue through the native loader, but initial one-minute runs remain at world state 4. No controllable hero or completed gameplay session is verified. **The disc checkpoint passed 9/9 CTest targets** before adding final-retail bundle coverage. Native evidence and limitations are in [DISC_ADAPTER.md](DISC_ADAPTER.md).
@@ -314,3 +325,305 @@ Windows error. Own-directory creation and own-package-only modify access did
 not make acquisition succeed. The original client still waits for an unrequested
 map header. The latest owned-process/listener/profile cleanup and exact scoped
 ACL restoration checks pass; the original signed executable remains unchanged.
+
+## 2026-10-14: live preload comparisons and Hero Gallery
+
+Five bounded 150-second original-client runs completed with passing cleanup
+checks (owned launcher/responders ended, exact saved ACLs restored, original
+hash and Valid signature retained). Three Practice runs compare baseline header
+assignment, an additional header/mode resource list, and map-root assignment.
+All visibly reach ENTERING GAME and end with pending WAITING requests, absent
+header/mode cache objects and 28 other resource-cache entries. The map-root run
+provides only about 20 seconds after selection. Corrected private native-request
+checks verify both resource-list entries in both requests and the map-root
+assignment in the third run; the earlier wrong-array reports are superseded.
+
+Approximately 100-ms read-only observations have 1365/1330/1295 successful
+samples respectively and zero rejected samples. Engine configured/retained
+queues stay empty in the observed snapshots. This does not exclude activity
+between samples or an alternate queue. Default contexts activate in Practice
+without 20318. Two gallery controls have 1306/1390 successful samples and zero
+rejections; their final world manager has no pending request or active context.
+The gallery remains visibly empty, including after every rarity/category/
+ownership option is enabled in the second control. No rendered hero or map
+is verified.
+
+The public world-resource reader now exports extra_resource_count from native
+request +0xf8/count +0x100 and validates signed count bounds, alignment and
+complete array reads. Saved public reports agree with the corrected private
+reader (counts 0/2/0). Six synthetic resource fixtures include delivery versus
+load state and malformed/truncated arrays. **All 22 CTest targets pass** after
+the live clients exit; native launcher isolation and datagram bridge checks pass.
+
+## 2026-10-14: native header control inside the private session
+
+Native targets build and **22/22 CTest targets pass**. Eight resource diagnostic
+fixtures now also cover aggregate cache states, duplicate object references,
+count mismatches, cycles/shared nodes, unreadable objects and traversal budgets.
+Launcher isolation checks reject the new control without its bounded own-key
+UDP session and reject duplicate flags before any client starts.
+
+`--preload-practice-header` is an opt-in launcher control used alongside
+`--retail-private`, the own CA/modulus options and bounded loopback forwards.
+It waits for the original pending Practice header/mode request and calls the
+original resource loader once at its default priority. This is deliberately a
+diagnostic preload, not evidence that the original server negotiation is solved.
+It changes no world state/readiness value and runs no extra world updates.
+
+Two 150-second live controls return successful scheduling, unwind registration,
+native API call and resource reference. Their read-only cache observers have
+1308/1325 valid samples and zero rejected samples; header and mode reach raw
+state 3. Both final dumps have WORLD LOADING/pending managers, default active
+contexts and 29 cache objects all at raw state 3. The map-root cache object is
+still absent. A world observer in the repeat records WAITING -> ABANDONING
+SCENES -> WORLD LOADING with 1269 valid samples; it follows the one manager
+discovered before selection. The other is verified in the final dump.
+
+Direct Computer Use in the repeat shows the original Practice Range loading
+screen with map art, name and changing tip/spinner. It stays there: no hero
+selection, rendered gameplay scene or movement/combat is verified. A fresh
+map-root-only comparison remains WAITING, with 1309 valid samples and zero
+rejections. All three live cleanup audits pass: exact saved ACL restoration,
+original hash/Valid signature and owned launcher/server/UDP termination.
+
+## 2026-10-14: WORLD LOADING scene gates
+
+Native build and **23/23 CTest targets pass**. The new scene diagnostic checks
+the corrected state-6 dispatch, original completion getter, world/scene identities,
+signed array bounds and raw resource states. It decodes the scene pointer using
+the original PID associated with the saved dump. Reports contain aggregate
+counts and booleans only. Synthetic cases cover completed resources without
+scene readiness, an incomplete resource, native signed-state comparisons,
+wrong PID, malformed profile/boolean/arrays and absence of pointer text.
+
+For a saved owned-client dump, supply the PID from that run's private log:
+
+```powershell
+python tools/retail_login_state.py --dump $savedDump --scene-state --client-pid $savedClientPid
+```
+
+Both prior loading-screen controls reproduce two managers, resource groups
+4/2/0 with six raw-state-3 objects, scene_ready=false, active_scene_present=false
+and pending_scene_present=false. The missing scene initialization is distinct
+from resource completion. WORLD LOADED gates traced earlier are downstream.
+
+New run livescene40 authenticated through native handshake state 6, but its
+capture stayed black and window activation returned GetCursorPos Access denied
+(0x80070005). Fresh window selection did not restore a usable view. No Practice
+input was issued and the armed control was not invoked. The startup manager
+stayed WAITING without a request; observers recorded 1020/1013 valid samples,
+zero rejects. This run does not reproduce or advance map loading. The 150-second
+launcher exited and all cleanup checks passed, including original hash/signature
+and exact saved ACLs. Further live UI testing requires working Windows input.
+
+## 2026-10-14: working live UI and typed-map scene construction
+
+UI capture/input recovered and two bounded Practice selections completed.
+Baseline livescene41 uses the existing header welcome and one native preload;
+it reaches the original loading screen, with complete groups 4/2/0 and no scene
+handles in either final manager. The live world observer follows the startup
+manager through WAITING -> GLOBAL LOADING -> WORLD LOADING (1265 valid samples,
+zero rejected); the resource observer records 1349/0. A late WAITING/no-request
+sample near run end has no established cause.
+
+livevariant42 assigns the exact typed map reference from header +0x50 in both
+welcome map fields. The guarded header control now permits that exact Practice
+map/mode pairing as well as the original header/mode pairing. Both controls
+return successful native scheduling, unwind registration, API call and reference.
+The second run constructs pending scene objects in both managers; active scene
+handles remain absent and readiness false. All three groups are complete and
+the two deeper scene completion resources are raw3, but both scene controllers
+end at raw state 1 instead of the readiness setter's required 5. The original
+loading screen persists; no geometry, hero selection or control is verified.
+
+The initial world discovery in 42 exceeded its 10-second limit and produced no
+samples. A 20-second/4-GiB bounded retry observes both managers after loading begins,
+with 554 valid/2 rejected samples. This is not a complete transition trace.
+Resource observation has 946 valid/0 rejected. Public saved-dump scene reports
+agree with the private read-only checks, and native request comparisons confirm
+the exact map reference/mode in both pending requests. Both cleanup audits pass.
+
+Native build and all **23/23 CTest targets pass**. The scene diagnostic includes guarded conditional scene
+controller progress, exact object/getter identities and bounded signed resource
+states. Four synthetic fixtures cover resource completion before state advancement,
+state 5 without the scene readiness flag, incomplete resources, malformed native
+identity/state/pointers, wrong PID/profile and truncated data. The diagnostic
+still exports only statuses/counts/booleans; private material remains ignored.
+
+## 2026-10-14: canonical map and typed asset completion
+
+Native build and **23/23 CTest targets pass**. Five scene fixtures now cover
+separate typed-reference validity, pending/success/failure statuses, update count,
+loaded/replicating snapshots and scene readiness. No client payloads embedded.
+
+Saved variant42 has 3757 updates per scene object but a valid typed asset handle
+with no object and native status 2. The state-1 handler waits for this handle;
+raw-resource status 3 does not establish typed completion. Native typed status
+3 denotes finished with failure, while status 4 denotes finished without that
+failure flag. The report preserves these distinct status fields.
+
+livecanonical43 supplies the canonical Practice map in both welcome map fields,
+keeping the same one-shot original header preload. Input checks confirm both
+pending requests and the Practice mode. Direct UI reaches the Practice loading
+screen. The startup-manager observer captures resource completion, load progress
+0 -> 2 -> 4 and scene state 1 -> 2, followed by WORLD LOADED (1043 valid samples,
+zero rejected). Intermediate state 5 is not sampled. The second manager is
+created later and is confirmed only in the final dump, at WORLD REPLICATING.
+
+Both final managers have active scenes, pending handles absent, readiness true,
+scene state 5, typed object present/status 4 and 4750 updates. Both raw-resource
+groups remain 4/2/0, complete. The public snapshot reproduces these values.
+The resource observer has 1286 valid/1 rejected sample. A late second world
+observer starts during process exit and yields no valid snapshots.
+
+The loading screen persists; no hero selection, actual geometry rendering,
+movement or combat is verified. The next boundary is replication initialization.
+The experiment still uses explicit diagnostic header loading. It does not solve
+normal header initiation or change the default launcher behavior. Cleanup passes:
+owned processes/listeners ended, exact saved ACLs restored, original hash and
+Valid signature retained.
+
+## 2026-10-14: selected entity and pending replication
+
+Native build and **24/24 CTest targets pass**. A new guarded read-only snapshot
+separates selected-ID validity, exact entity-table resolution and generation
+mismatch from the replication context's queued/pending counts and completion
+marker. Five synthetic cases cover unset IDs, generation aliases, missing objects,
+pending work despite successful entity resolution, malformed profiles/pointers/
+counts, truncated records and changing selection. The final queue extension
+passes its targeted CTest rerun. Reports export booleans/counts, without IDs,
+pointers, credentials or native payloads.
+
+```powershell
+python tools/retail_login_state.py --dump $savedDump --replication-state
+```
+
+The original update rejects an unset selected ID, then requires an exact packed
+ID match with a non-null entity object. The normal 20302 handler assigns that ID.
+The following comparisons retain canonical Practice assignment and the same
+one-shot original header preload:
+
+| Run | Submitted world's selected ID | Entity object resolves | Pending count | Completion marker | Final state |
+|---|---|---|---|---|---|
+| canonical43, saved baseline | Unset | Not tested by native gate | 4 | False | WORLD REPLICATING |
+| select44 | Valid index-only ID; generation mismatch | False | 4 | False | WORLD REPLICATING |
+| generation46 | Valid full packed ID | True | 4 | True | WORLD REPLICATING |
+| delay47 | Same packed ID, sent 30 seconds after first welcome | True | 4 | False | WORLD REPLICATING |
+
+Run generation45 stops before client launch because the private encoder requires
+the signed wire representation of the packed ID. The corrected conversion is
+used in 46/47; its failed startup cleanup also passes. Each completed new run
+sends the same sequenced 20302 notification ten times. The private responder
+accepts 230/230 client datagrams in 44, 367/367 in 46 and 355/355 in 47. Each has
+one body outside the existing reliable-record decoder; these counts do not
+establish a complete entity protocol.
+
+World/resource observers have 688/0 and 739/1 valid/rejected samples in 44;
+1071/0 and 1102/0 in 46; 1015/0 and 1064/1 in 47. Startup observers follow only
+the first manager. Later bounded observers see both managers in 46 (202/0)
+and 47 (335/0), after loading and notification delivery. They do not capture
+the submitted world's notification or state transition. The timing comparison
+therefore establishes different final completion-marker values, not their cause.
+
+Direct UI captures in 46/47 show the original Practice loading screen throughout
+the observed loading period. Final scene reports remain ready, active, state 5,
+typed status 4, with complete raw groups 4/2/0. Scene update counts are 3008 in
+44, 4872 in 46 and 4804 in 47. The selected entity's existence does not establish
+a replicated player. No hero selection, gameplay geometry, movement or combat
+is verified. The next investigation is the native pending-entry drain; its four
+saved entries each have an empty dependency list, whose significance is unresolved.
+
+All completed cleanup audits pass: owned helpers/listeners terminate, exact
+saved scoped ACLs are restored, and original executable hash/Valid signature
+remain unchanged. Public diagnostics reproduce the private aggregate checks;
+raw captures and experimental responders remain ignored under `.local/`.
+
+## 2026-10-14: WORLD_RUNNING, placeable codec and visible geometry
+
+Resumed Claude's later map-placeable work. The four pending rows are replicated
+placeables; minimal entity creates naming them clear the queue. A saved original
+run55 snapshot confirms WORLD_RUNNING, queued/pending counts zero, marker true
+and selected entity resolving. Independent liveverify58 reproduces this result;
+its submitted-world observer captures GAME MODE LOADING -> WORLD_RUNNING in
+35 ms, with 12719 valid samples, zero rejects and maximum queued count 133.
+The initial observer only sees the startup owner. This run's final scene report
+has two active/ready state-5 scenes with typed status 4 and 4706 update ticks.
+
+`tools/instance_entities.py` now provides a bounded reader/writer for the observed
+minimal server placeable section. Four synthetic fixtures cover an independently
+assembled 95-bit vector, byte and non-byte alignment, 8/16/32-bit index widths,
+empty/multiple/max-count sections, every truncation and unsupported forms/types.
+The section requires class 0b100, empty earlier modules, both module-2 optional
+bits zero, create operation, a 42-bit payload, no extra data/components and the
+terminating chain bit. It does not implement hero definitions or a full server.
+
+Private authenticated-capture checks preserve exact entity-section bits:
+
+| Run | Authenticated replies | Type-1 sections re-encoded exactly | Placeable creates |
+|---|---:|---:|---:|
+| Claude livecreate55 | 545 | 543 | 400 |
+| liveverify58 | 428 | 426 | 359 |
+| livecodec59 | 390 | 388 | 322 |
+| livecamera60 | 724 | 722 | 400 |
+
+The private responder was migrated to the public codec before run59. That run
+reaches WORLD_RUNNING and directly shows Practice geometry, with the map-name,
+tip and loading spinner gone. The process exits at its bound before the first
+menu input, so that attempted input has no established effect. A new 180-second
+run60 reproduces rendering using a 30-second selection delay. Escape visibly
+opens and closes the in-game menu, including Leave Game. A short W press,
+mouse drag and H press show no camera displacement or hero picker. There is no
+hero HUD or weapon; playable movement, combat and player replication remain
+unverified. Animated clouds change while the camera remains fixed.
+
+Submitted-world observers: run59 11411 valid/0 rejected, maximum queued128;
+run60 18605/0, maximum queued67. Startup observers follow only the other owner.
+Final dumps show WORLD_RUNNING plus WORLD LOADED, active/ready state-5 scenes,
+complete raw groups4/2/0 and typed status4. Scene ticks59=4385,60=7322. The
+scene snapshot now covers native states9/10 as well as6/7/8, with synthetic
+checks; a running enum/readiness alone remains distinct from visible gameplay.
+
+Native build and **25/25 CTest targets pass**. All three new cleanup audits pass:
+owned services/launchers/listeners end, exact saved scoped ACLs are restored,
+and original executable hash/Valid signature remain intact. The experiments
+retain explicit header preload and diagnostic local-entity selection. No raw
+captures, keys, native bytes or proprietary assets are embedded in public tests.
+
+The bounded timing-field control livetime62 also visibly renders Practice
+geometry, without a hero HUD or weapon. The native timing field is 49.085 seconds;
+both controlled-actor markers are invalid. The selected diagnostic entity lacks
+component 44, required by the traced first-person owner lookup. The read-only
+replication report now exposes native-ID agreement and that prerequisite as
+booleans, without IDs, masks or pointers. Component presence would still not prove
+a playable actor. Six synthetic fixtures cover these checks. The prior run60
+snapshot agrees. Run62 has 433 exactly re-encoded entity sections, including 366
+creates; all 25 CTest targets pass after the game exits. Cleanup retains the
+original hash/signature and exact saved ACLs. Clock synchronization semantics and
+player/hero initialization remain unresolved.
+
+The definition-create continuation independently audits the complete entity
+tables: run62 has no component-44 candidate among 1019/1020 entries. A verified
+final-retail definition is already ready in the native fallback typed cache.
+Its absence from the raw cache therefore does not mean it is unavailable.
+
+The welcome-list control livedefresource63 stays at HOTFIXING and displays the
+loading overlay; final metadata readiness is false. Livedefcreate64 instead
+keeps the baseline welcome and sends a minimal definition create. The original
+engine adds runtime components 44, 25/26 and 84/85. A full census finds exactly
+one component-44 candidate among 1021 entries in the running world. Practice
+geometry visibly renders. Livedefselect65 successfully selects the new entity
+using a later sequenced 20302, but its linked actor ID is invalid. H does not
+show a hero picker or HUD. W is attempted after exit and has no established
+effect. No hero control, movement or combat is claimed.
+
+The reusable definition codec supports only the neutral type-3 resource-index
+form, zero transform flags and empty network component state. Six synthetic
+fixtures cover placeables and definitions, mixed sections, alignment, independent
+bit vectors, truncation, unsupported flags and bounds. Public/private encoders
+agree on all 659/673 captured entity sections in runs64/65, including 80 definition
+creates each. The resource-list control separately verifies 522 sections. All
+three cleanup audits retain the original hash/signature and scoped ACLs.
+
+After the codec extension, all **25/25 CTest targets pass**. The private responder
+is migrated to the public definition writer after the live runs; exact captured
+section equivalence verifies the migration without repeating a live baseline.

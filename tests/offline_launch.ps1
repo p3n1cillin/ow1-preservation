@@ -89,6 +89,18 @@ $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-f
 if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Retail launch only supports the fingerprinted final OW1 executable*') { throw 'TLS observation did not reject an unrelated executable' }
 $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=example.invalid:1119 2>&1
 if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..180-second run*') { throw 'TLS observation accepted a different endpoint' }
+foreach ($arguments in @(
+    @('--preload-practice-header'),
+    @('--preload-practice-header','--forward','1119:21119','--udp-forward','1119:21120','--run-for','1','--','--BNetServer=127.0.0.1:1119'))) {
+    $rejection = & $Launcher $Launcher --retail-private @arguments 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Practice preload control requires*') {
+        throw 'Private preload accepted without its bounded own-key session'
+    }
+}
+$rejection = & $Launcher $Launcher --retail-private --preload-practice-header --preload-practice-header 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Specify Practice preload control once*') {
+    throw 'Duplicate private preload accepted'
+}
 $certificateFixture = Join-Path ([IO.Path]::GetTempPath()) ('ow1-public-cert-test-' + [guid]::NewGuid() + '.pem')
 try {
     # Author-written framing fixture, not an actual certificate. No game call

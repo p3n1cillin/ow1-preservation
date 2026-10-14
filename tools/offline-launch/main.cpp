@@ -710,6 +710,7 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
     return 1;
 }
 #include "retail_world_probe.h"
+#include "retail_private_preload.h"
 #include "retail_ca_probe.h"
 #include "retail_lobby_key.h"
 #include "retail_tls_observer.h"
@@ -726,12 +727,17 @@ int wmain(int argc, wchar_t** argv) {
     std::string trust_ca_pem;
     bool observe_tls = false;
     bool trust_socket_ca = false;
+    bool preload_practice_header = false;
     std::string lobby_public_modulus;
     const bool retail_private = argc > 2 && std::wstring(argv[2]) == L"--retail-private";
     if (retail_private) {
         try {
             int n = 3;
             for (; n < argc && std::wstring(argv[n]) != L"--"; ++n) {
+                if (std::wstring(argv[n]) == L"--preload-practice-header") {
+                    if (preload_practice_header) throw std::runtime_error("Specify Practice preload control once");
+                    preload_practice_header = true; continue;
+                }
                 if (std::wstring(argv[n]) == L"--trust-lobby-key" && n + 1 < argc) {
                     if (!lobby_public_modulus.empty()) throw std::runtime_error("Specify own lobby public modulus once");
                     const std::filesystem::path path = argv[++n];
@@ -810,6 +816,8 @@ int wmain(int argc, wchar_t** argv) {
                 throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
             if (!lobby_public_modulus.empty() && !trust_socket_ca)
                 throw std::runtime_error("Lobby key installation requires bounded loopback --trust-socket-ca diagnostics");
+            if (preload_practice_header && (datagram_forwards.empty() || lobby_public_modulus.empty()))
+                throw std::runtime_error("Practice preload control requires the bounded own-key UDP loopback diagnostic");
         } catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
         argc = 3;
     }
@@ -942,6 +950,7 @@ int wmain(int argc, wchar_t** argv) {
             const auto image = read_child<uint64_t>(child.hProcess, reinterpret_cast<uint64_t>(basic.PebBaseAddress) + 0x10);
             retail_world_probe::skip_intro(child.hProcess, image);
         }
+        std::unique_ptr<std::jthread> preload_thread;
         std::unique_ptr<std::jthread> tls_patch_thread;
         if (retail_private && (observe_tls || !trust_ca_pem.empty() || !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0))) {
             // Run the chosen exact-build TLS diagnostic while the client starts.
@@ -965,6 +974,21 @@ int wmain(int argc, wchar_t** argv) {
                     if (observe_tls) retail_tls_observer::run(patch_process, image, stop, primary_tid, trust_socket_ca ? trust_ca_pem : std::string{}, lobby_public_modulus);
                     else if (trust_ca_pem.empty()) retail_tls_patch::apply(patch_process, image, stop);
                 } catch (const std::exception& error) { std::cout << "Private TLS diagnostic: " << error.what() << std::endl; }
+            });
+        }
+        if (preload_practice_header) {
+            const HANDLE preload_process = child.hProcess;
+            const auto primary_tid = child.dwThreadId;
+            preload_thread = std::make_unique<std::jthread>([preload_process, primary_tid](std::stop_token stop) {
+                try {
+                    PROCESS_BASIC_INFORMATION basic{};
+                    using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+                    const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
+                    checked(query && query(preload_process, ProcessBasicInformation, &basic, sizeof(basic), nullptr) >= 0,
+                            "Private preload image lookup");
+                    const auto image = read_child<uint64_t>(preload_process, reinterpret_cast<uint64_t>(basic.PebBaseAddress) + 0x10);
+                    retail_private_preload::run(preload_process, image, primary_tid, stop);
+                } catch (const std::exception& error) { std::cout << "Practice preload control: " << error.what() << std::endl; }
             });
         }
         if (retail_map && !retail_debug) {
@@ -1123,6 +1147,7 @@ int wmain(int argc, wchar_t** argv) {
         // Stop/join while the owned process handle is still valid. Exceptions
         // also request stop through jthread destruction before catch cleanup.
         if (tls_patch_thread) { tls_patch_thread->request_stop(); tls_patch_thread->join(); }
+        if (preload_thread) { preload_thread->request_stop(); preload_thread->join(); }
         CloseHandle(child.hProcess); child_process = nullptr;
         CloseHandle(job); job = nullptr;
         FreeSid(sid); sid = nullptr; DeleteAppContainerProfile(profile.c_str());

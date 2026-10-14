@@ -1471,3 +1471,233 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   Exact scoped ACLs were restored, owned processes/listeners/profile removed,
   and original EXE hash/signature retained. Native targets build; 21/21 CTest
   targets pass. Earlier checkpoint 041c327 also passed public Windows CI.
+
+## 2026-10-14 — active content context recovered from saved runs
+
+- Recovered the newer private 27/28/29 artifacts. Direct owned Hotfix writes
+  succeed despite denied ancestor attribute checks; the private alias experiment
+  changes four observed kind-14 failures to 9/2/6 but does not produce content.
+- Original update tracing corrects the diagnostic slot names: +0x1a0 is staged,
+  +0x198 active. The default identifier completes processing without setting
+  its content-ready flag. Saved 26/28/29 contain an active default kind-1 context
+  with zero records. Earlier staged-slot absence did not prove no active context.
+- Extended the independent read-only metadata reader with bounded active/staged
+  context identities and retained initialization request completion/error state.
+  Kept current_context_present as the legacy staged-presence alias. No native
+  addresses, identifiers, descriptors or memory bytes are exported.
+- Eight synthetic metadata fixtures cover promotion observations, uninitialized
+  error omission and malformed native identities/references/counts. Native build
+  and all 21 CTest targets pass. No new native game run; Practice remains
+  WAITING with an unrequested header in the latest saved dump.
+
+## 2026-10-14 — structured resource requests and engine preload queues
+
+- Extended the native search to the structured resource API behind the default
+  wrapper. Traced its engine descriptor builder, configured/retained arrays and
+  submission/withdrawal marker. Corrected the earlier +0x190 getter notation:
+  the map initializer checks resource type 2, not the WAITING map-header type.
+- Added --preload-state with exact engine identity, signed count/array bounds,
+  aggregate map-header/submission counts and no exported GUIDs or native bytes.
+  Public and private readers agree: saved udpapp11/21/udpmeta26/29 have empty
+  configured/retained engine queues. This is not evidence of no earlier activity
+  or proof of the missing private-server message.
+- Native targets build and all 22 CTest targets pass. Four new author-written
+  fixtures cover header/other-resource and submitted/unsubmitted cases,
+  malformed memory/profile bounds and report omissions. No new native client
+  run; map rendering and hero control remain unresolved.
+
+## 2026-10-14 — live Practice assignment comparisons and gallery control
+
+- Ran the original signed client through three bounded Practice attempts and
+  two Hero Gallery controls. Header assignment, extra header/mode resources and
+  map-root assignment all remain on ENTERING GAME. The root comparison has only
+  about 20 seconds after selection; no stronger duration claim is supported.
+- Confirmed the extra resource list in both native pending world requests,
+  correcting a private prototype's settings-array offset. The public read-only
+  world diagnostic now validates/counts that array. Received resources are not
+  evidence that the native loader submitted them.
+- Approximately 100-ms live observations show empty engine preload queues and
+  no header cache entry, consistent with final dumps. Practice activates a
+  default context without 20318. Gallery remains empty after all visible filters
+  are enabled, leaving roster initialization and hero rendering unverified.
+- Original executable/hash/signature and scoped ACLs are preserved. Generated
+  credentials, captures, dumps and experiments remain in ignored private storage.
+- All 22 CTest targets pass after live exit, including six resource-state fixtures
+  and native launcher isolation. No playable-map milestone is advanced.
+
+## 2026-10-14 — private-session preload reaches Practice loading screen
+
+- Added an explicit bounded native header control after an exact original
+  Practice request. One original-loader call, retained native reference,
+  registered unwind and complete primary-thread context restore; no world-state
+  or readiness writes and no extra ticks. Default launcher behavior is unchanged.
+- Two live controls reach header/mode raw load state 3 and both managers WORLD
+  LOADING. The repeat visibly shows the Practice Range loading screen and stays
+  there. No gameplay scene, hero selection or controllable hero is established.
+- Added aggregate read-only resource-cache states. Earlier Practice/gallery
+  snapshots contain 28 completed objects; the controls end with 29 completed
+  objects but no map-root cache entry. Ordinary header initiation and downstream
+  world/scene initialization remain unresolved.
+- Repeated the map-root-only assignment with earlier selection: still WAITING.
+  Native build, eight resource fixtures and all 22 CTest targets pass. Live
+  cleanup preserves original hash/signature and exact saved scoped ACLs.
+
+## 2026-10-14 — corrected loading dispatch and scene readiness
+
+- Corrected a native-trace stage error: WORLD LOADING (6) dispatches to a
+  different handler from WORLD LOADED (7), which the earlier notes followed.
+- Added guarded read-only scene-state reporting with the saved client PID as
+  an operand of the original owner getter. Both existing loading-screen dumps
+  show all three resource groups complete, scene readiness false, and absent
+  active/pending scene handles. No pointers, PIDs, identifiers or bytes exported.
+- Traced the original readiness setter to scene state 5 plus its completion
+  predicate. Scene construction is the next investigation; missing handles
+  alone do not establish why construction failed or was not invoked.
+- A new bounded live attempt authenticated but Windows activation failed with
+  Access denied and a black capture. No Practice selection/control was performed.
+  Read-only observers had 1020/1013 valid samples and zero rejects; all owned
+  process, original hash/signature and exact ACL cleanup checks pass.
+- Native build and all 23 CTest targets pass, including new synthetic scene
+  readiness, signed resource-state, wrong-PID/profile and malformed-array checks.
+
+## 2026-10-14 — live scene construction with the typed Practice map
+
+- Recovered working game input and completed two bounded Practice selections.
+  Baseline header assignment reproduces complete resources with no scene object.
+  Both runs visibly remain on the original Practice loading screen.
+- The loaded header references a typed map variant different from the earlier
+  unflagged root. Supplying that exact reference in the experimental welcome
+  constructs pending scene objects in both managers. Extended the existing
+  opt-in header control's exact Practice identity guard for this comparison.
+- Both scene controllers remain at raw state 1, while the readiness setter
+  requires state 5. Their two completion resources are already raw state 3.
+  Added guarded aggregate scene-progress reporting and synthetic fixtures.
+- All original image/signature and exact scoped ACL cleanup checks pass.
+  Geometry, hero selection and gameplay remain unverified. The normal header
+  trigger and subsequent scene-state transition remain open.
+
+## 2026-10-14 — canonical map completes scene loading
+
+- Traced the state-1 stall to a valid typed asset reference that remains pending
+  without an asset object. The scene is ticking; completed raw-resource reads
+  alone do not complete the typed asset.
+- Compared the canonical Practice map with the referenced variant under the
+  same opt-in header preload. The canonical assignment completes the typed
+  asset and scene loading. The final original-client dump has WORLD LOADED and
+  WORLD REPLICATING managers, both with active, ready scenes and state-5 controllers.
+- Extended read-only diagnostics with typed status, load progress and update
+  count, including loaded/replicating snapshots. The native control remains
+  restricted to exact Practice assignments in bounded own-key loopback sessions.
+- The UI still shows the loading screen. Replication initialization and gameplay
+  remain unverified; ordinary header initiation remains unresolved.
+- Native build and all 23 CTest targets pass. Original hash/signature, exact ACLs
+  and owned process/listener cleanup checks pass.
+
+## 2026-10-14 — selected entity validity and generation
+
+- Traced the original world update's selected-entity gate and the normal 20302
+  notification setter. Baseline canonical43 has unset IDs in both world owners.
+- Run select44 assigns index 1, clearing the validity gate, but the full ID does
+  not match the existing native entity's generation. Run generation46 supplies
+  the matching packed ID and resolves a native entity object. Both remain at
+  WORLD REPLICATING; this is not a replicated player or gameplay milestone.
+- Added bounded read-only `--replication-state` reporting for validity, bucket
+  count, record/object presence and generation mismatch. Exact profile/getter
+  guards, truncated data, malformed pointers/counts and changing selection are
+  covered by five synthetic fixtures. Reports omit IDs, pointers and payloads.
+- Delaying the valid notification by 30 seconds also leaves four pending entries
+  and WORLD REPLICATING, with the completion marker false instead of true.
+  Late observers miss notification delivery, so this does not prove why the
+  marker differs. Extended the guarded snapshot to these queue counts/marker.
+- Native build and all 24 CTest targets pass. Completed run cleanup retains
+  original hash/signature and exact scoped ACLs, and ends owned helpers.
+
+## 2026-10-14 — map placeables replicate; world reaches WORLD_RUNNING
+
+- Traced the four zero-dependency pending replication rows: they are map
+  placeables with networked components (types 0x5e/0x3a), removed only by an
+  entity create naming the placeable. Decoded the server entity section,
+  module-4 create/update framing and the placeable create path.
+- Extended the private responder with opt-in minimal placeable creates. Two
+  framing errors (module-5 prefix, module-2 empty form) were found from the
+  client's per-module consumed-bit counters and fixed.
+- Bounded runs livecreate54/55: after the 20302 selection resolves, the client
+  processes the queued creates, clears all pending rows and advances the
+  submitted world to GAME MODE LOADING and WORLD_RUNNING, with four class-0b100
+  entities. A new read-only ~10 ms sampler recorded the transition. The UI
+  stays on the Practice loading screen; no player entity or gameplay is shown.
+- Claude's launcher binary predated `--preload-practice-header`; rebuilt with
+  Build.ps1 -SkipDependencies, all 24 CTest targets pass. Every run's cleanup
+  (owned processes/listeners, exact ACLs, original hash and signature) passed.
+
+## 2026-10-14 — verified placeable codec and visible Practice geometry
+
+- Resumed Claude's map-placeable work. Saved run55 and liveverify58 confirm
+  WORLD_RUNNING with no queued/pending records and completion marker set.
+- Added a bounded independent placeable entity-section codec and four synthetic
+  fixtures for exact framing, identifier widths, alignment, truncation, unsupported
+  module forms and bounds. Across runs55/58/59/60, all 2079 captured sections
+  re-encode exactly, including 1481 create records.
+- Migrated the private responder to the reusable codec. Livecodec59 visibly
+  renders Practice geometry after loading. Livecamera60 reproduces that view;
+  Escape opens/closes the in-game menu. No hero HUD or weapon is present; short
+  W, mouse-drag and H checks establish no movement, camera control or hero picker.
+- Extended the existing guarded scene snapshot to game-mode-loading/running
+  states, without equating the native state with playable gameplay.
+- Native build and all 25 CTest targets pass. Normal header initiation and
+  local-player/hero replication remain unresolved. All live cleanup audits pass;
+  raw captures remain private.
+
+## 2026-10-14 — first-person prerequisite and timing-field control
+
+- Traced the first-person timing reader to a selected-entity lookup followed by
+  component 44. The current diagnostic selected entity lacks that component;
+  resolving its entity-table entry does not establish a controlled actor.
+- Extended the guarded read-only replication snapshot with native-ID agreement
+  and component-presence booleans. Six synthetic fixtures cover absent/present
+  components, identity mismatch, truncated memory, changed masks and profiles.
+- Bounded livetime62 enables the existing optional 16-bit timing field. Practice
+  geometry visibly renders again, without a hero HUD or weapon. The client stores
+  49.085 seconds in the traced native field, while both controlled-actor markers
+  remain invalid. This verifies receipt and scaling, not full clock synchronization.
+- The new and prior livecamera60 snapshots both report the missing component.
+  Run62 reaches WORLD_RUNNING with no queued/pending records, ready scenes and
+  complete resource groups. All 433 captured entity sections re-encode exactly,
+  including 366 create records. All 25 CTest targets and cleanup checks pass.
+  Hero creation, selection, movement and combat remain unresolved.
+
+## 2026-10-14 — definition entity created and selected
+
+- A full 4096-bucket census of both run62 worlds finds 1019/1020 matching native
+  entity IDs and no component-44 candidate. Component 44's native actor getter
+  reads a separate entity ID, so an existing map object cannot fill that role.
+- Hash-verified a 272-byte definition from the final-retail installation, using
+  the old controller resource as a research lead. The serialized root agrees with
+  the [pinned OWLib entity-definition schema](https://github.com/overtools/OWLib/blob/df522f0ceea8748dcb51463ceb990234ceb45c9a/TankLib/STU/Types/STUEntityDefinition.cs).
+  Its four serialized components map to native types 29/47/73/76. Runtime
+  components must be established separately; serialized presence is insufficient.
+- Livedefresource63 puts that definition in the experimental welcome list. The
+  client remains at HOTFIXING with the loading overlay; metadata is not ready,
+  and the final snapshot is tearing down. This does not verify generic resource
+  preloading. All 522 entity sections re-encode exactly; cleanup checks pass.
+- Corrected the private cache inspection to include the native fallback cache:
+  run62 already has the definition's typed object ready (status 4), despite no
+  raw catalogue/cache entry. Raw-cache absence is not definition-load failure.
+- Livedefcreate64 uses the baseline welcome and a minimal non-placeable create
+  with neutral transform flags and no network component state. The original
+  engine constructs the new entity, including components 44, 25/26 and 84/85.
+  The complete running-world census is now 1021 entities with one component-44
+  candidate. Practice geometry still visibly renders.
+- Livedefselect65 selects that entity through a later sequenced 20302 message.
+  The guarded report confirms native-ID agreement, component 44 present, running
+  world and ready scenes. Its component-44 actor target remains invalid. H shows
+  no hero picker/HUD; the subsequent W attempt happens after process exit and
+  establishes no input result. A controllable hero remains unverified.
+- Extended the reusable codec with strict minimal definition creates and two
+  new synthetic fixtures; placeable-only APIs remain strict. Across runs64/65,
+  all 1332 entity sections re-encode exactly, including 160 definition creates.
+  Private actor-link inspection validates the decoded component's world owner.
+  All three live cleanup audits pass. Hero creation and actor-link state are the
+  next protocol investigation; no native state fields were written for these tests.
+
+- All 25 CTest targets pass after the codec extension and completed live cleanup.

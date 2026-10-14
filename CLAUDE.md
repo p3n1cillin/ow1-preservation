@@ -495,3 +495,527 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   041c327 public CI passed. Next: original file-provider open failure (including
   path/mount/actual error), valid descriptor/content/context association and
   original map-header preload. No readiness/verifier/transport code patches.
+
+## Latest saved-dump correction — 2026-10-14
+
+- Private runs udpmeta27/28/29 predate this continuation but were newer than the
+  prior public notes. Storage probe 27 verifies direct owned-folder writes while
+  ancestor attribute checks return Win32 5. Alias run 28 passes own-token access
+  probes and samples four live kind-14 errors 9/2/6 instead of 3/2/-3. Retries
+  still exhaust; no working Hotfix fix or content descriptor is established.
+- Native 0x68362f..0x68370a processes staged slot +0x1a0 and promotes it into
+  ACTIVE +0x198 on completion. The earlier previous/current names were misleading.
+  0x6825de..0x68262d returns completion 2 for the default identifier without
+  setting +0x98. Active default readiness false is not a processing-failure verdict.
+  0x6855a0 installs a new staged context, checking both slots for matching ids.
+- Public metadata_state now reports active_context/staged_context and bounded,
+  identity-checked kind-13 initialization completion/errors. Legacy
+  current_context_present is retained as STAGED presence only. Original default
+  context is active (kind 1, zero records, ready false) in saved 26/28/29.
+  Run 27's snapshot has neither slot and initialization_terminal_flag 0.
+- Corrected reports: .local/runs/udpmeta{26,27,28,29}-context-corrected.json.
+  Private aligned traces: context-default-path-30.txt, context-selection-30.txt,
+  context-promote-aligned-30.txt. Candidate scans are not validated call paths.
+- Native build and 21/21 CTest targets pass; metadata fixtures increased 5 -> 8.
+  No native game launched this continuation. Existing run cleanup records pass.
+  The live maps remain unverified: 29 still WAITING/pending, catalogue-present
+  header/mode but no load-cache objects. Next trace normal map-header preload;
+  do not infer that sending the empty 20318 is necessary for a default context.
+
+## Engine preloader queue continuation — 2026-10-14
+
+- Extended the API search beyond default wrapper 0x171e8e0 to its structured
+  callee 0x171cca0. Native 0x67b250 builds options through 0x679fa0 and calls
+  that callee: descriptor +8 resource, +0 condition key, +0x20 priority.
+  Retained +0x44 is set after submission and cleared by 0x67b160 withdrawal;
+  it is not a load-completion flag.
+- Engine slot 39/vft 0x2610910/owner xor 0xf3b530a5300e4c1a has configured
+  64-byte descriptors at +0x2678/count +0x2680 and retained 72-byte descriptors
+  at +0x58/count +0x60. Public --preload-state validates that engine identity,
+  bounded signed counts/arrays and submission flags; exports aggregate counts
+  only. It does not claim that every world uses this one queue.
+- Saved udpapp11/21/udpmeta26/29 have both engine queues empty. Private prototype
+  agrees with the public reader. Reports:
+  .local/runs/{udpapp11,udpapp21,udpmeta26,udpmeta29}-preloader-state.json.
+  Empty final queues do not establish their earlier transient activity.
+- 0x677190 adds/merges configured descriptors; 0x67a7e0 consumes them. Producer
+  0x6775d0..0x679de0 reads entity/resource descriptors and calls 0x677190/0x677350;
+  0x67be50 also adds a separate source list. The route from private assignment
+  to a Practice header descriptor remains open. Main-root queue identity is
+  verified; its exact relationship to the individual world owners is not.
+- Earlier getter 0x1b53d00 "190GUID" meant member offset +0x190, not GUID type.
+  Its initializer 0x1b51540 checks resource type 2 before 0x1b40d20 requests it;
+  that is not a proven map-header preload path. World submission 0xb4b1c0 only
+  copies the request. 0xb4b430 calls 0xb52630 then sets +0x41; the aligned ordinary
+  0xb52630 scene traversal does not call a resource loader.
+- Native build and 22/22 CTest targets pass, with four new synthetic preload
+  fixtures. No new native launch. Next: trace descriptor producer inputs and
+  conditional eligibility, then observe queues through a bounded live Practice
+  attempt before deciding which original application message/entity data is missing.
+
+## Live Practice and Hero Gallery continuation — 2026-10-14
+
+- Original signed client launched in five new bounded 150-second runs:
+  livepreload32 baseline header assignment, 33 plus header/mode resource list,
+  34 with map-root assignment, and livegallery35/36 gallery controls. Practice
+  reaches ENTERING GAME in all three; no map or controllable hero is rendered.
+  Run 34 selected Practice late, leaving only about 20 seconds afterward.
+- Native request-copy 0x590d50 and welcome consumer 0x7d9990..0x7d99be locate
+  the extra resource array at request +0xf8/count +0x100, not +0x68/+0x70.
+  Private corrected *-world-inputs-v2.json verifies both list entries in both
+  run-33 requests and the root GUID in both run-34 requests. Earlier private
+  world-inputs.json reports used the wrong array and are superseded.
+- Public --world-resource-state now reports validated extra_resource_count
+  (0/2/0 in 32/33/34), with signed count cap 4096, aligned nonempty arrays and
+  complete reads; no GUIDs exported. Delivery does not establish submission/load.
+- Read-only approximately 100-ms live samples: 32=1365, 33=1330, 34=1295,
+  35=1306, 36=1390, all with zero rejected samples. Configured/retained engine queues
+  remain empty, header/mode cache absent. This does not exclude sub-sample
+  activity or alternate world-owned queues. Final Practice snapshots contain
+  active default contexts with zero records, no 20318 and 28 other cache entries.
+- Gallery 35/36 is visually empty; 36 enables every rarity/category/ownership
+  checkbox and still has no hero cards/model. Both have no pending world request
+  or active metadata context. Do not infer a general filesystem/GPU failure from
+  this UI result. Next investigate gallery roster initialization and the normal
+  Practice header-load trigger before inventing more assignment fields.
+- Cleanup records preserve original hash/Valid signature and exact saved ACLs;
+  all owned bounded launcher/server/UDP processes exit. Private run artifacts
+  remain ignored and original client assets untouched.
+- All 22 CTest targets pass after live exit, including native launcher isolation;
+  resource-state fixtures increase from four to six. No commit/push this continuation.
+
+## Private-session native header control — 2026-10-14
+
+- New bounded runs: liveroot37 repeats the map-root assignment with earlier
+  selection (1309 live samples, zero rejected), still WAITING/no header load.
+  liveheader38/39 use the baseline header/mode welcome plus an explicit native
+  preload CONTROL. This is diagnostic loading, not a solved protocol trigger.
+- New launcher --preload-practice-header is opt-in, requires bounded own-key
+  TCP/UDP loopback diagnostics, waits for exact guarded pending Practice
+  header/mode, then schedules a ONE-SHOT original 0x171e8e0(priority 4) call on
+  the verified original primary-thread delay return. Registered unwind, original
+  stack, full NtContinue restore. It does not submit/tick worlds or change native
+  readiness/state values. Returned reference survives only until owned job exit.
+- Both controls return scheduled/unwind/native API/reference true. Header and
+  mode reach cache raw state 3. Final dumps: both managers WORLD LOADING (6),
+  pending requests, active default context (zero records/ready false), 29 cache
+  entries all raw state 3; map-root remains catalogue-present/cache-absent.
+- Direct UI in 39 shows Practice Range LOADING SCREEN with its map art/name/tip.
+  No hero selection, actual scene rendering or playable hero is established.
+  Read-only observer starts before Practice: existing manager transitions
+  WAITING(no request) -> WAITING(pending) -> ABANDONING SCENES -> WORLD LOADING;
+  1269 samples, zero rejected. It tracks only the manager discovered at startup;
+  second manager is confirmed by final dump. Control 38 world observer starts
+  late: 44 samples in WORLD LOADING. Cache observers: 38=1308, 39=1325, zero rejected.
+- New --resource-cache-state exports aggregate counts only, capped traversal,
+  exact profile, unique objects and raw state counts; rejects changing/corrupt
+  counts/chains/objects. Saved 33/36 have 28 objects all raw state 3: some assets
+  do load normally. Private *-cache-states.json agrees with public reader.
+- Correct world-owner decoding is ONE xor using 0x2ee48a1/0x4dfd564467c27b96;
+  it is NOT the fixed engine owner mask. Both world owners differ from main root
+  and have no slot-39 service in 33/36. Earlier world_owned_preload_queues.py
+  double-decoded the owner and is superseded by world-preload-owner-check.py.
+- WORLD LOADED (7) switch -> 0xb54370; aligned 0xb543f2 calls 0xb4ffd0 content
+  gates, requires manager +0x41 and owner virtual +0xc8 (0x587170: owner+0x2a8),
+  compares target request and checks target manager state >=7. Final 38/39 have
+  one submitted/owner-flag true, other false. Do not patch these flags.
+  0xb4ffd0 checks matching active/staged identifiers, staged absence and provider
+  readiness for types 0x75/0x77 via 0x57b9f0, then extra-resource availability.
+  Precise stopping branch and downstream world/scene dispatch remain to trace.
+- Native build and all 22 CTest targets pass. Resource fixtures now eight;
+  launcher isolation rejects incomplete/duplicate control flags. All three owned
+  runs restored exact ACLs/hash/Valid signature; helpers/listeners ended. No push.
+
+## WORLD LOADING completion gates — 2026-10-14
+
+- Correction: actual dispatch table index state-2 maps WORLD LOADING (6) to
+  0xb4ccfb -> 0xb54a80. The previous 0xb54370 trace is WORLD LOADED (7),
+  downstream of the current stall, not its immediate gate.
+- Ordinary 0xb55bbf path calls world-owner getter 0x5855f0, checks resource
+  arrays at world +0x50/+0x60/+0x88 via 0xb4d910 (signed object+0xac >=2),
+  then scene virtual +0x140. Getter decodes owner+0x1d0 using original PID
+  (GS:[0x40]), stack-only seed routine 0xb7c60 and table 0x2ee46d0.
+  Scene secondary vft=0x2655fc8; method 0xb59220 returns scene+0xa0 boolean.
+- Public --scene-state --client-pid <PID associated with dump> reproduces
+  both saved controls 38/39: each of two managers has resource groups 4/2/0,
+  six objects raw3, all native-complete, but scene_ready=false. Active/pending
+  scene handles (scene-0x70/+0x38) are absent. No native field is changed.
+- Native scene update at 0xb5b78e sets primary+0x128 (secondary+0xa0) only
+  when pending or active scene exists, 0x1b53d80 returns 5 and predicate
+  0x1b40cf0 succeeds on 0x1b53d30 result. Scene request method 0xb59680
+  resets readiness and calls 0xb5cfe0; next trace is why construction is absent
+  or returns null. Do not assume deserialization failure from missing handles.
+- Loaded Practice header +0x50 is type2/index1672, already cache raw3 but
+  absent from loaded-asset lookup. Null global 0x32213e8 uses native fallback
+  0x3225890, FNV1a32 over eight little-endian GUID bytes; earlier private
+  lookup that rejected null root was incomplete. This does not prove no blob.
+- livescene40 was bounded150s, native handshake reached6, 1020 resource and
+  1013 world samples, zero rejects. Captured window black; activation failed
+  GetCursorPos Access denied (0x80070005), including fresh selection recovery.
+  No Practice input, pending request or header-control call: this is not a
+  new loading-screen reproduction. Startup manager stayed WAITING/no request.
+  All cleanup checks pass. No game/owned responders remain.
+- Native build and all 23 CTest targets pass, including new scene fixtures.
+  Read-only public reports omit pointers/PIDs/GUIDs/native bytes. No commit/push.
+
+## Live typed-map comparison — 2026-10-14
+
+- UI works after user's desktop/input fix. Two bounded original-client runs:
+  livescene41 baseline header assignment/control and livevariant42 exact typed
+  map reference/control. Both directly show original Practice loading screen,
+  with no hero selection, geometry rendering or playable hero verified.
+- Header asset +0x50 names 0x0800010000000688, not earlier unflagged root
+  0x0800000000000688. The 0x10000000000 variant bit is material. Both native
+  pending requests in 42 contain the exact header reference and Practice mode.
+- Opt-in header control now accepts only the earlier exact Practice header or
+  that exact typed Practice map plus exact mode. It still requests the header
+  once, changes no native completion flags, and is confined to bounded own-key
+  loopback sessions. Default launcher behavior unchanged.
+- Baseline 41: live WAITING -> GLOBAL LOADING -> WORLD LOADING, three groups
+  4/2/0 complete, scene_ready false. Final dump has two managers and absent
+  active/pending scene handles. World observer follows startup manager only;
+  1265 valid/0 rejected; resource observer 1349/0. A later WAITING/no-request
+  sample occurs near the bounded run's end; do not claim its cause.
+- Variant 42: both managers have pending scene handles, active absent,
+  ready false; groups still 4/2/0 all raw3. Both pending scene objects have
+  vft0x27abc08 and decoded controller state1, not required5. Completion data
+  exists and its two resource objects are raw3. Scene construction progressed,
+  but scene state advancement remains missing. No root-level gameplay claim.
+- Extended public --scene-state with conditional active/pending scene progress,
+  exact object/getter identities, bounded raw state and signed resource statuses.
+  Reproduces private snapshot; no native addresses/IDs/payload bytes exported.
+  State getter 0x1b53d80 and data getter 0x1b53d30 decode object+0x458 xor
+  0xe4d560d2fc1e2c2b; controller+0x1a8 state, +0x1b0 completion data. Native
+  predicate 0x1b40cf0 requires both data+8/+0x10 resources with signed state>=2.
+- First 42 world discovery exceeded10sec, failed without observations. Retried
+  with bounded20sec/4GiB discovery; found both managers after WORLD LOADING.
+  Second observer554 valid/2 rejected (not a complete transition history),
+  resource observer946/0. Both native controls return scheduling/unwind/API/ref
+  true. All cleanup ACL/hash/signature/owned-process checks pass.
+- Native build and all 23 CTest targets pass. Four synthetic scene
+  fixtures now cover resource completion versus controller state and readiness,
+  plus malformed scene identities/state/pointers/unreadable data. No commit/push.
+
+## Canonical map reaches WORLD REPLICATING — 2026-10-14
+
+- State1 trace: scene update 0x1b57ff0 increments object+0x478 and calls
+  0x1b5f230 before controller state5. Its state1 path calls 0x1b412d0;
+  load-progress0 calls 0x1b416a0, which waits for data+0x18 typed asset handle.
+  Native constructor 0x1b40dee..0x1b40e12 requests two raw resources via
+  0x171e8e0 and a separate typed handle via 0x173b8f0 ->0x1740bd0.
+- Saved variant42 has3757 scene ticks in each object, load_progress0, valid
+  typed handle but no asset object, native handle status2. Completion resources
+  raw3 do not establish typed-asset completion. Type2 maps to descriptor group15;
+  it exists. 0x1736fc0 is merely a reference increment, not queue insertion.
+- Native 0x173b910 status: invalid0; valid unfinished2; finished+failed3;
+  finished without failure4. Finished is control+8 bit16; failure bit15.
+  Never interpret typed status3 as raw resource status3.
+- New livecanonical43 keeps header preload but uses unflagged canonical map
+  0x0800000000000688 in both welcome fields. Exact pending map/mode verified
+  in both final requests. Opt-in guard accepts header, canonical map and
+  referenced variant, all exact Practice assignments plus exact mode.
+- Canonical run directly reaches Practice loading screen, internally advances
+  WORLD LOADING ->WORLD LOADED. Final dump: first manager7 WORLD LOADED,
+  second8 WORLD REPLICATING. Both scene_ready=true, active present/pending
+  absent, controller5, load_progress4, typed object present/status4, update_count
+  4750, groups4/2/0 all raw3. Public inspector now covers world states6/7/8.
+- This isolates the variant as a blocker: canonical map completes typed load;
+  the header's referenced variant stalls. Prior header-only versus variant
+  comparison did not independently isolate map type and variant flag.
+  Original normal header initiation is still unresolved; diagnostic preload
+  remains opt-in. No native readiness/state writes or extra ticks introduced.
+- Live world observer follows startup manager only: 1043 valid/0 rejected,
+  captures asset completion/progress0->2->4 and scene state1->2 before world7.
+  It misses state5 between samples and does not observe the submitted manager's
+  transition to8; final dump verifies it. Resource observer1286/1 rejected.
+  A late second observer starts as the client exits and produces no snapshots.
+- UI remains loading screen: no hero selection, rendered gameplay geometry,
+  movement or combat verified. Next frontier is replication initialization.
+  Failed main-root provider getter prototype is not evidence of a provider
+  blocker; the actual submitted manager already passed WORLD LOADED.
+- Native build and all23 CTest targets pass (five scene fixtures). Exact ACL,
+  original hash/signature and owned helper/listener cleanup pass. No commit/push.
+
+## Selected entity and pending replication — 2026-10-14
+
+- Completed liveselect44, livegeneration46 and livedelay47. A failed responder
+  startup livegeneration45 never launches the client and also passes cleanup.
+  All new runs retain canonical Practice map/mode and explicit header preload.
+  All owned runs are ended; original hash/signature and exact saved ACLs pass.
+- Normal 20302: dispatcher 0x7d2000, table 0x7d2244 index2=0x7d2079 calls
+  0x7d6c10. Handler passes record+0x78 to 0x5881c0, which writes owner+0x298
+  as u32. Schema is signed i32: convert packed high-bit ID to signed equivalent
+  at encoding, without changing its bits. +0x7c false/+0x80 zero unchanged.
+- Client update 0x788900 (vtable pointer ref 0x2615848): 0x789330 decodes owner
+  via [client+8] XOR image[0x2ee48a1] XOR 0x4dfd564467c27b96. Getter 0x582340
+  returns owner+0x298; validity rejects image[0x3241288] and low29 bits all ones.
+- Exact entity lookup 0x78abe1..0x78acb5: table=owner+0x18 XOR
+  (0x042b51ef9b84a901+2*ror64(image[0x2ee53a8],4)), all modulo64. Bucket at
+  table+(selected&0xfff)*16, array+0/count+8, rows16 bytes keyu32+0/objectptr+8.
+  Full ID match is required; matching low29 index with a different generation
+  does not resolve. Private saved entity generation is6/index1; this is a
+  diagnostic selection of an existing entity, not a demonstrated player spawn.
+- Baseline43 both owners selected unset. 44 submitted owner selected1 valid,
+  bucketcount1 but no exact record/object match; same index/different generation.
+  46 sends matching packed ID; selected valid, exact record and object present.
+  47 sends same ID after30sec from first welcome with the same resolution.
+  All final submitted worlds remain8, startup7. All active scenes ready/state5,
+  typed status4, groups4/2/0 raw3. Scene ticks44=3008,46=4872,47=4804.
+- New public tools/retail_replication_state.py via --replication-state exports
+  only statuses/counts/booleans. Exact root/getter/dispatch/owner/slot guards,
+  bounded one-bucket reads, duplicate selected key rejection, truncated reads,
+  changing selected/table/context/queue rejection. Five synthetic tests pass;
+  native build and all24 CTest targets pass, final extension targeted CTest pass.
+- Native 0x641250 uses normal owner+0x140 context table decode with TABLE_MASK
+  minus image[COOKIE_RVA]; 0x5fd5a0 returns slot79. Slot vft0x2610cf0, +0x18
+  points to plain replication job (first qword is NOT a vtable). Job+8 is the
+  context used by update. Job+0x18 queued record count, +0x128 pending count,
+  +0x148 completion marker. Baseline43/44 pending4 markerfalse; 46 pending4
+  markertrue; 47 pending4 markerfalse. Do not label +0x148 a separate busy flag.
+- Completion path at 0x78ab81 also requires staged metadata false and
+  0x78dd60 error result0. It tests job+0x148 false, entityobject non-null and
+  pending count0 (calls 0x78efd0 to drain if nonzero), then 0xb4a810 and writes
+  completion markertrue. 0xb4a810 calls owner0x1836820 then tailjumps0xb523f0.
+  Forward dispatch state8->0xb52517 sets9 at0xb52548. 0xb52190 is backward/
+  teardown, not the replication trigger. Never invoke these callbacks or write
+  readiness/state/queue flags directly as a fix.
+- Next trace: 0x78efd0 drain, aligned continuation0x78f022..0x78f242. Pending
+  array context+0x118 (=job+0x120), count context+0x120 (=job+0x128), rows24:
+  +8 dependency GUID array, +0x10 signed count. Saved47 four entries have
+  dependency count0; handler at0x78f0e8 skips those, leaving them in queue.
+  Nonzero dependency lists compare against world+0xe0 virtual getter, owner
+  0xd9d640 result, and typed asset from returned object+0xb8, then remove via
+  0x787620. Meaning/producer of zero-dependency entries remains unresolved.
+- Ignored helpers: .local/re/world-replication-state.py, updated private
+  udp_welcome_reply.py (--selected-entity u32, signed conversion, followup delay)
+  and run-live-preload.ps1 (-SelectedEntity -SelectedEntityValue -SelectedEntityDelay).
+  Follow-ups now send after welcome repeats stop, so delayed delivery works.
+  .local/re/watch-live-world.py includes replication gates/context counts and
+  states6/7/8 scene snapshots; late second observers discover submitted owner.
+- Private disassembly: replication-status-details-53.txt, completion-prerequisites-53,
+  replication-pending-drain(-aligned)-54.txt; earlier 51/52 files trace selection
+  and dispatch. Exclusive public snapshot reports in .local/runs/*-public-
+  replication-final.json, plus44/46/47 scene reports. Original PID44=14616,
+  46=34228,47=39844; imagebase140699994357760; original dumps in client _retail_
+  retail-private-<run>.dmp. All private material stays ignored.
+- 44 observers world688/0 resource739/1; 46 world1071/0 resource1102/0 late202/0;
+  47 world1015/0 resource1064/1 late335/0. Startup discovery sees first owner
+  only. Late observers begin after notification, so marker timing cause is
+  unproven. Private responder accepted230/230,367/367,355/355 datagrams; each
+  has one body outside public reliable decoder. Ten follow-up repeats each.
+- Direct UI46/47 stays original Practice loading screen. No hero selection,
+  rendered gameplay geometry, movement or combat. No commit/push this session.
+
+## WORLD_RUNNING via placeable creates (Claude, 2026-10-14, livecreate54/55)
+
+- The 4 zero-dependency pending rows are server-replicated MAP PLACEABLES:
+  producer 0x787f50 (scene visitor 0x78b9a0) adds scene records with a
+  component of type 0x5e/0x3a, keyed by placeable id (record +0x2c): 0x88,
+  0x22e, 0x234, 0x289 in Practice. Only an entity CREATE naming that placeable
+  removes a row (0x78c360 -> 0x788480). Drain 0x78efd0 never does.
+- Server entity section (0x7ce110): 7-bit count; id 0xdb0f70 (2-bit class ->
+  top bits 1gg, varint index 8/16/32); TERMINATING module chain: mod0 none,
+  mod1 one 0 bit, mod2 TWO 0 bits (0xb3a490 has two optional sections), mod3
+  one 0 bit, mod4 = 2-bit op | 14-bit length | payload. Module-5 PREFIX is ONE
+  0 bit outside hot reload (old responder wrote two; harmless only with zero
+  entities). Minimal placeable create: 1 | u32 placeable | 0 | 8-bit zero
+  component count; entity id class must be 0b100 (we use 0x80000300+).
+- Records queue (job+0x18) but are processed only after the 20302 selected
+  entity resolves. livecreate54/55: then all creates process, pending 4->0,
+  marker set, submitted world GAME MODE LOADING -> WORLD_RUNNING, four
+  0x800003xx entities with objects. UI STILL the Practice loading screen; no
+  player/hero entity, rendering or input. Selection is still the diagnostic
+  existing local entity 0xc0000001; components are empty. Next: what the
+  loading screen/local player needs (likely a real player/hero entity create
+  via the non-placeable definition path 0xdb11c0/0x78dab0, then 20302 for it).
+- Debug lever: connection(+vft 0x2616458)+0xa0 = u32 bits consumed per module
+  (prefix + per-entity). It found both framing errors. Private tools:
+  .local/re/watch-replication-56.py <pid> <out> <sec> (live ~10 ms sampler),
+  replication-pending-keys-55.py, instance-connection-owner-57.py,
+  replication-gate-object-57.py (0x594af0 discard gate obj+0x280 must be 0).
+  Notes: .local/re/replication-entity-create-55.md.
+- Responder: udp_welcome_reply.py --placeable-create ID --create-delay;
+  driver run-live-preload.ps1 -PlaceableCreate (use with -MapRoot
+  -NativeHeaderControl -SelectedEntity -SelectedEntityValue 3221225473
+  -SelectedEntityDelay 45). Claude drives the UI with .local/re/ow-ui.ps1
+  (accepts the package-cache client path; menu coords at 2560x1080: No Thanks
+  2100,1006; Training 471,326; Practice Range 1279,538 — re-verify by shot).
+  Computer Use cannot be approved when the user is away.
+- Claude's launcher build was stale; rebuilt (Build.ps1 -SkipDependencies),
+  24/24 CTest. All runs' cleanup audits passed. Dumps
+  retail-private-livecreate5{0..5}.dmp beside the client; 50..53 are
+  superseded failures (50/48/49 never reached Practice). No commit/push.
+
+## Codex continuation: reusable codec and visible geometry — 2026-10-14
+
+- Independently verified saved55 WORLD_RUNNING with public --replication-state,
+  then liveverify58 reproduces state8->9->10 and pending4->0 with the same private
+  placeable responder. Submitted observer12719 valid/0reject/maxqueued133.
+- Added public tools/instance_entities.py: PlaceableCreate(entity_id,placeable_id)
+  and read/write_placeable_creates on independent Reader/Writer, at 7-bit entity
+  count AFTER server prefixes. Observed non-hot-reload minimal42-bit payload,
+  class100/8-16-32bitindex, empty modules0..3 (module2 TWO0bits), terminatingchain.
+  Unsupported forms rejected. Four synthetic tests; CMake adds25thtarget.
+- Migrated ignored udp_welcome_reply.py server_body to this public codec. Old
+  entity_create function remains unused as a private comparison reference.
+  .local/re/check-server-entities-58.py authenticates saved replies and parses
+  reliable prefixes privately, then re-encodes exact entity-section bits.
+  Checks:55=545replies/543sections/400creates;58=428/426/359;59=390/388/322;
+  60=724/722/400. Total2079sections,1481creates. No bytes/keys in stdout/public.
+- livecodec59 default150sec, selecteddelay45, canonical/header/placeables:
+  WORLD_RUNNING, queue0/pending0, marker1. UI DIRECTLY shows actual Practice
+  snow/rocks/building/animated sky, with tip/mapname/loading overlay gone.
+  Esc attempted as bounded process exited, so no effect established in59.
+- livecamera60 bounded180sec, selecteddelay30, same codec/placeables: geometry
+  reproduced; Escape opens in-game menu Social/Career/Options/LEAVE GAME/Exit,
+  Escape returns to map. Short W press, mouse drag, H produce no visible camera
+  translation/rotation or hero selection. No HUD/weapon/controllable hero.
+  This supersedes 'geometry unverified' for these runs, NOT playable-game claims.
+  Renderer shows one fixed camera near snowy exterior; animated clouds change.
+- run-live-preload.ps1 adds private -RunFor30..180(default150), actual launcher
+  duration, outerduration+70 deadline. UDP stays180. All 58/59/60 audits pass,
+  original hash/Valid signature/exactsavedACLs intact, ownedprocesses ended.
+  No game/listeners remain. No commit/push. Do not rerun isolation whilegamealive.
+- Public --scene-state now includes world9/10 (tests aswell). Both final scenes
+  active/ready/state5, rawgroups4/2/0 complete, typedstatus4; ticks58=4706,
+  59=4385,60=7322. Nativebuild+all25CTest passed; CLIhelp adjusted only afterward.
+- Live observers58/59/60: submitted12719/0max133,11411/0max128,18605/0max67;
+  startup observers miss submittedworld because discoverypreselection. Private
+  sampler .local/re/watch-replication-56.py exports selectedIDs to ignoredlogs;
+  don't copy these into public docs. See .local/runs/*-public-final.json.
+- OriginalPID58=30400,59=30256,60=15924, imagebase140695393271808. Dumps
+  _retail_/retail-private-liveverify58/livecodec59/livecamera60.dmp in original
+  packagecacheclient folder; savedclientinfoJSONs .local/runs/<name>-client.json.
+- Next frontier remains real local-player/hero replication, not pendingplaceables.
+  Read-only nonplaceable path notes .local/re/entity-definition-reader-59.md;
+  native0x78c8c4 calls0xdb11c0(bs,type3) then0x78dab0 8bittransformflags.
+  No definitioncreate sent; resolve actual GUID and components before doingso.
+  The hardcoded0x0400000000002299 is AUTOMATION ENTITY, NOT player evidence:
+  0x787260 errorlabel 'Automation entity unavailable'. Generic0x7873f0 missing
+  definition ->nativeerror0x40131. Private definition-create-*58/59 traces.
+- Next concrete native gate: post-create0x787b20 walks callbacks+90/count+98,
+  passing entity to function/contextpairs16bytes. Actual primary replication
+  module vft0x26157d8; networksecondaryvft0x2615850 is atprimary+0x10 (NOT+40).
+  Saved60 two module instances each register0xb8c530 and0xbae5e0, nullcontexts.
+  .local/re/post-create-callbacks-60.py confirms identities/countbounds/RVAs;
+  post-create-callback-bounds-60.txt traces bodies.0xb8c530 firstcomponent
+  maskgetter0xbcacb0. Match requiredcomponentpresence/nativecomponentinitialization
+  against selectedlocalentity and realplayer before inventing packet fields.
+  Earlierzero-resultcallbackscan assumed wrongbaseoffset; it is superseded.
+- Selectedlocalandfourcreatedentities have matching nativeID+0xb0 and nonempty
+  componentmasks+0x88..0xa0, despite zero networkcomponentcount. They are plain
+  structures; firstqoutsideimage is not invalidvft evidence. Ignoredoverview
+  .local/re/created-entity-observations-59.py and liveverify58-entity-observations.
+- Native followup20303 dispatchhandler0x7d8870 callsworldcomponent0xbfd760;
+  20304handler0x7d6830 eventually calls0xe3e4d0(owner,u8field+78). Meaning not
+  established; no20303/04 sent. Traces post-world-records-59/record20303-target-60.
+  Never directlyinvoke nativecallback orwriteworldreadiness/state asafix.
+
+- Continuation run62 (livetime62) visibly renders Practice with the existing
+  optional module-3 timing field enabled. No hero HUD or weapon is present.
+  Native timing field +70 is 49.085 seconds; +64 controlled-actor markers are
+  invalid in both module instances. Primary module VFT is 0x26162d8, secondary
+  network VFT 0x2616350 at +10. Private first-person-clock-observations-62.py
+  verifies saved fields. This establishes receipt/scaling, not clock sync.
+- First-person reader 0x7c7800 calls selected-object getter 0x582b10 then
+  0xda69d0, whose component getter 0xbd59a0 requires word-0 bit 44 (+88 mask).
+  Component method 0xbd4d40 resolves a separate actor whose +b0 ID is saved.
+  The current selected diagnostic entity lacks component 44. Public replication
+  snapshot now checks native-ID agreement (+b0) and exposes this prerequisite
+  as a boolean. Six fixtures cover malformed/changing memory and profiles;
+  component presence alone does not prove hero or controlled-actor initialization.
+  Both run60 and run62 final snapshots confirm absence. Do not construct a
+  guessed component or native actor; trace its definition/initialization next.
+- Run61 ended at the menu, so it is not a Practice timing control. Run62 client
+  PID 1988, saved client JSON and public-final JSON are under .local/runs; dump
+  retail-private-livetime62.dmp stays in the original client's package cache.
+  Submitted observer: 1920 valid, zero rejected, maximum queued 63, records
+  WORLD_RUNNING before teardown resets. Final snapshot still captures running,
+  ready state-5 scenes (ticks 4783), zero queued/pending and completion marker.
+  All 433 entity sections re-encode exactly, 366 create records. All 25 CTest
+  targets pass, full cleanup audit passes, game and diagnostic listeners ended.
+  No native build changes, commits or pushes this continuation. Next unresolved
+  step is actual player/hero replication and first-person entity-state decoding.
+- Additional read-only traces: post-create callback 0xb8c530 requires components
+  25/26; 0xbae5e0 requires 84/85. Their roles are not established. The current
+  selected entity lacks 44; map placeables have 25/26 but not 84/85. Private
+  post-create-component-61 and secondary-gates-61 record these getter masks.
+  20304 -> 0xe3e4d0 dispatches a byte to world-owner context slot 120's callback;
+  both saved run60 owners have no slot 120. 20308 -> 0x7d88b0 uses global-root
+  context slot 29 plus descriptor/notification paths, not verified hero creation.
+  Actual reliable-handler-map-61.json supersedes earlier candidate 0x7d89e0
+  (that handler belongs to 20306). No 20304/20308 messages were sent.
+  Module-3 per-entity path 0x7c2e60 queues bitstream snapshots under job+150,
+  then 12-bit payload length and an entity-ID/offset/length item. 0xbea7f0 is
+  bitstream copying, not a decoded first-person header. Do not send guessed
+  first-person payloads. The separate post-receive-62/queue-consumers-62 traces
+  are candidates, not established queue decoders; vtable span/roles need checking.
+
+## Definition-create checkpoint — 2026-10-14
+
+- Complete entity-table census (.local/re/entity-census-63.py) checks all 4096
+  buckets, duplicate/index/count bounds and native IDs. Run62: worlds contain
+  1019/1020 entries, all ID matches, zero component-44 candidates. Run64: 1019/1021
+  entries, all matches, exactly one candidate in WORLD_RUNNING after definition
+  create. This supersedes investigating whether a hidden existing entity has 44.
+- The old beta controller resource is only a research lead. Its exact final
+  definition is hash-verified offline from bundle data: 272 bytes, root hash
+  73bb2f3a, serialized components 445e7678/7a36ae06/dae477d5/fd024f42. See private
+  definition-storage-probe-63.json and definition-000e-63.bin. The verified source
+  GUID and content hash stay in that private report. Pinned OWLib schema/tree
+  and filtered type metadata are ignored owlib-*-63 files. No third-party tool
+  binary was installed or run. Native 0xf525e0 maps these to 76/29/73/47; script
+  component-type-map-63.py statically traverses compare/branch leaves, reports
+  89 mappings and 11 unresolved default cases. Do not equate serialized types
+  with runtime components, or assume the beta's offsets/classes apply.
+- Cache correction: 0x173ba30 uses primary typed manager at image+0x321f3e8;
+  when absent it uses global fallback cache at image+0x3225890. Native 0x1738160
+  uses FNV-1a of eight GUID bytes, capacity+58, buckets+48, node GUID+10/next+18.
+  0x173baae returns node's object directly. definition-load-state-63.py now reads
+  both paths. Run62 has a ready typed definition object (status4), despite no raw
+  catalogue/load-cache entry. Earlier *definition-baseline-63/final JSONs omit
+  fallback and are incomplete; use *definition-full-lookup* results instead.
+- Livedefresource63 is a failed welcome-list control, not a working asset preload:
+  -DefinitionResource adds the verified definition to 20300 +520. HOTFIXING and
+  loading overlay persist; final metadata default context not ready, current
+  context absent, teardown states WAITING/ABANDONING SCENES. It has no fallback
+  definition entry at the end. Do not add this list to the working create run.
+  PID45976; 3418 observer samples, 3 rejected, max queued83; 522 sections/400
+  placeable creates re-encode exactly. Full cleanup audit passes.
+- Livedefcreate64: baseline canonical welcome/header/placeables, plus opt-in
+  -DefinitionCreate, initial diagnostic selection after30sec, run-for180.
+  Non-placeable payload is 51 bits: bit0, resource selectors00+index32 for type3,
+  flags0(8), component count0(8). Class100/new unused index, same module chain.
+  Native engine constructs components 22/25/26/29/44/45/47/73/76/84/85/90/96/97/137.
+  Thus both post-create callback pairs and missing first-person prerequisite
+  exist without guessed component bytes or memory writes. Practice geometry
+  renders. PID46404; observer2252 valid/0 rejected/max queue66. Capture check
+  661 authenticated replies, 659 sections, 400 creates including80 definitions.
+- Livedefselect65 adds -SelectDefinition: after45sec, a new reliable sequence
+  sends 20302 for the definition entity; initial diagnostic selection is still
+  delivered after30sec so create queues can drain. It successfully selects the
+  new object, native ID agreement true, component44 true, WORLD_RUNNING with
+  queue/pending0 and marker1. Scene ready/state5, ticks6953, groups4/2/0 complete.
+  PID26336; observer2852 valid/1 rejected/max67; 675 replies/673 sections/400
+  creates including80 definitions. H produces no hero picker/HUD. Subsequent
+  W action fails because the bounded process has exited; no movement result.
+- Public tools/instance_entities.py now adds DefinitionCreate and strict
+  read/write_entity_creates. Neutral type3 GUID index32, flags0, empty components;
+  placeable-only wrappers remain strict. Six synthetic fixtures. Both run64/65
+  captures re-encode exactly with public and independent private encoders:
+  1332 sections, 160 definitions. Private responder migrated to public definition
+  writer afterward; byte equivalence is verified, no redundant new run yet.
+  Full25CTest pass, original hash/signature/ACL audits pass for63/64/65. No native
+  build/source change, commit or push this turn. All owned processes ended.
+- New remaining gate: component44 has an invalid actor target at +d4, and cannot
+  resolve a controlled actor. Private definition-actor-link-65.py verifies this
+  in both64/65, including decoded component's world-owner identity. Decode uses
+  the saved PID and native b7c60 key transform; wrong PID must not be accepted.
+  Its native da69d0 component mask/popcount and four pointer transforms are
+  traced in component44-*63 and component-key-*64. bd4d40 actor getter reads
+  +d4 then the world's ordinary entity table. Do not write this ID as a shortcut.
+  Next trace actual hero gameplay definition and native replicated state linking
+  it to this entity, including CFPS/generic component readers. Actor-link helper
+  remains private; add exact instruction/profile guards and synthetic tests if
+  promoting it to public diagnostics. This checkpoint establishes creation and
+  selection of a definition entity, not hero control or actual combat.

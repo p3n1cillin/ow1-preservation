@@ -40,6 +40,7 @@ class SavedMemory:
         self.integer(self.manager + 0x18, 2, 1)
         self.integer(self.manager + 0x20, 0x50001000)
         self.integer(self.manager + 0x41, 1, 1)
+        self.put(0x50001000, bytes(0x108))
         self.integer(0x50001000, 0x688)
         self.integer(0x50001008, 0)
     def put(self, address, value):
@@ -126,6 +127,67 @@ class ResourceTests(unittest.TestCase):
             dump.integer(dump.manager+0x18,11,1)
             with self.assertRaises(ValueError):resource.world_resource_states(dump)
         with self.assertRaises(ValueError):resource.world_resource_states(dump,limit=9)
+
+    def test_extra_resources_are_native_request_counts_not_loads(self):
+        dump = SavedMemory()
+        with mock.patch.object(login, 'inspect', return_value={}):
+            self.assertEqual(resource.world_resource_states(dump)['managers'][0]['extra_resource_count'], 0)
+            dump.integer(0x500010f8, 0x60004000)
+            dump.integer(0x50001100, 2, 4)
+            dump.put(0x60004000, struct.pack('<2Q', resource.MAP_HEADER_TYPE | 0x688, 0x023000000000005a))
+            report = resource.world_resource_states(dump)['managers'][0]
+        self.assertEqual(report['extra_resource_count'], 2)
+        self.assertFalse(report['map_header']['cache_entry_present'])
+        self.assertNotIn(str(resource.MAP_HEADER_TYPE | 0x688), json.dumps(report))
+
+    def test_extra_resource_corruption_fails_closed(self):
+        with mock.patch.object(login, 'inspect', return_value={}):
+            for count, pointer in ((0xffffffff, 0), (resource.MAX_REQUEST_RESOURCES + 1, 0),
+                                   (1, 0), (1, 0x60004001), (1, 0x60004000)):
+                dump = SavedMemory()
+                dump.integer(0x50001100, count, 4)
+                dump.integer(0x500010f8, pointer)
+                with self.assertRaises(ValueError):resource.world_resource_states(dump)
+
+    def test_cache_summary_counts_existing_objects_without_identifiers(self):
+        dump = SavedMemory()
+        reader = resource.ResourceReader(dump)
+        self.assertEqual(reader.cache_summary(), dict(entry_count=0, unique_resource_objects=0, raw_load_state_counts={}))
+        dump.cache_node(0x60002000, 123, 0x60003000, 0x60002100)
+        dump.cache_node(0x60002100, 456, 0x60003100, 0x60002200)
+        dump.cache_node(0x60002200, 789, 0x60003000)
+        dump.integer(dump.cache_buckets, 0x60002000)
+        dump.integer(dump.image_base + resource.CACHE_COUNT_RVA, 3, 4)
+        dump.integer(0x600030ac, 3, 1)
+        dump.integer(0x600031ac, 1, 1)
+        with mock.patch.object(login, 'inspect', return_value={}) as validate:
+            report = resource.resource_cache_state(dump)
+            validate.assert_called_once_with(dump)
+        self.assertEqual(report, dict(entry_count=3, unique_resource_objects=2, raw_load_state_counts={'1':1, '3':1}))
+        for forbidden in ('guid', 'pointer', 'key', str(0x60003000)):
+            self.assertNotIn(forbidden, json.dumps(report))
+        with self.assertRaises(ValueError):resource.resource_cache_state(dump)
+
+    def test_cache_summary_rejects_inconsistent_or_unreadable_tables(self):
+        for fault in ('count', 'cycle', 'null_object', 'object_alignment', 'short_object', 'node_alignment', 'budget', 'shared_node'):
+            dump = SavedMemory()
+            dump.cache_node(0x60002000, 123, 0x60003000)
+            dump.integer(dump.cache_buckets, 0x60002000)
+            dump.integer(dump.image_base + resource.CACHE_COUNT_RVA, 1, 4)
+            dump.integer(0x600030ac, 3, 1)
+            if fault == 'count':dump.integer(dump.image_base + resource.CACHE_COUNT_RVA, 2, 4)
+            elif fault == 'cycle':dump.integer(0x60002000, 0x60002000)
+            elif fault == 'null_object':dump.integer(0x60002008, 0)
+            elif fault == 'object_alignment':dump.integer(0x60002008, 0x60003001)
+            elif fault == 'short_object':dump.integer(0x60002008, 0x70000000)
+            elif fault == 'node_alignment':dump.integer(dump.cache_buckets, 0x60002001)
+            elif fault == 'budget':dump.integer(dump.image_base + resource.CACHE_BUCKETS_RVA, 8192, 4)
+            else:
+                dump.integer(dump.image_base + resource.CACHE_BUCKETS_RVA, 2, 4)
+                dump.integer(dump.cache_buckets + 8, 0x60002000)
+                dump.integer(dump.image_base + resource.CACHE_COUNT_RVA, 2, 4)
+            with self.subTest(fault=fault), self.assertRaises(ValueError):
+                resource.ResourceReader(dump).cache_summary()
 
 
 if __name__ == '__main__':unittest.main()

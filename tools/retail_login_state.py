@@ -123,8 +123,19 @@ def main():
     parser.add_argument('--world-resource-state',action='store_true',
                         help='inspect catalogue/load-cache gates of WAITING world requests (slow)')
     parser.add_argument('--metadata-state',action='store_true',
-                        help='inspect bounded metadata registration/processing flags')
+                        help='inspect metadata entries, active/staged contexts and initialization completion')
+    parser.add_argument('--preload-state',action='store_true',
+                        help='inspect bounded engine preloader queue and submission counts')
+    parser.add_argument('--resource-cache-state',action='store_true',
+                        help='aggregate raw load states of existing resource-cache objects')
+    parser.add_argument('--scene-state',action='store_true',
+                        help='inspect loading through running resource completion and scene readiness')
+    parser.add_argument('--client-pid',type=int,
+                        help='original client PID associated with this dump (required for scene state)')
+    parser.add_argument('--replication-state',action='store_true',
+                        help='inspect selected-entity validity, resolution and first-person component prerequisite')
     args=parser.parse_args()
+    if args.scene_state and args.client_pid is None:parser.error('--scene-state requires --client-pid')
     spec=importlib.util.spec_from_file_location('owned_dump',Path(__file__).parent/'offline-launch/re/mdump.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     dump=module.Dump(args.dump)
@@ -138,6 +149,18 @@ def main():
         if args.metadata_state:
             from retail_metadata_state import metadata_state
             result['metadata_state']=metadata_state(dump)
+        if args.preload_state:
+            from retail_preload_state import preload_state
+            result['preload_state']=preload_state(dump)
+        if args.resource_cache_state:
+            from retail_resource_state import resource_cache_state
+            result['resource_cache_state']=resource_cache_state(dump)
+        if args.scene_state:
+            from retail_scene_state import loading_gates
+            result['scene_state']=loading_gates(dump,args.client_pid)
+        if args.replication_state:
+            from retail_replication_state import replication_gates
+            result['replication_state']=replication_gates(dump)
     finally:dump.f.close()
     text=json.dumps(result,indent=2)+'\n'
     if args.out:

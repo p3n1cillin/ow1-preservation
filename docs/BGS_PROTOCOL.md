@@ -706,7 +706,7 @@ entity count with per-entity identifiers and module presence bits.
 | 1, 2 | 0x00d34a80 | none |
 | 3 | 0x007c0630 | compact u32 (acknowledged frame), 4 flag bits, time-present bit (+16 bits) |
 | 4 | 0x00787e70 | one bit; 1 is the normal path |
-| 5 | 0x007e3ff0 | bit-terminated lists (16-bit items; 8+8-bit items) |
+| 5 | 0x007e3ff0 | outside hot reload: one bit-terminated list of 8+8-bit items (a single 0 bit when empty). The 16-bit item is read only when the hot-reload flag is set |
 
 The instance connection carries 11 reliable channels (channel vtable +0x28 =
 first message id, +0x30 = last):
@@ -852,3 +852,73 @@ and an own-package-only modify grant both failed to resolve it.
 retry information and context-presence booleans. SDK kind 13 remains local
 directory enumeration; it must not be confused with kind 14 acquisition.
 No proprietary descriptor payload, packet, identifier, digest or key is public.
+
+### Server entity section and map placeables (2026-10-14, livecreate51..55)
+
+After the module prefixes, the server body carries a 7-bit entity count. Each
+entity starts with an identifier (0x00db0f70: 2 class bits giving top bits
+`1gg`, then a varint index — 0 + 8 bits, 1 0 + 16 bits, 1 1 + 32 bits; index 0
+is the invalid sentinel). A **terminating** module chain follows: bit 1 means
+module *k* has per-entity data, bit 0 ends the entity. Empty per-entity forms:
+module 0 none; module 1 one 0 bit (0x00a16ad0); module 2 two 0 bits
+(0x00b3a490: two optional sections); module 3 one 0 bit (0x007c2e60).
+Module 4 (the replication module, 0x00787f20 -> 0x0078bbc0) carries a 2-bit
+operation (1 create, 2 update, 3 destroy) and, unless destroy, a 14-bit payload
+length plus payload. Records are batched per packet and processed by the
+world update (0x0078dd60 -> 0x0078e300): create 0x0078c360, update 0x0078e5d0,
+destroy 0x0078e4e0.
+
+A create may name a **map placeable** (presence bit, u32 placeable id, an
+optional-extra bit) instead of an entity definition; its body then continues
+as an update (8-bit component count; an extra 32-bit check only during hot
+reload). Placeable-spawned entities must use identifier class `0b100`.
+
+When a world reaches WORLD REPLICATING, producer 0x00787f50 walks the scene
+and records every placeable whose descriptor contains component type 0x5e or
+0x3a as *pending*; only a create naming that placeable removes it. Practice
+Range has four. The world update processes the queued records only once the
+selected-entity gate (20302) resolves; with all pending rows cleared it sets
+the completion marker and the world advances through GAME MODE LOADING to
+**WORLD_RUNNING**.
+
+Private bounded runs livecreate54/55 sent minimal placeable creates (no
+components) for the four Practice placeables plus the earlier diagnostic
+20302 selection of an existing local entity. Both reached WORLD_RUNNING with
+four class-`0b100` entities present. The UI stayed on the Practice loading
+screen; no hero selection, player entity, rendered gameplay or input is
+established. The empty component lists and the diagnostic selection are
+experiments, not a reconstruction of the original server's replicated state.
+Earlier livecreate51..53 failed only because of two framing errors (an extra
+module-5 bit and a one-bit module-2 form), found from the client's own
+per-module consumed-bit counters at connection +0xa0.
+
+`tools/instance_entities.py` now implements this minimal, non-hot-reload
+placeable section using the independent bit primitives. Its caller supplies
+the stream after the module prefixes, at the seven-bit entity count. It supports
+only the observed empty modules and 42-bit placeable create payload; unsupported
+forms and truncated input are rejected. Four synthetic fixtures cover explicit
+bit vectors, all identifier widths, unaligned sections, bounds and corruption.
+Private capture verification re-encodes 2079 sections exactly across runs55,
+58,59 and60, including 1481 placeable creates. No captured payload is embedded.
+
+The private responder now uses this codec. Livecodec59 and livecamera60 render
+Practice geometry and the in-game Escape menu after WORLD_RUNNING. A playable
+player/hero remains unverified. The non-placeable definition-create path and
+its component state are distinct from these minimal placeable records.
+
+### Minimal definition create (2026-10-14, livedefcreate64/livedefselect65)
+
+The non-placeable branch of native create 0x0078c360 reads a type-3 resource
+index through 0x00db11c0, followed by the transform flags in 0x0078dab0. The
+verified neutral form is: placeable bit 0, two zero selector bits, a 32-bit
+resource index, zero 8-bit transform flags, zero 8-bit network component count.
+Its payload is 51 bits, using the same class-0b100 identifier and module chain
+as the placeable codec. Other resource-index forms, transform flags, component
+state, updates and destroy records remain unsupported by the reusable codec.
+
+A hash-verified final-retail definition already ready in the native fallback
+typed cache constructs a new entity, including component 44 and callback pairs
+25/26 and 84/85. A later sequenced 20302 selects it. Its component-44 actor ID
+remains invalid, so this is entity creation/selection, not a controllable hero.
+All 1332 captured sections from the two runs re-encode exactly, including 160
+definition creates. The public placeable-only wrappers still reject definitions.

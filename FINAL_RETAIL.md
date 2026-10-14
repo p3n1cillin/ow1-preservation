@@ -793,3 +793,230 @@ and listeners gone, exact captured installation/launcher ACLs restored, the
 ephemeral profile removed, and the original EXE hash/signature unchanged.
 Next: trace the native file-provider open failure and establish valid metadata
 association/content; separately retain the original map-header load path.
+
+## Active versus staged context correction — 2026-10-14
+
+Reinspection of the newer saved udpmeta27/28/29 artifacts narrows the storage
+issue: direct writes inside the owned Hotfix folder succeed, while several
+ancestor attribute checks return Windows access denied. The private path-alias
+experiment passes restricted-token access checks and changes four live-referenced
+kind-14 completions in udpmeta28 from the earlier 3/2/-3 to 9/2/6. Acquisition
+still exhausts its retries; this does not establish working Hotfix content.
+The alias and owned processes were removed and the recorded ACLs restored.
+
+Aligned tracing of the original context update corrects an earlier diagnostic
+label. Slot +0x1a0 holds the staged context; completion moves it into active slot
++0x198 and clears the staged slot. The default identifier takes a completion
+branch without setting the content-ready flag. Saved udpmeta26/28/29 all have
+an active kind-1 default context, zero records and an empty staged slot.
+Neither empty staged state nor this default's unset ready flag proves that
+context processing is stalled. Earlier "current context absent" descriptions
+refer only to the staged slot and must not be used as evidence of no active
+context. udpmeta27's snapshot precedes terminal initialization and has neither
+slot populated.
+
+The public read-only metadata reader now validates and reports both context
+identities, reference bounds, default-identifier equality, readiness and record
+counts. It also validates any retained kind-13 initialization request/control
+block, reporting success or structured error only after completion. The old
+`current_context_present` field remains as a compatibility alias for staged
+presence; use `active_context` and `staged_context` for new analysis.
+
+Eight synthetic metadata fixtures pass, and the native build and all 21 CTest
+targets pass. This continuation reuses saved dumps; no new native launch or map
+success is claimed. The remaining frontier is the original map-header preload
+path: udpmeta29 still has a catalogue entry but no header load-cache object.
+
+## Structured resource API and engine preloader — 2026-10-14
+
+The default resource-request wrapper calls a structured API, which also has
+direct callers elsewhere in the client. A native engine preloader builds those
+requests from configured descriptors and retains submitted descriptors. Its
+submission marker is distinct from resource completion. Searching only callers
+of the default wrapper misses this path.
+
+The new `--preload-state` diagnostic verifies the exact engine context and
+reports bounded aggregate counts without identifiers, pointers or resource
+bytes. Saved udpapp11/21/udpmeta26/29 each contain zero configured and retained
+entries in this preloader. These are final snapshots; transient earlier queue
+activity and the queue's precise relationship to Practice assignment remain
+unresolved. No native queue or readiness state is changed.
+
+The previously identified map-loader getter reads member +0x190. Its initializer
+checks for resource type 2, rather than the map-header type used by WAITING.
+That initializer therefore does not by itself establish the missing header
+preload path. The engine descriptor producer and conditional eligibility are
+the next investigation target.
+
+Native targets build and **22/22 CTest targets pass**, including four new
+synthetic queue fixtures for type classification, submission versus completion,
+native identity/count/array bounds and output omissions. This continuation uses
+saved dumps and adds no new native launch or gameplay verification.
+
+## Live assignment and gallery checks — 2026-10-14
+
+Five new bounded original-client runs exercise Practice Range and Hero Gallery.
+The three Practice comparisons use a map-header assignment, that assignment
+plus an extra header/mode list, and a map-root assignment respectively. All
+reach ENTERING GAME and end with pending WAITING requests and no header cache
+object (raw state 0), despite catalogue presence. The root comparison has only
+about 20 seconds after selection. No rendered map or controlled hero is verified.
+
+The welcome's extra resource list is copied into native request +0xf8 with
+signed count +0x100. The prior private prototype's +0x68/+0x70 was a separate
+settings array. Corrected private checks verify count 2 and both expected
+resources in each list-test request. Public --world-resource-state exposes only
+the bounded count and rejects malformed/incomplete arrays. This verifies
+delivery, not a preload request or completion.
+
+Live read-only sampling around every 100 ms records empty configured/retained
+engine queues throughout these observed intervals; shorter transitions and
+other world queues remain possible. Practice activates the default metadata
+context with zero records without a 20318 message. Hero Gallery remains empty
+in both controls, including after selecting all visible filters in the second.
+These findings leave both the normal header-load trigger and gallery roster
+initialization open. They do not establish a global asset-read or rendering fault.
+
+All 22 CTest targets pass after the clients exit, with six synthetic resource
+diagnostic fixtures. Cleanup verifies original hash/signature and exact saved
+ACL restoration; private captures and generated session material stay ignored.
+
+## Private-session native preload control — 2026-10-14
+
+The opt-in launcher flag `--preload-practice-header` adds a bounded control to
+the existing own-key private-session diagnostic. After validating the original
+pending Practice header/mode request and native loader instructions, it calls
+that loader once at default priority on the verified original primary thread.
+The returned native reference is retained until the owned job ends. No world
+request, extra world tick, resource payload, completion or readiness value is
+supplied by this control. The default launch path is unchanged.
+
+Both live controls load the header and mode to raw state 3 and advance both
+native world managers to WORLD LOADING (6). A repeat visibly reaches the
+Practice Range loading screen with its art/name/tip, where it remains. This is
+loading-screen progress, not a rendered gameplay scene or controllable hero.
+Final cache totals are 29 objects, all raw state 3; the map-root entry remains
+absent. The normal protocol path that triggers the header load is unresolved.
+
+The later WORLD LOADED handler checks content-context/provider gates, request
+submission, the owner's loading flag, and a target world's request/state.
+This was initially mislabeled WORLD LOADING; the actual dispatch for state 6
+is a different handler. Those later gates do not identify the current stall.
+
+The new read-only `--resource-cache-state` reports only bounded aggregate counts
+and raw statuses. It confirms 28 completed resource objects in the earlier
+Practice/gallery controls, so those UI failures do not establish a general
+asset-read failure. Native build and all 22 CTest targets pass after live exit.
+
+## WORLD LOADING completion — 2026-10-14
+
+The corrected state-6 handler checks three resource groups and a scene-service
+readiness boolean. The read-only `--scene-state --client-pid` diagnostic uses
+the PID belonging to the saved dump to reproduce the original pointer getter;
+it validates the original profile and identities and exports only counts,
+statuses and booleans. Both saved loading-screen controls have groups 4/2/0,
+all six resources at raw state 3, but scene readiness is false and both active
+and pending scene handles are absent. This narrows the observed failure to
+scene initialization beyond resource completion. Its cause remains unresolved.
+
+The original update sets readiness only after a scene object reaches native
+state 5 and satisfies its completion predicate. The next investigation is the
+scene-construction path. No readiness flag, scene state or client asset is
+overwritten. A fresh bounded run authenticated but Windows input access failed
+with a black captured window, so it did not exercise Practice selection.
+Cleanup passed; native build and all 23 CTest targets pass.
+
+## Typed Practice map assignment — 2026-10-14
+
+With Windows input working, two bounded live selections reproduce the original
+Practice loading screen. The baseline again has complete resources and absent
+scene handles. The loaded map header's scene reference includes a variant bit
+missing from the earlier root assignment. Supplying this exact typed reference
+in the experimental welcome, alongside the explicit header preload control,
+creates pending scene objects in both world managers.
+
+Those objects remain at native raw state 1; readiness requires state 5 plus
+the scene completion predicate. The predicate's two resource objects are already
+at raw state 3. The read-only scene diagnostic now reports these distinct gates
+with exact getter/object identity checks and bounded aggregate output. Scene
+construction has progressed, but scene-state advancement and gameplay remain
+unresolved. The opt-in control accepts only the two exact Practice assignments
+and the exact Practice mode. It retains the one original header-loader call;
+the default launcher path is unchanged. Both live cleanup audits pass.
+
+## Canonical map and replication boundary — 2026-10-14
+
+A further bounded comparison uses the canonical Practice map identifier with
+the same explicit header preload. It completes the typed map asset, unlike the
+referenced variant. The original state-1 path was waiting for that typed asset;
+the earlier raw-resource completion checks described a separate loading layer.
+This corrects the earlier assumption that the referenced variant was the right
+server assignment.
+
+The final dump has one WORLD LOADED manager and one WORLD REPLICATING manager.
+Both have active scene handles, readiness true and scene-controller state 5;
+the typed asset object is present with native status 4. The read-only diagnostic
+reports these fields separately, without native pointers or identifiers.
+The original UI still displays the loading screen: geometry rendering, hero
+selection and gameplay remain unverified. Replication initialization is the next
+boundary. Normal protocol-driven header loading is still unresolved, and the
+default launcher path is unchanged. Native build, all 23 CTest targets and
+the live cleanup audit pass.
+
+## Selected-entity replication gates — 2026-10-14
+
+The normal 20302 notification writes the world owner's selected-entity ID.
+A bounded comparison clears the native validity gate, but its index-only ID
+does not match the existing entity generation. Supplying the matching packed
+ID resolves a native entity object. The world still remains WORLD REPLICATING
+and the original UI stays on the Practice loading screen. No replicated player,
+hero selection or gameplay is verified.
+
+`retail_login_state.py --replication-state` now reports the separate validity,
+record and object gates, plus generation mismatch, using only booleans/counts.
+It validates the original profile/getters and bounds reads to one bucket per
+world owner. Native build and all 24 CTest targets pass; completed live cleanup
+audits pass. The experiments retain the opt-in header preload.
+
+A further comparison delays the valid notification by 30 seconds. It still
+resolves the entity and stays WORLD REPLICATING, with four pending entries and
+completion marker false. The earlier notification run has that marker true;
+the observers do not establish why. Queue counts and marker are now reported
+separately, without treating any one field as completed replication. The native
+pending-entry drain is the next investigation.
+
+## Placeable replication and visible map — 2026-10-14
+
+Claude identified the four pending entries as map placeables whose creates
+must arrive from the server. Minimal placeable creates clear those entries and
+advance the original client through GAME MODE LOADING to WORLD_RUNNING.
+Saved run55 and an independent bounded reproduction confirm this state.
+
+The new reusable entity-section codec reproduces captured sections exactly,
+and its migrated private responder reaches the same state. In livecodec59 and
+livecamera60 the loading overlay disappears and Practice geometry visibly
+renders. Escape opens the in-game menu. There is no hero HUD, weapon or hero
+picker; short forward/mouse/hero-selection checks do not establish control.
+This is a rendered original map, with player/hero replication still unresolved.
+
+Native build and all 25 CTest targets pass. The protocol experiment continues
+to use the opt-in original header preload and a diagnostic existing-entity
+selection. The default menu path is unchanged.
+
+The livetime62 timing-field control reproduces visible Practice geometry without
+a hero HUD or weapon. The original client stores the timing field, while its
+controlled-actor marker remains invalid. The diagnostic selected entity lacks
+component 44, required by the traced first-person owner lookup. New guarded
+read-only checks distinguish this prerequisite from successful entity resolution;
+component presence alone would not prove a controllable hero. All 25 CTest
+targets and bounded-run cleanup checks pass. Player/hero initialization and full
+clock synchronization remain unresolved.
+
+Further bounded runs create and select a verified definition entity using the
+native network-create path and 20302. The engine constructs component 44 and
+both post-create callback component pairs. The selected entity therefore passes
+the previously missing prerequisite, while its linked actor ID remains invalid.
+Practice geometry renders, but no hero HUD or hero picker is observed. Actor
+creation and link initialization remain unresolved. The strict reusable codec
+now includes the verified minimal definition-create form; all 1332 captured
+sections from these two runs re-encode exactly, including 160 definition creates.

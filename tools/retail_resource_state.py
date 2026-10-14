@@ -5,6 +5,7 @@ load states only; no resource GUIDs, pointers, table bytes or payloads escape.
 Catalogue presence is distinct from an initiated/completed resource load.
 """
 import struct
+from collections import Counter
 
 CATALOGUE_ROOT_RVA = 0x321f338
 CACHE_BUCKETS_RVA = 0x321f358
@@ -13,6 +14,8 @@ CACHE_TABLE_RVA = 0x321f360
 HASH_TABLE_RVA = 0x2788430
 MAX_ENTRIES = 1 << 20
 MAX_CHAIN = 1024
+MAX_REQUEST_RESOURCES = 4096
+MAX_CACHE_SNAPSHOT_ENTRIES = 4096
 MAP_HEADER_TYPE = 0x0790000000000000
 
 
@@ -107,6 +110,50 @@ class ResourceReader:
     def resource(self, guid):
         return dict(catalogue_present=self.catalogue_present(guid), **self.load_state(guid))
 
+    def cache_summary(self):
+        """Aggregate raw states of existing objects; never initiate a load.
+
+        This diagnostic has a smaller traversal budget than single-key lookup.
+        A count mismatch (including a changing live table) rejects the snapshot.
+        """
+        buckets = self.uint(self.base + CACHE_BUCKETS_RVA, 4)
+        count = self.uint(self.base + CACHE_COUNT_RVA, 4)
+        self.bound_table(buckets, count)
+        if max(buckets, count) > MAX_CACHE_SNAPSHOT_ENTRIES:
+            raise ValueError('resource cache snapshot bound')
+        nodes, objects, states = set(), set(), Counter()
+        if count:
+            table = self.uint(self.base + CACHE_TABLE_RVA)
+            if not table or table % 8:
+                raise ValueError('resource cache buckets missing')
+            for index in range(max(1, buckets)):
+                node = self.uint(table + index * 8)
+                chain_count = 0
+                while node:
+                    if node % 8 or node in nodes or chain_count >= MAX_CHAIN:
+                        raise ValueError('resource cache snapshot chain alignment/cycle/bound')
+                    if len(nodes) >= count:
+                        raise ValueError('resource cache snapshot count differs')
+                    nodes.add(node)
+                    chain_count += 1
+                    obj = self.uint(node + 8)
+                    if not obj or obj % 8:
+                        raise ValueError('resource cache snapshot object alignment')
+                    if obj not in objects:
+                        objects.add(obj)
+                        states[str(self.uint(obj + 0xac, 1))] += 1
+                    node = self.uint(node)
+        if len(nodes) != count:
+            raise ValueError('resource cache snapshot count differs')
+        return dict(entry_count=count, unique_resource_objects=len(objects),
+                    raw_load_state_counts=dict(sorted(states.items())))
+
+
+def resource_cache_state(dump):
+    from retail_login_state import inspect
+    inspect(dump)
+    return ResourceReader(dump).cache_summary()
+
 
 def world_resource_states(dump, limit=8):
     """Inspect only WAITING requests, without invoking loaders or changing state."""
@@ -132,7 +179,18 @@ def world_resource_states(dump, limit=8):
                 raise ValueError('world request submission flag')
             header = MAP_HEADER_TYPE | (reader.uint(request) & 0xffffffff)
             optional = reader.uint(request + 8)
+            # Native request copy (0x590d50) retains the 20300 +0x520 array
+            # here. This is distinct from the settings array at +0x68.
+            resources = reader.uint(request + 0xf8)
+            resource_count = struct.unpack('<i', reader.read(request + 0x100, 4))[0]
+            if not 0 <= resource_count <= MAX_REQUEST_RESOURCES:
+                raise ValueError('world request resource count bound')
+            if resource_count:
+                if not resources or resources % 8:
+                    raise ValueError('world request resource array alignment')
+                reader.read(resources, resource_count * 8)
             report.update(request_submit_flag=bool(flag), map_header=reader.resource(header),
+                          extra_resource_count=resource_count,
                           optional_resource_present=bool(optional),
                           optional_resource=reader.resource(optional | 0x10000000000) if optional else None)
         result.append(report)
