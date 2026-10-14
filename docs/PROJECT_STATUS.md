@@ -32,7 +32,10 @@ Hero creation now works when the hero is preloaded through the original 20505
 list 0 (opt-in `--lobby-hero-list`): Soldier: 76's gameplay entity is created
 and selected, the world stays running and a hero model visibly renders. Without the
 preload, the client aborts with a missing entity definition. The controller's
-component-44 actor link, first-person view and playable control remain unresolved.
+component-44 actor link now works: its create can include the reflected component
+state (public `controlled_actor`). The selected controller resolves to the hero,
+and with the module-3 time field the client records a valid controlled-actor marker.
+The default fixed view remains, so first-person camera and controls are unresolved.
 
 Current frontier: the `full` initial-data sequence reaches the original main
 menu, and the party of one enables Training. Direct Computer Use screenshots

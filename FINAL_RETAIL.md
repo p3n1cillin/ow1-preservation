@@ -1027,3 +1027,7 @@ The original preload input is lobby 20505 list 0 (Hero-record GUIDs, opt-in
 aborts with lobby 21801/21802 and leaves the world. With Soldier: 76's hero record,
 liveherolist71 keeps WORLD_RUNNING with the hero entity selected and renders a
 hero model in Practice. No HUD, first-person view or movement is verified.
+Livecontrol72/73 add component-44 state to the controller create (absolute-aligned
+presence mask plus three teEntityID values). The actor link resolves to the hero.
+With the module-3 time field, the client records the controlled actor in its
+first-person module. The view stays on the default fixed camera.

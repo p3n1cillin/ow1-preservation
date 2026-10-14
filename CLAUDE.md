@@ -1052,3 +1052,27 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: link the controller's component-44 actor (+d4) to the hero entity via
   original replicated state (component network state / update op), or find
   which entity the server should select; then first-person/HUD and input.
+
+## Controller actor link checkpoint (Claude, 2026-10-14, livecontrol72/73)
+
+- Pushed 6e82108 (hero preload). Component state rides in the create payload's
+  trailing u8 count: update body 0x78e5d0 -> per entry u8 runtime component type
+  -> component slot 0x18 (44: 0x5b5a00) -> visitor 0x78b870 (vft 0x2615c10):
+  byte-align at ABSOLUTE body bit offset (0xbea7f0 copies the body; items keep
+  offsets), u8 mask length, mask bytes (filter 0x788510, 1 bit/field LSB-first),
+  then field values from the main stream (0x1be0300: raw LE bytes; kinds are
+  CRC32 of lower-case type names, sizes 0x1be1c90; teentityid=0x0c525b48 -> 4 B).
+- Component 44 state: descriptor 0x30d8f80, three teEntityID fields state
+  +0x78/+0x7c/+0x80 (component +0xd0/+0xd4/+0xd8; hashes 1ab5e773/4d1ffc51/
+  b1ca772f). Local-game path 0x82a5e0 sets all three to one entity.
+- Public `DefinitionCreate(entity, guid, controlled_actor=ID)` + known-vector test.
+  Private responder --controller-actor C T (driver -ControllerActor 0,1) now uses it.
+- livecontrol72 (PID 34860): controller 0x80000304 selected; actor target valid and
+  resolves to hero 0x80000305. livecontrol73 (PID 24888, -ServerTime): module-3
+  receiver 0x7c7800 sets +0x64 controlled-actor marker VALID (submitted world).
+  View still the default fixed camera with the hero boot; no first person/HUD/input.
+- Private: check-server-entities-73.py (absolute-offset re-encode; 723/717/717
+  exact, 66 actor creates), definition-actor-link-68.py, first-person-clock-
+  observations-62.py. Dumps retail-private-livecontrol72/73.dmp. Audits pass.
+- Next: what moves the camera to the controlled actor (camera/view component,
+  hero transform/state, game-mode spawn flow) and input routing.

@@ -632,6 +632,13 @@ world stays running and the definition is resident (typed-cache census 150 vs
 129). The probe test adds an independent 20505 hero-list wire fixture and
 rejects non-hero types, duplicates, more than 64 entries and lists without 20505.
 
+Controller actor link (livecontrol72/73): the final dumps report a valid
+component-44 actor target that resolves to the hero entity. Run 73 has a valid
+module-3 controlled-actor marker. The entity test adds an independent known
+vector over 16 body alignments, mixed sections, self/class rejection, truncation
+and corrupted mask/field bits. Private re-encoding of captured sections matches
+723/717/717 sections exactly at their absolute body offsets.
+
 After the codec extension, all **25/25 CTest targets pass**. The private responder
 is migrated to the public definition writer after the live runs; exact captured
 section equivalence verifies the migration without repeating a live baseline.

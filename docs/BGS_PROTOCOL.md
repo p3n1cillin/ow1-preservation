@@ -959,3 +959,40 @@ hero records into list 0. With Soldier: 76's hero record:
   consistent with the hero model's scale. No hero HUD, first-person view or
   controllable movement is established. Component 44 is still on the controller
   entity, and its actor target remains invalid.
+
+### Component state in creates: controller actor link (2026-10-14, livecontrol72/73)
+
+The create payload's trailing u8 is the component count of the update body
+0x0078e5d0. Each entry is a u8 runtime component type; the client locates that
+component through the entity's component mask and calls its slot-0x18 method
+with network visitor 0x0078b870 (vtable 0x02615c10). The visitor:
+
+1. byte-aligns, relative to the start of the server **body** (each frame's body is
+   copied into the record and entity items store absolute bit offsets, 0x0078bbc0);
+2. reads a u8 mask length and that many mask bytes;
+3. walks the component state's reflected fields (0x01bdfdd0/0x01be0130). The filter
+   0x00788510 takes one presence bit per field (LSB first) from the mask;
+4. reads each present field's value from the main stream: raw little-endian bytes
+   (8 bits per read, 0x01be0300), or special forms for strings, 128-bit values and
+   compact-flagged u64 fields.
+
+Type kinds are CRC32 values of lower-cased type names (for example `teentityid`),
+initialized lazily; a 4-byte kind table is resolved by 0x01be1c90.
+
+Component 44's state (type descriptor 0x030d8f80, size 0x88, located at component
++0x58) has three `teEntityID` fields at state +0x78/+0x7c/+0x80 (reflection hashes
+0x1ab5e773, 0x4d1ffc51, 0xb1ca772f). The native actor getter reads +0x7c (component
++0xd4). The client's own local-game path 0x0082a5e0 sets all three to one entity.
+The public codec's `DefinitionCreate(..., controlled_actor=ID)` does the same:
+count 1, type 44, padding, mask length 1, mask 0x07, then three equal 4-byte IDs.
+
+Live runs: run livecontrol72 creates the controller definition with Soldier: 76's
+entity as its controlled actor, preloads the hero (20505) and selects the
+controller. The final dump reports a valid actor target that resolves to the hero
+entity, WORLD_RUNNING and no abort. Livecontrol73 adds the optional module-3 time
+field. Its receiver 0x007c7800 resolves the selected component-44 actor
+(0x00da69d0) and records its ID at module +0x64. That controlled-actor marker
+is valid for the submitted world. The default fixed view remains on screen; no
+first-person camera, HUD or input control is verified. All captured sections from
+runs 71/72/73 re-encode exactly with the public codec at their body offsets,
+including 66 actor creates in each of runs 72 and 73.

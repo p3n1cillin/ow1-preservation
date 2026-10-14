@@ -1724,3 +1724,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   model at the camera position. No HUD/first-person/control is claimed. Component
   44's actor link on the controller entity remains the next gate.
 - All cleanup audits pass (hash, Valid signature, exact ACLs, owned processes).
+
+## 2026-10-14 — controller actor link through component state
+
+- Traced the create payload's component count into update body 0x78e5d0 and
+  network visitor 0x78b870: absolute-body byte alignment, u8 mask length, presence
+  mask, then raw field values. Kinds are CRC32 names; component 44's state holds
+  three teEntityID fields, and its actor getter uses the second (state +0x7c).
+- The client's own local-game path writes all three fields to the same entity.
+  Public `DefinitionCreate(controlled_actor=...)` encodes that block. A new
+  known-vector test covers all 16 alignments, mixed sections, rejection and
+  truncation.
+- Livecontrol72: controller created with Soldier: 76 as controlled actor, selected
+  through 20302. Final dump: actor target valid and resolving, WORLD_RUNNING, no
+  abort. Livecontrol73 adds the module-3 time field. Receiver 0x7c7800 then records
+  a valid controlled-actor marker. The view is unchanged (fixed default camera);
+  first-person, HUD and input remain unverified.
+- Runs 71/72/73 entity sections re-encode exactly with the public codec at their
+  body offsets (723/717/717 sections; 66 actor creates in 72 and 73). All cleanup audits pass.

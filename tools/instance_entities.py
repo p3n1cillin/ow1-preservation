@@ -3,8 +3,10 @@
 Call after the server module prefixes, at the seven-bit entity count. The
 observed non-hot-reload profile has empty modules 0..3, module-4 create data,
 and an entity-chain terminator. Definition creates use the neutral 32-bit type-3
-resource form, zero transform flags and no network component state. Creating an
-entity does not establish a playable hero. The placeable-only wrappers remain
+resource form and zero transform flags. Optionally a definition create carries
+one component-44 state block naming a controlled actor entity (live-verified
+link, see docs/BGS_PROTOCOL.md). Creating an entity does not establish a
+playable hero. The placeable-only wrappers remain
 strict. This is not a session encoder.
 Authenticate incoming datagrams before decoding. No client assets included.
 """
@@ -22,6 +24,21 @@ class PlaceableCreate:
 class DefinitionCreate:
     entity_id: int
     definition_guid: int
+    controlled_actor: int | None = None
+
+
+CONTROLLER_COMPONENT = 44
+# Native visitor 0x78b870 byte-aligns at the absolute body position, reads a
+# u8 presence-mask length, the mask (one bit per reflected field, 0x788510),
+# then each present field's raw bytes (0x1be0300). Component 44's state has
+# three teEntityID fields (4 bytes each); the client's own local-game path
+# 0x82a5e0 assigns all three the same entity, as this writer does.
+_ACTOR_FIELDS = 3
+
+
+def _actor_payload_bits(start):
+    pad = (-(start + 59)) % 8
+    return pad, 59 + pad + 16 + 32 * _ACTOR_FIELDS
 
 
 def _index(entity_id):
@@ -45,6 +62,9 @@ def write_entity_creates(bits, records):
         elif (type(record.definition_guid) is not int or record.definition_guid>>32!=0x04000000
               or not record.definition_guid&0xffffffff):
             raise ValueError('definition resource type/bound')
+        elif record.controlled_actor is not None:
+            _index(record.controlled_actor)
+            if record.controlled_actor==record.entity_id:raise ValueError('entity cannot control itself')
     bits.write(len(records),7)
     for record in records:
         index = _index(record.entity_id)
@@ -57,14 +77,24 @@ def write_entity_creates(bits, records):
         bits.write(1,1);bits.write(0,2) # Module 2 has TWO optional sections.
         bits.write(1,1);bits.write(0,1) # Module 3 empty.
         placeable=type(record) is PlaceableCreate
-        bits.write(1,1);bits.write(1,2);bits.write(42 if placeable else 51,14)
+        actor=None if placeable else record.controlled_actor
+        bits.write(1,1);bits.write(1,2)
+        if actor is None:length=42 if placeable else 51
+        else:pad,length=_actor_payload_bits(bits.bit_count+14)
+        bits.write(length,14)
         bits.write(int(placeable),1)
         if placeable:
             bits.write(record.placeable_id,32);bits.write(0,1)
         else:
             bits.write(0,2);bits.write(record.definition_guid&0xffffffff,32)
             bits.write(0,8) # Neutral transform flags, no optional fields.
-        bits.write(0,8) # No network component data.
+        if actor is None:
+            bits.write(0,8) # No network component data.
+        else:
+            bits.write(1,8);bits.write(CONTROLLER_COMPONENT,8);bits.write(0,pad)
+            bits.write(1,8);bits.write((1<<_ACTOR_FIELDS)-1,8)
+            for _ in range(_ACTOR_FIELDS):
+                for byte in actor.to_bytes(4,'little'):bits.write(byte,8)
         bits.write(0,1) # End this entity's module chain.
 
 
@@ -92,13 +122,25 @@ def read_entity_creates(bits):
             expect(0,1)
             record=PlaceableCreate(0x80000000|index,placeable)
         else:
-            if length!=51:raise ValueError('unsupported definition payload length')
+            start=bits.position-1
             expect(0,2) # Strict neutral type-3 resource index form.
             resource=bits.read(32)
             if not resource:raise ValueError('definition resource index bound')
             expect(0,8) # Transform flags.
-            record=DefinitionCreate(0x80000000|index,0x0400000000000000|resource)
-        expect(0,8);expect(0,1)
+            actor=None
+            if bits.read(8):
+                expect(CONTROLLER_COMPONENT,8)
+                pad,expected=_actor_payload_bits(start)
+                if length!=expected:raise ValueError('unsupported controller payload length')
+                expect(0,pad);expect(1,8);expect((1<<_ACTOR_FIELDS)-1,8)
+                values={sum(bits.read(8)<<(8*k) for k in range(4)) for _ in range(_ACTOR_FIELDS)}
+                if len(values)!=1:raise ValueError('unsupported mixed controller fields')
+                actor=values.pop();_index(actor)
+            elif length!=51:raise ValueError('unsupported definition payload length')
+            record=DefinitionCreate(0x80000000|index,0x0400000000000000|resource,actor)
+            if actor==record.entity_id:raise ValueError('entity cannot control itself')
+        if type(record) is PlaceableCreate:expect(0,8)
+        expect(0,1)
         records.append(record)
     return records
 

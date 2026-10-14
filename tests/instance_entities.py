@@ -98,5 +98,42 @@ class EntityTests(unittest.TestCase):
         for records in ((valid,),[valid]*128,[None],[DefinitionCreate(0xc0000001,valid.definition_guid)]):
             with self.assertRaises(ValueError):write_entity_creates(Writer(),records)
 
+    def test_controlled_actor_known_vector_and_absolute_alignment(self):
+        record=DefinitionCreate(0x80000304,0x040000000000000e,0x80000305)
+        for prefix in range(16):
+            # Independent field list; padding depends on the absolute body bit.
+            head=[(1,7),(0,2),(1,1),(0,1),(0x304,16),(1,1),(1,1),(0,1),
+                  (1,1),(0,2),(1,1),(0,1),(1,1),(1,2)]
+            start=prefix+sum(width for _,width in head)+14
+            pad=(-(start+59))%8
+            fields=[(0,prefix),*head,(59+pad+16+96,14),(0,1),(0,2),(0xe,32),(0,8),(1,8),(44,8),(0,pad),
+                    (1,8),(7,8),*[(byte,8) for _ in range(3) for byte in (5,3,0,0x80)],(0,1)]
+            raw=position=0
+            for value,width in fields:raw|=value<<position;position+=width
+            writer=Writer();writer.write(0,prefix);write_entity_creates(writer,[record])
+            self.assertEqual(writer.bit_count,position)
+            self.assertEqual(writer.finish(),raw.to_bytes((position+7)//8,'little'))
+            self.assertEqual((start+59+pad)%8,0)
+            reader=Reader(writer.finish(),bit_count=position);reader.read(prefix) if prefix else None
+            self.assertEqual(read_entity_creates(reader),[record])
+            self.assertEqual(reader.position,position)
+        # Mixed sections keep the neutral form for records without an actor.
+        mixed=[PlaceableCreate(0x80000300,0x88),DefinitionCreate(0x80000305,0x04000000000003cf),record]
+        writer=Writer();writer.write(0,3);write_entity_creates(writer,mixed)
+        reader=Reader(writer.finish(),bit_count=writer.bit_count);reader.read(3)
+        self.assertEqual(read_entity_creates(reader),mixed)
+        for bad in (DefinitionCreate(0x80000304,0x040000000000000e,0x80000304),
+                    DefinitionCreate(0x80000304,0x040000000000000e,0xc0000001),
+                    DefinitionCreate(0x80000304,0x040000000000000e,True)):
+            with self.assertRaises(ValueError):write_entity_creates(Writer(),[bad])
+        # Truncation and corrupted mask/field bits are rejected.
+        writer=Writer();write_entity_creates(writer,[record])
+        for count in range(writer.bit_count):
+            with self.assertRaises(ValueError):read_entity_creates(Reader(writer.finish(),bit_count=count))
+        mask=writer.bit_count-1-96-8
+        for bit in (mask,mask+3,writer.bit_count-2,writer.bit_count-1-32):
+            corrupted=(writer._bits^(1<<bit)).to_bytes(len(writer.finish()),'little')
+            with self.assertRaises(ValueError):read_entity_creates(Reader(corrupted,bit_count=writer.bit_count))
+
 
 if __name__=='__main__':unittest.main()
