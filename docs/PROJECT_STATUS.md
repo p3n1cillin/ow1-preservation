@@ -15,7 +15,11 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M10: automatic 6v6 matchmaking | Not implemented or verified. |
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
-Latest control: livetime62 reproduces visible Practice geometry with the optional
+Latest (2026-10-14, liveowned93): hero preload, controller actor link, statescript
+game-mode/hero graphs and the ownership create flag give an original-client
+first-person view. Movement authority, health and combat remain open.
+
+Earlier control: livetime62 reproduces visible Practice geometry with the optional
 timing field enabled. The client receives that field, but its controlled-actor
 marker remains invalid. The diagnostic selected entity lacks component 44,
 required by the traced first-person owner lookup. Guarded read-only reports and

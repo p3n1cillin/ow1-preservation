@@ -135,5 +135,24 @@ class EntityTests(unittest.TestCase):
             corrupted=(writer._bits^(1<<bit)).to_bytes(len(writer.finish()),'little')
             with self.assertRaises(ValueError):read_entity_creates(Reader(corrupted,bit_count=writer.bit_count))
 
+    def test_ownership_create_flags(self):
+        plain=DefinitionCreate(0x80000304,0x040000000000000e,0x80000305)
+        for flags in (0x10,0x20,0x30):
+            owned=DefinitionCreate(0x80000304,0x040000000000000e,0x80000305,flags)
+            for prefix in (0,5,13):
+                a=Writer();a.write(0,prefix);write_entity_creates(a,[plain])
+                b=Writer();b.write(0,prefix);write_entity_creates(b,[owned])
+                self.assertEqual(a.bit_count,b.bit_count)
+                # Count7 class2 index18 modules9 op2 length14 kind1 selector2 index32.
+                self.assertEqual(a._bits^b._bits,flags<<(prefix+87))
+                reader=Reader(b.finish(),bit_count=b.bit_count);reader.read(prefix) if prefix else None
+                self.assertEqual(read_entity_creates(reader),[owned])
+        for bad in (1,2,4,8,0x40,0x80,0x100,-0x10,True):
+            with self.assertRaises(ValueError):
+                write_entity_creates(Writer(),[DefinitionCreate(0x80000304,0x040000000000000e,None,bad)])
+        writer=Writer();write_entity_creates(writer,[plain])
+        corrupted=(writer._bits^(1<<(87+6))).to_bytes(len(writer.finish()),'little')
+        with self.assertRaises(ValueError):read_entity_creates(Reader(corrupted,bit_count=writer.bit_count))
+
 
 if __name__=='__main__':unittest.main()

@@ -1223,3 +1223,25 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: decode variable (UVGu/IVDt/StDt) and state-event (SpEC/SIID) records to
   move the game-mode graphs into hero-select/spawned states; the prohibited icon
   suggests the player is in a restricted (e.g. spawn/pre-game) state.
+
+## First-person control (Claude, 2026-10-14, livehero89..liveowned93)
+
+- Statescript frame body decoded (docs/BGS_PROTOCOL.md "Statescript frame body"):
+  Size counts bits; instance bit 1 = destroy, update = 0,0; IVDt/StDt masks
+  (0xd530e0 byte-presence form); full snapshot (CmFD > manager +0x900) makes StDt
+  cover all states. Private responder --statescript-hero GUID enters 0x0c90 state 0
+  (StateHero, generic client class). --statescript2 1,<graphs> creates Soldier's
+  nine definition graphs on the hero. Emulator tools: .local/re/sshero-89.py,
+  sscreate-89.py, ssactive-89.py (running nodes), ssinst-89.py, view-lists-89.py,
+  stu-dump-89.py / graph-trace-89.py / graph-forward-89.py (OWLib names, reference).
+- LOCAL CONTROL GATE: command writer 0x7cc060 and first-person reader 0x7c7900
+  need a world entity with component 59 (owner+0xa0 per-type lists, 0x699530).
+  Create flag 0x10 -> builder vtable 0x2615ae8 -> 0x64ee90 adds 59/63 iff the
+  entity ID == world owner+0x298 (20302 selection, 0x586060); flag 0x20 adds 74.
+- liveowned93 recipe (driver): ... -SelectDefinition (20302 controller at 45 s,
+  after diagnostic 0xc0000001 at 30 s) -CreateFlags '0:0x10' -LateDefinition 0,50
+  (controller created only after its selection). Result: FIRST PERSON Soldier view,
+  mouse-look, client streams input packets. Public DefinitionCreate(create_flags=).
+- Responder reply bound (2000) is now reached early: raise it. Red vignette = no
+  health replication. Next: decode client module-3 input commands, reply with
+  movement/health state; then weapons/abilities.

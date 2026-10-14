@@ -3,7 +3,9 @@
 Call after the server module prefixes, at the seven-bit entity count. The
 observed non-hot-reload profile has empty modules 0..3, module-4 create data,
 and an entity-chain terminator. Definition creates use the neutral 32-bit type-3
-resource form and zero transform flags. Optionally a definition create carries
+resource form and no transform data. Optional create flags 0x10 (native
+ownership builder: components 59/63 when the entity is already the 20302
+selection) and 0x20 (component 74) carry no extra data. Optionally a definition create carries
 one component-44 state block naming a controlled actor entity (live-verified
 link, see docs/BGS_PROTOCOL.md). Creating an entity does not establish a
 playable hero. The placeable-only wrappers remain
@@ -25,9 +27,15 @@ class DefinitionCreate:
     entity_id: int
     definition_guid: int
     controlled_actor: int | None = None
+    create_flags: int = 0
 
 
 CONTROLLER_COMPONENT = 44
+# 0x78dab0 stores the create-flags byte at record +0x60. 0x78c9a5: bit 0x10
+# selects builder vtable 0x2615ae8, whose 0x64ee90 adds components 59/63 when
+# 0x586060 finds world-owner +0x298 (20302 selection) equal to this ID, and
+# component 74 for bit 0x20. Bits 1/2/4/8/0x40 carry extra data: unsupported.
+OWNERSHIP_FLAGS = 0x30
 # Native visitor 0x78b870 byte-aligns at the absolute body position, reads a
 # u8 presence-mask length, the mask (one bit per reflected field, 0x788510),
 # then each present field's raw bytes (0x1be0300). Component 44's state has
@@ -62,6 +70,9 @@ def write_entity_creates(bits, records):
         elif (type(record.definition_guid) is not int or record.definition_guid>>32!=0x04000000
               or not record.definition_guid&0xffffffff):
             raise ValueError('definition resource type/bound')
+        elif (type(record.create_flags) is not int or record.create_flags&~OWNERSHIP_FLAGS
+              or record.create_flags<0):
+            raise ValueError('unsupported create flags')
         elif record.controlled_actor is not None:
             _index(record.controlled_actor)
             if record.controlled_actor==record.entity_id:raise ValueError('entity cannot control itself')
@@ -87,7 +98,7 @@ def write_entity_creates(bits, records):
             bits.write(record.placeable_id,32);bits.write(0,1)
         else:
             bits.write(0,2);bits.write(record.definition_guid&0xffffffff,32)
-            bits.write(0,8) # Neutral transform flags, no optional fields.
+            bits.write(record.create_flags,8) # Ownership-only flags, no optional fields.
         if actor is None:
             bits.write(0,8) # No network component data.
         else:
@@ -126,7 +137,8 @@ def read_entity_creates(bits):
             expect(0,2) # Strict neutral type-3 resource index form.
             resource=bits.read(32)
             if not resource:raise ValueError('definition resource index bound')
-            expect(0,8) # Transform flags.
+            flags=bits.read(8)
+            if flags&~OWNERSHIP_FLAGS:raise ValueError('unsupported create flags')
             actor=None
             if bits.read(8):
                 expect(CONTROLLER_COMPONENT,8)
@@ -137,7 +149,7 @@ def read_entity_creates(bits):
                 if len(values)!=1:raise ValueError('unsupported mixed controller fields')
                 actor=values.pop();_index(actor)
             elif length!=51:raise ValueError('unsupported definition payload length')
-            record=DefinitionCreate(0x80000000|index,0x0400000000000000|resource,actor)
+            record=DefinitionCreate(0x80000000|index,0x0400000000000000|resource,actor,flags)
             if actor==record.entity_id:raise ValueError('entity cannot control itself')
         if type(record) is PlaceableCreate:expect(0,8)
         expect(0,1)

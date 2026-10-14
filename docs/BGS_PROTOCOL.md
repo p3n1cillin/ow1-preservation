@@ -996,3 +996,62 @@ is valid for the submitted world. The default fixed view remains on screen; no
 first-person camera, HUD or input control is verified. All captured sections from
 runs 71/72/73 re-encode exactly with the public codec at their body offsets,
 including 66 actor creates in each of runs 72 and 73.
+
+### Statescript frame body: variables, state data and full snapshots (2026-10-14, runs 87-90)
+
+Emulator traces of the client's own frame interpreter 0x00a0e3c0 on saved dumps,
+then live runs:
+
+- Module-1 sync header: `SFSF` base frame, `SFDt` delta, one part-present bit, then
+  `Size` (`SFDt` form 8/16/32 bits) which counts **bits** of the blob.
+- Blob header 0x009b4160: one bit, then a *full snapshot* bit (record +0x4c); a full
+  snapshot adds a bit (+0x4d), `CmFD` (absolute frame stamp, must exceed manager
+  +0x900) and, when the base frame is non-zero, `LBSS` (bits to skip if already
+  applied).
+- Instance list 0x00a0e1d0: `Inst` instance-ID delta (0 ends). Per ID: bit **1 =
+  destroy** (0x00a0f440), bit 0 then a create-data bit: 1 = create (graph etc.),
+  0 = update of the existing instance (no data).
+- Body 0x00a0f080: global variables (bit, then `UVGu` identifiers ORed into type
+  0x1C identifier GUIDs), then per listed instance: `IVDt` bitmask over the graph's
+  sync variables and the same `UVGu` list (0x00a0ca20), then `StDt` bitmask
+  (0x00a0c620) over the graph's remote-sync nodes, or over **all states** in a
+  full snapshot. A set state entry is `has-data` bit + `active` bit; activation
+  calls the state's begin 0x01b70790.
+- Bitmask 0x00d530e0: n <= 8 bits raw; otherwise a byte-presence mask
+  (ceil(n/8) bits) followed by each present 8-bit chunk.
+- Variable value 0x00a0d2c0: 4-bit kind (bool, sized ints/floats, vectors, entity
+  ID `IDVd`, handles); kind 15 + 3-bit subkind 0 is a 64-bit value in four u16
+  words, then `StEC` state-event count.
+- Remote messages 0x00a0cca0 (`RMFr`/`RMSz`/`TrID`) address remote-sync nodes;
+  the GameMessageEntry state's handler (0x01ce5640) ignores them.
+
+Graph STU content (reference-only OWLib type names) shows Practice graph 0x0c90's
+state 0 is a `STUStatescriptStateHero` reading sync variable 0x03ac. Live run
+livehero89 sends a full snapshot that sets 0x03ac/0x30df to Soldier: 76's hero
+GUID and activates state 0; the dump shows that state running. Its client class
+is a generic state (no hero-specific client logic). Run liveherogr90 also creates
+the hero definition's nine statescript graphs (0x33, 0x4b, 0x43, 0x251, 0x255,
+0x257, 0x259, 0x91b, 0x8b6) on the hero entity; all nine instances exist.
+
+### Local control: create ownership flag and the 20302 selection (2026-10-14, liveowned93)
+
+The client's module-3 command writer 0x007cc060 and first-person reader
+0x007c7900 take their entity from the world owner's per-component list for type
+59 (0x00699530; type byte from 0x00be0ad0). No definition maps a serialized
+component to 59. The create path 0x0078c360 reads the create-flags byte
+(0x0078dab0, record +0x60). Bit 0x10 builds the entity with builder vtable
+0x02615ae8. Its 0x0064ee90 adds components 59 and 63 when builder +0x2098 is set
+and adds 74 when bit 0x20 is present. The create path sets +0x2098 from
+0x00586060, which compares the entity ID with world-owner +0x298, the current
+20302 selection.
+
+Recipe used in run liveowned93: the diagnostic 20302 selection (0xc0000001)
+drains the create queue; the selection then moves to the controller ID; only
+after that is the controller created, with flag 0x10 and its component-44 actor
+link to Soldier: 76. Result: the original client enters first person (hero
+hand visible), mouse-look rotates the view, and the client sends a continuous
+stream of new instance packets. The public codec accepts
+`DefinitionCreate(..., create_flags=0x10|0x20)`; other flag bits carry data and
+are rejected. Health and authoritative movement are not replicated yet (red
+damage vignette), and no server-side simulation exists. Entity-ID class 0b101
+(0xA...) tested in run livepred91 does not add component 59.

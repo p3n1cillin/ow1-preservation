@@ -1821,3 +1821,24 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   at the bottom centre. This is the first HUD element driven by our game-mode
   statescript. No hero select, first-person camera or input control yet. Cleanup
   audits pass for runs 84-87.
+
+## 2026-10-14 — StateHero, hero graphs and first-person control
+
+- Decoded the statescript frame body with the dump-backed emulator: blob size is
+  in bits; instance-list bit 1 destroys an instance (updates are `0,0`); per-instance
+  `IVDt` sync-variable masks and `StDt` state masks; full-snapshot header with
+  `CmFD`/`LBSS`. Remote messages do not fire GameMessageEntry states.
+- livehero89: a full snapshot sets the hero variables and activates Practice graph
+  0x0c90 state 0 (`StateHero`); the dump shows it running. liveherogr90 also
+  creates the nine statescript graphs listed in Soldier: 76's definition on the
+  hero entity.
+- Found the local-control gate: movement-command and first-person code need an
+  entity with component 59, added only when a create carries flag 0x10 for the
+  entity that is *already* the 20302 selection (0x00586060 vs world owner +0x298).
+  livepred91 (class-101 IDs) and liveowned92 (create never sent) did not get it.
+- liveowned93: diagnostic selection, then selection of the controller ID, then the
+  controller create with flag 0x10 and the actor link. The original client shows a
+  first-person Soldier: 76 view (hand visible), mouse-look works, and the client
+  streams new packets (2354 undecoded bodies; the private responder hit its
+  2000-reply bound). No health or server movement replication yet. All cleanup
+  audits pass for runs 89-93.
