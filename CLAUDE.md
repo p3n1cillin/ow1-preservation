@@ -1158,3 +1158,16 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: deobfuscate module-1 reader 0xa16ad0 (and 0xa16e82 etc.), determine the
   per-entity statescript payload (graph instance/variables), and use emu-78.py to
   find a minimal valid form before any live attempt.
+- Dump-backed emulation (Claude, 2026-10-14): .local/re/dumpemu-81.py serves unmapped
+  reads lazily from a minidump at its real image base (code from image.bin).
+  mod1emu-81.py runs module-1 per-entity reader 0xa16ad0 (vtable 0x263c3c8 slot 0x38
+  = 0xa13b90 wrapper: rcx=secondary-0x18, rdx=stream, r8=&info+0x2c entity id,
+  r9=info[0], 5th=info+0x24) on run-78 world state with: synthetic TEB (gs:[0x40]=PID,
+  gs:[0x58] TLS blocks with epoch 0x7fffffff), stub 0xb7c60 (Codex's PID transform),
+  bump allocators for 0x18512c0(rcx size) / 0x1854900(rdx size), rep stos/movs, bnd,
+  bt*. emu-78.py also tracks a call stack (e.cstack).
+- Module-1 framing (all-empty, 38 bits, accepted): presence 1; 0x787be0 bit;
+  0xd53000 flag+u16; 0xd531b0 flag+u8; 0x996450 statescript-sync list bit (0=none;
+  1 -> 0xd53330 flag+4 bits, then 0x99654f bit ...); 0xd531b0 flag+u8. The reader
+  queues the payload (0xa132e0, time +0x1f40); semantic application is deferred.
+  Next: emulate the deferred statescript consumer on dump state.
