@@ -369,6 +369,18 @@ class ProbeTests(unittest.TestCase):
         # vectors (24 B), bit-packed flag groups and bytes (15 B + 6 B), then an
         # empty trailing vector after its flushed flag byte (5 B).
         self.assertEqual(notifications[-1][1],bytes((hashes.index(PROFILE_SCHEMA)+1,2))+bytes(50))
+        # Opt-in 20505 list 0 (native Hero-set input): count then u64 GUIDs,
+        # followed by the three remaining empty lists.
+        heroes=(0x02e000000000006e,0x02e0000000000002)
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix',hero_list=heroes)
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        hotfix=dict(service.initial_notifications())[20505]
+        self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IQQ',2,*heroes)+bytes(12))
+        self.assertEqual(InitialLobby(hashes,messages,initial_data='keys-hotfix').hero_list,())
+        for bad in ((0x040000000000000e,),(0x02e0000000000000,),(0x02e000000000006e,)*2,
+                    tuple(0x02e0000000000001+i for i in range(65)),('0x02e000000000006e',)):
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',hero_list=bad)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys',hero_list=heroes)
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message

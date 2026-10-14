@@ -624,6 +624,14 @@ agree on all 659/673 captured entity sections in runs64/65, including 80 definit
 creates each. The resource-list control separately verifies 522 sections. All
 three cleanup audits retain the original hash/signature and scoped ACLs.
 
+Hero preload (liveherodef68..70, liveherolist71): without 20505 hero list,
+the selected hero create aborts (decoded labels and the formatted missing-definition
+message in a triggered mid-run dump; repeated 21801/21802; flag-4 instance
+packets). With `--lobby-hero-list` for the hero record, there is no abort, the
+world stays running and the definition is resident (typed-cache census 150 vs
+129). The probe test adds an independent 20505 hero-list wire fixture and
+rejects non-hero types, duplicates, more than 64 entries and lists without 20505.
+
 After the codec extension, all **25/25 CTest targets pass**. The private responder
 is migrated to the public definition writer after the live runs; exact captured
 section equivalence verifies the migration without repeating a live baseline.

@@ -1020,3 +1020,10 @@ Practice geometry renders, but no hero HUD or hero picker is observed. Actor
 creation and link initialization remain unresolved. The strict reusable codec
 now includes the verified minimal definition-create form; all 1332 captured
 sections from these two runs re-encode exactly, including 160 definition creates.
+
+A hero gameplay definition can be created only after the client preloads it.
+The original preload input is lobby 20505 list 0 (Hero-record GUIDs, opt-in
+`--lobby-hero-list`). Without it, the client reports a missing entity definition,
+aborts with lobby 21801/21802 and leaves the world. With Soldier: 76's hero record,
+liveherolist71 keeps WORLD_RUNNING with the hero entity selected and renders a
+hero model in Practice. No HUD, first-person view or movement is verified.

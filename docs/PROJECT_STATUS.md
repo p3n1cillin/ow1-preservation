@@ -25,9 +25,14 @@ All 25 CTest targets pass; playable hero initialization remains the next milesto
 The next continuation creates a verified definition entity through the native
 server-create path and selects it through 20302. The engine constructs component
 44 and the components required by the post-create callbacks. The selected entity
-now passes that prerequisite, but its actor link remains unset. Hero creation,
-linked actor state and playable control remain unresolved. See the latest
+now passes that prerequisite, but its actor link remains unset. See the latest
 definition-create evidence in TESTING.md and DEVLOG.md.
+
+Hero creation now works when the hero is preloaded through the original 20505
+list 0 (opt-in `--lobby-hero-list`): Soldier: 76's gameplay entity is created
+and selected, the world stays running and a hero model visibly renders. Without the
+preload, the client aborts with a missing entity definition. The controller's
+component-44 actor link, first-person view and playable control remain unresolved.
 
 Current frontier: the `full` initial-data sequence reaches the original main
 menu, and the party of one enables Training. Direct Computer Use screenshots

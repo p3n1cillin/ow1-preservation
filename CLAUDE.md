@@ -1019,3 +1019,36 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   remains private; add exact instruction/profile guards and synthetic tests if
   promoting it to public diagnostics. This checkpoint establishes creation and
   selection of a definition entity, not hero control or actual combat.
+
+## Hero preload checkpoint (Claude, 2026-10-14, liveherodef67..70, liveherolist71)
+
+- Pushed 2689ae9 (all prior Codex work) before this continuation.
+- Hero gameplay definitions: Codex's offline .local/re/hero-storage-probe-66.json
+  maps 56 hero records (type 0x75, raw 0x02e0...) to gameplay entity definitions
+  (Soldier: 76 0x02e000000000006e -> 0x04000000000003cf).
+- Creating that definition WITHOUT preload aborts: create lookup 0x78cf3a ->
+  0x17d3360 -> 0x173ba30 is lookup-only; 0x78dd60 error -> 0x78b059 'Mirroring
+  mismatch.' -> abort 0xb64af0, which sends lobby 21801 (0x7731a0) + 21802(bool,
+  0x773940) pairs, notifies BNet object root+0x1f8 (keepalives stop) and leaves
+  (instance header flags 4, UI back to Training). Proof: in-place decoded labels
+  (.local/re/label-usage-70.py) + 13 heap 'Missing entity definition:
+  04000000000003CF' strings in mid dump retail-private-liveherodef70-mid.dmp.
+- Original preload input = lobby 20505 list 0: 0x77a000 -> 0x57bba0 -> 0x57c700
+  inserts catalogue-present GUIDs into content provider Hero(0x75) set (+0x88);
+  list 2 -> map set; list 1 -> 0x171ace0 requests. Promote 0x6835f0 also refreshes
+  sets. New opt-in public `--lobby-hero-list <hex>` (type-0x75 only, <=64, needs
+  20505 initial data); driver -HeroList; test fixture added.
+- liveherolist71 (PID 38776): no abort, keepalives continue, WORLD_RUNNING with
+  hero 0x80000305 selected; definition resident (typed census 150 vs 129); hero
+  entity 28 components (no 44); a huge armored BOOT model renders at the default
+  camera (hero model at world scale). No HUD/first-person/movement verified.
+  Controller (000e) still holds component 44 with invalid actor target (+d4).
+- Private: .local/re/hero-definition-frontier-70.md, typed-cache-census-70.py,
+  content-provider-70.py (getter 0x594510 decode; provider object not located),
+  dump_on_lobby_message.py, definition-actor-link-68.py (entity arg). Responder
+  --definition-guid/--select-definition; driver -DefinitionGuid
+  -SelectDefinitionIndex -HeroList. Dumps retail-private-liveherodef67/68/69/70
+  (+70-mid) and liveherolist71 beside the package-cache client. All audits pass.
+- Next: link the controller's component-44 actor (+d4) to the hero entity via
+  original replicated state (component network state / update op), or find
+  which entity the server should select; then first-person/HUD and input.

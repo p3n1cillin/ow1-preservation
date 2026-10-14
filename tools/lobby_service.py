@@ -17,9 +17,12 @@ SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
+HERO_GUID_HIGH = 0x02e0  # raw GUID type bits of OWLib type 0x75 (hero record)
+
+
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False):
+                 queue_reply=None, instance_referral=False, hero_list=()):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -53,6 +56,15 @@ class InitialLobby:
                           'full':(20504,20505,20502,20802,20700)}[initial_data]
         for mid in self.initial_ids:
             if (self.schema_of(mid),mid) not in messages:raise ValueError('initial-data schema missing')
+        # Optional 20505 list 0. Native handler 0x77a000 passes it to 0x57bba0,
+        # which inserts catalogue-present GUIDs into the content provider's
+        # Hero (type 0x75) set. Only exact Hero-record GUIDs are accepted.
+        hero_list=tuple(hero_list)
+        if len(hero_list)>64 or len(set(hero_list))!=len(hero_list):raise ValueError('hero list bound/duplicate')
+        if any(type(g) is not int or g>>48!=HERO_GUID_HIGH or not g&0xffffffffffff for g in hero_list):
+            raise ValueError('hero list accepts only type-0x75 hero GUIDs')
+        if hero_list and 20505 not in self.initial_ids:raise ValueError('hero list requires the 20505 notification')
+        self.hero_list=hero_list
 
     @staticmethod
     def schema_of(mid):
@@ -94,6 +106,7 @@ class InitialLobby:
             # list empty and every flag/byte at its zero default.
             player={0:self.identity,0x10:{0:self.account_id,8:1<<56},0x40:self.name}
             values={0x78:player} if mid==20502 else {}
+            if mid==20505 and self.hero_list:values={0x78:list(self.hero_list)}
             if mid==20700:
                 # A party of one: our player as the only member (status 5 =
                 # "Member", +0xe2 Leader true; field meanings from the client's

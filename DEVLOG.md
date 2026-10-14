@@ -1701,3 +1701,26 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   next protocol investigation; no native state fields were written for these tests.
 
 - All 25 CTest targets pass after the codec extension and completed live cleanup.
+
+## 2026-10-14 — hero definition preload through 20505
+
+- Liveherodef68/69/70 add a minimal create for Soldier: 76's gameplay entity
+  definition (from the offline hero-record mapping) and select it. The world
+  runs and geometry renders, then the client leaves: repeated lobby 21801/21802
+  pairs, Battle.net keepalives stop, instance header flag 4, and the UI returns
+  to Training. Run 65's controller-only create never does this.
+- Traced the sends to abort routine 0xb64af0 (21801 then 21802, plus a
+  Battle.net session notification). A triggered mid-run dump (run 70) shows the
+  decoded labels "Mirroring mismatch." and "Missing entity definition" in use,
+  naming the hero definition. The create path only looks up the typed cache;
+  129 type-3 definitions are resident, but no hero gameplay definitions.
+- 20505 list 0 is the original hero preload input: 0x77a000 -> 0x57bba0 ->
+  0x57c700 fills the content provider's Hero (0x75) set. Added opt-in
+  `--lobby-hero-list` (type-0x75 only) and an independent wire fixture.
+- Liveherolist71 sends Soldier: 76's hero record in that list. No abort,
+  keepalives continue, and the world stays WORLD_RUNNING with the hero entity
+  selected. The final dump has 150 resident definitions, including the hero's,
+  and a 28-component hero entity. The window shows a large armored boot
+  model at the camera position. No HUD/first-person/control is claimed. Component
+  44's actor link on the controller entity remains the next gate.
+- All cleanup audits pass (hash, Valid signature, exact ACLs, owned processes).

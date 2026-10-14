@@ -422,7 +422,7 @@ field descriptors, with no original payloads or executable bytes.
 | message | compact body | native receive behavior |
 |---|---|---|
 | 20504 | u64[] and u8[] | 0x77a560 imports 16-byte key entries via 0x17253f0, then sets the key context's +0x40 flag (context-table slot 10) |
-| 20505 | four u64[] | 0x77a000 calls 0x57bba0, which feeds content override lists and balances initialization counters through 0x1719a20/0x1719a60 |
+| 20505 | four u64[] | 0x77a000 calls 0x57bba0, which feeds content override lists and balances initialization counters through 0x1719a20/0x1719a60. List 0 fills the content provider's Hero (type 0x75) set, list 1 issues per-GUID resource requests (0x171ace0, priority 2), list 2 fills the map (0x9f) set; list 3 stays in the handler (see "Hero preload list" below) |
 | 20502 | nested record: two 128-bit ids, three u64, two u32, NUL string | 0x7752a0 marks context-table slot 22 at +0x88, updates player-record consumers via 0x619c90/0x619770 and additional login fields |
 
 Our server supplies **no additional keys or hotfix overrides**, so 20504 and
@@ -922,3 +922,40 @@ typed cache constructs a new entity, including component 44 and callback pairs
 remains invalid, so this is entity creation/selection, not a controllable hero.
 All 1332 captured sections from the two runs re-encode exactly, including 160
 definition creates. The public placeable-only wrappers still reject definitions.
+
+### Hero preload list and hero definition create (2026-10-14, liveherodef68..70, liveherolist71)
+
+Creating a hero's gameplay entity definition (Soldier: 76, type-3 index 0x3cf,
+from the offline hero-record mapping) with the same minimal codec runs the
+original create path, but the client cannot construct it unless the definition
+is already resident. The create lookup 0x0078cf3a -> 0x017d3360 -> 0x0173ba30
+only *looks up* the typed cache; it never starts a load. Without a preload:
+
+- the client's replication completion check 0x0078dd60 fails, and 0x0078b059
+  calls the abort routine 0x00b64af0 with the label "Mirroring mismatch."
+  (decoded label getter 0x00787350). The formatted "Missing entity definition"
+  message in the mid-run dump names the hero definition itself;
+- 0x00b64af0 sends lobby 21801 (empty, sender 0x007731a0, vtable 0x02604ac0)
+  and 21802 (bool, sender 0x00773940, vtable 0x02604ae0) in pairs, notifies the
+  Battle.net session object (0x00e25980), so its keepalives stop, and the client
+  eventually leaves: instance packets with header flag 4, BNet TCP closed, and the
+  UI returns to Training. 21801/21802 need no reply for this diagnosis.
+
+A census of the native fallback typed cache in a mid-run dump finds 129 resident
+type-3 definitions, including the controller definition used earlier, but none of the
+56 hero gameplay definitions. 20505 list 0 is the original input: the handler
+passes it to 0x0057bba0, which resets the provider's hero/map/mode sets, inserts
+catalogue-present GUIDs into the Hero (0x75) set through 0x0057c700 and the map
+(0x9f) set from list 2. The opt-in probe flag `--lobby-hero-list <hex>` (type-0x75
+hero-record GUIDs only, at most 64, requires 20505 initial data) puts
+hero records into list 0. With Soldier: 76's hero record:
+
+- 21801/21802 are never sent; Battle.net keepalives continue; there are no
+  instance flag-4 packets, and the world stays WORLD_RUNNING with the hero
+  entity selected until the bounded end (sampler: 17607 samples, 0 rejected);
+- the final dump has 150 resident type-3 definitions, including the hero's,
+  and the hero entity has 28 native components (component 44 not among them);
+- the window shows a large armored boot model at the default camera position,
+  consistent with the hero model's scale. No hero HUD, first-person view or
+  controllable movement is established. Component 44 is still on the controller
+  entity, and its actor target remains invalid.
