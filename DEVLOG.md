@@ -1742,3 +1742,19 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   first-person, HUD and input remain unverified.
 - Runs 71/72/73 entity sections re-encode exactly with the public codec at their
   body offsets (723/717/717 sections; 66 actor creates in 72 and 73). All cleanup audits pass.
+
+## 2026-10-14 — camera/input controls after the actor link
+
+- Liveinput74 repeats run 73 and sends relative mouse look, W, Space, H and Tab after
+  the controller is selected. No visible change (only animated clouds), and the client
+  sends no new instance message types (no movement commands).
+- Camera-view classes ("First Person View", spectator views) are registered through
+  descriptor tables; their shared predicate 0x699730 reads a user-settings flag, not
+  gameplay state. The local-game setup 0x82a5e0 also links a component 74 (absent on
+  both our entities) back to component 44; updates cannot add missing components.
+- Livetransform75/76 create the hero with transform flag bit 2 (three f32 at
+  +0x10) or bit 3 (+0 xyz, +0x20 quaternion, +0x10 xyz). The boot model does not move
+  or scale. Control livepreloadonly77 (preload, no hero create) shows no boot, so
+  the model belongs to the created hero; its rendered position evidently comes from
+  other replicated state (likely module-3 per-entity movement snapshots), not the
+  create transform. All four cleanup audits pass.

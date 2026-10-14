@@ -1076,3 +1076,22 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   observations-62.py. Dumps retail-private-livecontrol72/73.dmp. Audits pass.
 - Next: what moves the camera to the controlled actor (camera/view component,
   hero transform/state, game-mode spawn flow) and input routing.
+
+## Camera/input controls (Claude, 2026-10-14, liveinput74, livetransform75/76, livepreloadonly77)
+
+- Pushed 90c7439 (actor link). Run 74: look/W/Space/H/Tab after controller select ->
+  no visible change, no new client instance messages (no movement commands).
+  ow-ui.ps1 now has `hold -Key W|A|S|D|H|Space|Tab|E|Shift -Ms N` and `look -X dx -Y dy`.
+- Run 75 (create flag 4: f32 +0x10) and 76 (flag 8: +0 xyz, +0x20 quat, +0x10 xyz)
+  do not move/scale the boot; run 77 (preload, no hero create) has no boot -> boot is
+  the created hero, positioned by other replicated state. Private responder
+  `--transform-triple DEF FLAGS values...` (driver -TransformTriple) is experimental.
+- Camera views: descriptors around 0x26134a8 ("First Person View" label 0x698ef0);
+  shared predicate 0x699730 reads root slot 5 (vft 0x26112d0) +0x606, a user-setting.
+  Local-game 0x82a5e0 links component 74 (+0x68 -> comp44) and uses component 43.
+- Hero record (02e000000000006e) root refs: gameplay 03cf, plus type-3 03d0 (322c521a),
+  09fc (26d71549), 0dda (8125713e), 1438 (previewEmote); private
+  .local/re/record-references-75.py (Codex package manifest/CascLib, read-only).
+- Next: module-3 per-entity snapshot format (0x7c2e60, job+0x150, 12-bit length) for
+  the controlled hero's movement state; then camera/input. Don't send guessed payloads
+  without tracing the native reader first.
