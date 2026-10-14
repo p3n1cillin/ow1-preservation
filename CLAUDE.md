@@ -1323,3 +1323,18 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   3369, 7acb, 1c61, 0842, 6321, 01de, 07b2, 09d5, 1cbb, 8017, 8793; the chain's
   locals are not synced. Next: read the live instance's local values at the pick
   (which condition fails) and which synced var feeds 2163/4208.
+- What unlocks the hero pick (graph 0x288b, from .local/re/varwriters-112.py and
+  graph-trace-89.py <dump> <node> <depth>):
+  * var 2163 is written ONLY by StateStack #1459 = state index 35 / remote-sync index 3
+    (value true while active; remote-sync var 6321). Server must activate it.
+  * var 4208 on the client is written true by #1654 inside StateGameMessageEntry #1649
+    = state 71 / remote-sync 5 when game message 0x02400000000006e4 arrives; other
+    writers (#1247, #1604, #1897) are server-side.
+  * SERVER handler of the pick: entry #1227 STUStatescriptEntryGameMessage for 0x1361
+    -> conditions #1231/#1235/#1239 -> SetVar #1243 -> #1247 (4208=true) ... (the
+    server's hero-change logic; continue tracing forward from #1227 to see which
+    synced vars/states/messages it produces, e.g. hero var 03ac).
+  * Responder full-snapshot activation (--controller-states 'inst:states') needs
+    GRAPH_COUNTS[0x288b] = (32 sync vars, 146 states); instance 4 = 0x288b in the
+    run-110 recipe. Delivering a game message to the client (0x06e4) is not yet
+    implemented (statescript message records RMFr/RMSz/TrID, 0xa0cca0).
