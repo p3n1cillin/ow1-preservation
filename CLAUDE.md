@@ -1298,3 +1298,19 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   the controller's comp44 actor, give health, and send the hero graphs.
 - Driver window size may be 2560 wide: always use .local/re/ow-menu.ps1. Never launch
   a new run until the previous run's launcher has exited (driver refuses).
+- 21616 decoded (2026-10-15): it is NOT the hero choice. Graph 0x288b node 21
+  (STU_79A131B4, client game-message action; runtime descriptor RVA 0x3175af0) sends
+  game message 0x0240000000001360 with ONE param 0x0a400000000005a2 = var cb7a.
+  Blob = u32 0 | u8 param count | GUID byte-presence mask (0xc3) + nonzero GUID bytes
+  (a2 05 40 0a) | value bytes. Server side of the same graph handles it: entry #1199
+  (STUStatescriptEntryGameMessage, node 22, param 05a2 -> var 8609) -> condition #1203
+  (var 8609 and E4C6AAB4 spawn room) -> SetVar #1207 / game message 0x13ef. Our
+  responder must emulate that server-side graph result (vars/state/messages).
+- Likely hero-pick message: node 29 (client-only STU_79A131B4) game message 0x1361 with
+  param 0x0a4000000000005d = STUConfigVarHero; NOT sent when Tracer was clicked in 111b.
+  Next: find what gates node 29 (its state/inputs in 0x288b) and the hero select UX.
+- Runtime reflection descriptors carry OWLib INSTANCE hashes at +0xb0 (SetVar 75001a77
+  at RVA 0x31748f0, SendGameMessage bd6f5f83 at 0x3175670, STU_9AE5FC4C fields
+  176ed263/37ab13d3 = controller/hero). Beta lower-case CRC names (Prometheus STU.h,
+  e.g. UXHeroSelectScreen 0x8F23FA30, SendHeroSelection) are absent from retail.
+  None of the 34 retail types with field 37ab13d3 is a direct statescript node type.

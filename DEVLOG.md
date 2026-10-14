@@ -1885,3 +1885,6 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Picking a hero and pressing CONTINUE sends client message 21616 (a client game
   message from the controller entity, message GUID type 0x024). Runs 109-111 cleanup
   audits pass.
+- The CONTINUE press's 21616 is game message 0x1360 (one parameter, var cb7a), which
+  graph 0x288b's own server-side entry consumes; the chosen hero is not in it. The
+  hero-pick message (0x1361 with a hero parameter) has not been observed yet.
