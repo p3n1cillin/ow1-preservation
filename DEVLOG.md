@@ -1794,3 +1794,14 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   manager is unchanged. No visible HUD/camera change and no new diagnostic labels.
   Run 79 never reached the statescript phase (resolution change cost time). Both
   cleanup audits pass.
+- Livegraphs81 creates all three Practice graphs on the controller: the record stays
+  pending (frame 0, one queued record). Livegraphs82 adds an opt-in 20505 list-1
+  preload (`--lobby-preload-graph`, type-0x1b only); all three graphs become
+  resident (status 4) but the record is still pending: the multi-instance blob was
+  mis-encoded (each instance carries its own nested `Inst` count).
+- Livegraphs83 fixes the encoding: about one second after the records start, the
+  client exits with code 1 (fatal-error exit; no dump). Graph 0x13c0 alone (run 80)
+  applies cleanly, so one of 0x0c8e/0x0c90, or running them on the controller,
+  hits a client fatal path. Offline: graphs have 233/869/1782 STU instances and
+  reference sub-graphs; driving them needs graph-content parsing. All cleanup
+  audits pass.

@@ -720,6 +720,8 @@ def main():
     ap.add_argument("--lobby-login-schema", help="opt-in experimental 20500 reply using the numeric lobby login schemas")
     ap.add_argument("--lobby-hero-list", action="append", default=[], type=lambda v: int(v,16),
                     help="opt-in hero-record GUID (hex, type 0x75) for 20505 list 0; repeatable, max 64")
+    ap.add_argument("--lobby-preload-graph", action="append", default=[], type=lambda v: int(v,16),
+                    help="opt-in statescript graph GUID (hex, type 0x1b) for 20505 list 1 resource requests; max 64")
     ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings','full'),
                     help="opt-in empty key/hotfix lists (20504/20505), optionally our local player record (20502) "
                          "and default account preferences (20802); requires login schemas")
@@ -749,6 +751,10 @@ def main():
             or len(set(args.lobby_hero_list))!=len(args.lobby_hero_list)
             or any(g>>48!=0x02e0 or not g&0xffffffffffff for g in args.lobby_hero_list)):
         ap.error('hero list needs 20505 initial data and up to 64 unique type-0x75 hero GUIDs')
+    if args.lobby_preload_graph and (args.lobby_initial_data in (None,'keys') or len(args.lobby_preload_graph)>64
+            or len(set(args.lobby_preload_graph))!=len(args.lobby_preload_graph)
+            or any(g>>48!=0x0580 or not g&0xffffffffffff for g in args.lobby_preload_graph)):
+        ap.error('graph preload needs 20505 initial data and up to 64 unique type-0x1b graph GUIDs')
     if args.lobby_queue_reply is not None and (not args.lobby_login_schema or not args.lobby_queue_schema):
         ap.error('queue-reply experiments require initial login and queue schemas')
     if args.lobby_queue_schema and args.lobby_queue_reply is None:
@@ -844,7 +850,7 @@ def main():
                         from lobby_service import InitialLobby
                         lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
-                                                     args.lobby_hero_list) if login_messages is not None else None
+                                                     args.lobby_hero_list,args.lobby_preload_graph) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

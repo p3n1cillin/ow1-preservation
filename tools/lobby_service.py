@@ -18,11 +18,12 @@ GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
 HERO_GUID_HIGH = 0x02e0  # raw GUID type bits of OWLib type 0x75 (hero record)
+STATESCRIPT_GUID_HIGH = 0x0580  # raw GUID type bits of OWLib type 0x1b (statescript graph)
 
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=()):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=()):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -65,6 +66,14 @@ class InitialLobby:
             raise ValueError('hero list accepts only type-0x75 hero GUIDs')
         if hero_list and 20505 not in self.initial_ids:raise ValueError('hero list requires the 20505 notification')
         self.hero_list=hero_list
+        # Optional 20505 list 1: 0x57bba0 issues one resource request per GUID
+        # (0x171ace0, priority 2). Bounded to statescript graphs (type 0x1b).
+        resource_list=tuple(resource_list)
+        if len(resource_list)>64 or len(set(resource_list))!=len(resource_list):raise ValueError('resource list bound/duplicate')
+        if any(type(g) is not int or g>>48!=STATESCRIPT_GUID_HIGH or not g&0xffffffffffff for g in resource_list):
+            raise ValueError('resource list accepts only type-0x1b statescript graph GUIDs')
+        if resource_list and 20505 not in self.initial_ids:raise ValueError('resource list requires the 20505 notification')
+        self.resource_list=resource_list
 
     @staticmethod
     def schema_of(mid):
@@ -106,7 +115,8 @@ class InitialLobby:
             # list empty and every flag/byte at its zero default.
             player={0:self.identity,0x10:{0:self.account_id,8:1<<56},0x40:self.name}
             values={0x78:player} if mid==20502 else {}
-            if mid==20505 and self.hero_list:values={0x78:list(self.hero_list)}
+            if mid==20505 and (self.hero_list or self.resource_list):
+                values={0x78:list(self.hero_list),0x90:list(self.resource_list)}
             if mid==20700:
                 # A party of one: our player as the only member (status 5 =
                 # "Member", +0xe2 Leader true; field meanings from the client's

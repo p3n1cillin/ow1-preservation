@@ -1204,3 +1204,11 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   base+delta<=cf, wait if part>=0 or base>cf+1, else apply 0xa0e3c0.
   Next: try graphs 0x0c8e/0x0c90 too, on a game-mode entity if one is needed;
   decode variable (UVGu) and state-event (SpEC) records to drive game phases.
+- Runs 81-83: multi-graph statescript on the controller. Per-instance encoding:
+  create 0, present 1, u16 graph, 4 absent flags, nested Inst count (0+4 bits);
+  then var bit and two message bits. New opt-in probe `--lobby-preload-graph`
+  (20505 list 1, type 0x1b; driver -PreloadGraph) makes graphs resident (status 4).
+  Run 83 (0x13c0+0x0c8e+0x0c90, fixed encoding): client exits code 1 ~1 s after
+  records start (no dump). Bisect graphs before reuse; consider a dump trigger on
+  the first statescript send. Graph records: root 7236f6e3; 0x13c0 references
+  sub-graphs 0cbb/0bd6/0c8f/255d/0cb6 (field c71ea6bc).

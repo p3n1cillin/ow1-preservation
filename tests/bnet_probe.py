@@ -381,6 +381,14 @@ class ProbeTests(unittest.TestCase):
                     tuple(0x02e0000000000001+i for i in range(65)),('0x02e000000000006e',)):
             with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',hero_list=bad)
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys',hero_list=heroes)
+        # Opt-in 20505 list 1 (statescript graph resource requests).
+        graphs=(0x0580000000000c8e,)
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix',resource_list=graphs)
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        hotfix=dict(service.initial_notifications())[20505]
+        self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IIQ',0,1,*graphs)+bytes(8))
+        for bad in ((0x02e000000000006e,),(0x0580000000000000,),graphs*2):
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',resource_list=bad)
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message
