@@ -1095,3 +1095,19 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: module-3 per-entity snapshot format (0x7c2e60, job+0x150, 12-bit length) for
   the controlled hero's movement state; then camera/input. Don't send guessed payloads
   without tracing the native reader first.
+
+## Module-3 hero snapshots (Claude, 2026-10-14, livesnapshot78)
+
+- Tools (private, scratch copies in .local/re): deob2-78.py (opaque-chain collapsing
+  disassembler), emu-78.py (x86-64 interpreter over image.bin; SIMD = no-op),
+  emusnap-78.py (runs 0xc5f680), emutest-78.py (bit-reader validation).
+- Module-3 per-entity item: [1][len:12 incl. itself][payload]. 0x7c7f50 applies
+  per frame if selected entity valid (+0x57f310 gate); 0x7ca130: template bit,
+  entity lookup, needs comp 28 (0xbe76f0) + comp 43 (0xbd4680); template id via
+  delta int 0xc66d00 (widths table 0x2d17d80) else default prior 0x2f82d30;
+  movement decode 0xc5f680 -> apply comp28 0x64a970. Minimal payload = 36 zero bits.
+- Responder --hero-snapshot DEF --snapshot-delay S (driver -HeroSnapshot 1
+  -SnapshotDelay 55 -CreateSends 150). Run 78: accepted, hero geometry moves by
+  itself after snapshots begin; no movement commands from client.
+- Next: add scalar float support to the interpreter, map the snapshot fields
+  (position/orientation), send a sane spawn position; then camera/input.

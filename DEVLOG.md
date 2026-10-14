@@ -1758,3 +1758,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   the model belongs to the created hero; its rendered position evidently comes from
   other replicated state (likely module-3 per-entity movement snapshots), not the
   create transform. All four cleanup audits pass.
+
+## 2026-10-14 — first server movement snapshots for the hero
+
+- Wrote a flag-simulating deobfuscator (opaque jcc chains collapse when every flag
+  assignment reaches one endpoint) and a bounded x86-64 interpreter over the
+  static image (validated on bit reader 0x78bdb0).
+- Module-3 per-entity items (0x7c2e60): presence bit, 12-bit length counting
+  itself, payload queued as {entity, body offset, length}. Applier 0x7c7f50 runs
+  when the selected entity is valid; per-entity decoder 0x7ca130 reads a template
+  bit, needs components 28 and 43 on the entity, decodes 0xc5f680 and applies it
+  to component 28 (movement) through 0x64a970.
+- The interpreter runs 0xc5f680 on an all-zero input: 35 bits, every field
+  unchanged from the default prior state. A minimal item is presence 1, length
+  48, then 36 zero bits; the entity chain ends after module 3.
+- Livesnapshot78 sends that item for the hero after the controller link. No abort;
+  the boot leaves its old place and hero geometry appears elsewhere on its own
+  (before any input). Later look/W frames differ, but the client sends no new
+  message types, so input control is not established. Cleanup passes.
