@@ -1111,3 +1111,14 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   itself after snapshots begin; no movement commands from client.
 - Next: add scalar float support to the interpreter, map the snapshot fields
   (position/orientation), send a sane spawn position; then camera/input.
+- Snapshot field map (zero path = 35 one-bit "changed" flags, read order):
+  0 0xc619b0 (4 optional bytes), 1 out+4 bit, 2 delta int 0xc66d00 -> out+8,
+  3 0xc61b60 -> +0xc, 4 delta16 +0x42 (widths table 0x2d17d60), 5 next field,
+  6 0xc61b60 -> +0x14, 7/8 floats +0x18/+0x1c via 0xc66e30->0xc67260 (likely view
+  angles), 9 0xc61e50, 10 0xc61b60, 11-12 0xc61c50, 13-15 0xc5ff00 (+0x50),
+  16-18 0xc606c0 (+0x70, obfuscated vec3 container; likely position), 19 0xc673d0
+  vec3, 20-28 nine sub-decoders 0xc5c720..0xc5caa0, 29-34 tail (0xc670b0, 0xc5fd10,
+  0xc61ce0). Float component 0xc67260: changed bit; selectors over widths 8/10/24
+  (table 0x2d17d88, sign-extended) else raw s32; value = prev + q/1024 (or /256).
+  Next: SIMD scalar support in emu-78.py, decode the +0x70 container, send a spawn
+  position, then revisit camera/input.
