@@ -1137,3 +1137,24 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   0c000000000280c0 (type 4) and 05800000000013c0 (type 0x1b, likely statescript
   graph). record-references-75.py has a bundle fallback. Hypothesis: HUD/camera/
   hero-select are driven by game-mode statescript state the server must replicate.
+
+## Game-mode/statescript direction (Claude, 2026-10-14)
+
+- record-deep-refs-80.py (brute-force all qword x field-hash references, bundle
+  fallback): Practice mode 023000000000005a -> ruleset schemas 0a30..0060/0006/0008
+  (0xc6, field e04197af) and statescript graphs (0x1b) 05800000000013c0 (cf63b633),
+  0580000000000c8e (76e8c82a), 0580000000000c90 (a2781aa4); no entity definitions.
+  Map header 0790..0688 references only its game modes (0230..18, 0230..5a).
+- Runtime component 47 = STUStatescriptComponent (serialized fd024f42); on both the
+  controller and the hero. vft 0x2611f68; slot 0x18 0xbc19e0 = generic visitor on
+  state +0x20, whose reflected type 0x30db340 (hash e458e69e) has ZERO fields, so
+  statescript state does not ride component reflection. Component 47 getter
+  0xbe9db0 (mask 1<<47); users cluster at 0xa11768..0xa16e82 next to module-1
+  per-entity reader 0xa16ad0 -> module 1 is the likely statescript replication.
+  Module 2 (0xb3a490 -> 0xb40130/0xb24600) also neighbours component-47 users.
+- stu-type-80.py prints runtime type descriptors (+0x28 fields x0x38, +0x90 count,
+  +0x98 size, +0xb0 hash, kinds = crc32 lower-case names); component-inspect-80.py
+  prints any component's vtable/state (args: dump pid out entity --methods TYPE).
+- Next: deobfuscate module-1 reader 0xa16ad0 (and 0xa16e82 etc.), determine the
+  per-entity statescript payload (graph instance/variables), and use emu-78.py to
+  find a minimal valid form before any live attempt.
