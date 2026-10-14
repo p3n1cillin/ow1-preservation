@@ -1805,3 +1805,19 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   hits a client fatal path. Offline: graphs have 233/869/1782 STU instances and
   reference sub-graphs; driving them needs graph-content parsing. All cleanup
   audits pass.
+
+## 2026-10-14 — three Practice graphs running; first statescript HUD element
+
+- Bisected: graphs 0x0c8e (livegraph84) and 0x0c90 (livegraph85) each apply alone.
+  Livegraphs86 (one graph per sequential frame) leaves frames 2/3 pending.
+- Emulating the client's own processing loop on run 86's stuck records shows the
+  failure: instance-table add 0xd55d30 rejects a duplicate instance ID (every
+  create used ID 1). In 0xa0e1d0 the `Inst` field is an instance-ID **delta**
+  (id += delta, 0 ends the list); run 83's zero after the first graph ended the
+  list early and the remaining bits misparsed into a fatal exit.
+- Livegraphs87 sends Inst=1/graph per instance (IDs 1..3) in one frame: the
+  controller's statescript instance table holds 0x13c0, 0x0c8e and 0x0c90, the
+  frame applies, the client keeps running, and a red "prohibited" HUD icon appears
+  at the bottom centre. This is the first HUD element driven by our game-mode
+  statescript. No hero select, first-person camera or input control yet. Cleanup
+  audits pass for runs 84-87.

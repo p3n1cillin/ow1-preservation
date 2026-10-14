@@ -1212,3 +1212,14 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   records start (no dump). Bisect graphs before reuse; consider a dump trigger on
   the first statescript send. Graph records: root 7236f6e3; 0x13c0 references
   sub-graphs 0cbb/0bd6/0c8f/255d/0cb6 (field c71ea6bc).
+- BLOCKER CLEARED (runs 84-87): 'Inst' in 0xa0e1d0 is an instance-ID delta (0 ends);
+  each create = 0, 1, u16 graph, 4 absent flags; instance table at manager+0x58
+  (+0x10 entries x0x40, id word +4, graph GUID +0x20, count +0x18). Duplicate IDs
+  are rejected by 0xd55d30. livegraphs87 (PID 18468): controller has instances
+  1/2/3 = 0x13c0/0x0c8e/0x0c90; a red "prohibited" HUD icon appears (first
+  statescript-driven HUD). Graphs are resident without preload. Emulator tools:
+  .local/re/ssemu-82.py, ssrun-82.py, ssproc-87.py (runs real processing loop
+  0xa0e630 on dumped records; arg/return probes).
+- Next: decode variable (UVGu/IVDt/StDt) and state-event (SpEC/SIID) records to
+  move the game-mode graphs into hero-select/spawned states; the prohibited icon
+  suggests the player is in a restricted (e.g. spawn/pre-game) state.
