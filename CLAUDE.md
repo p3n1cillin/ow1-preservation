@@ -1177,3 +1177,19 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   bit at obj+0xc (likely last part); 'Size' 0xd531b0 -> 0x7c0f00 copies a raw blob
   into obj+0x18 (bit buffer). The queued object (0x58 B, 0xa07ef0) is later consumed
   by the statescript system; blob format is the next layer to decode.
+- Statescript replication field tags (FourCC readers 0xd53000/0xd530e0/0xd531b0/
+  0xd53290/0xd53320/0xd53400/0xd53510/0xd53620/0xd536e0; call sites enumerated):
+  0xa0adc0 PIID/PSIn/SPUI/SrcI/SrcS (instance creation, via 0xa0c510 <- 0xa0e1d0);
+  0xa0bab0 TmrU/DelT (timers); UVGu (vars, 0xa0bd50..0xa0c4c0); 0xa0c63e StDt;
+  0xa0ca20 IVDt+UVGu; 0xa0cca0 RMFr/RMSz/TrID (remote messages/triggers);
+  0xa0d4f0 StEC, 0xa0d545 SpEC/SpBN/SIID/SUDa/SPIn (state events, primary 0xa0d2c0);
+  0xa0df50/0xa0e1d0 Inst; 0xa0f126 EIns; 0xd5744a/0xd590d0 ArrC/ArrS/ArrE;
+  0xd57aa0..0xd58a53 ResV/HndI/HndS/HndD; 0x9b4160 CmFD/LBSS.
+- Statescript consumer chain: 0x97a980 -> 0xa093e0 -> 0xa0e630 -> 0xa0e3c0 (frame
+  interpreter: loop 0xa0e050 Inst records + 0xa0ee10 messages/vars; component
+  +0x900 frame, +0x733/+0x734 flags, callbacks via [comp+0x50]). Direct path from
+  module-1 reader: 0xa08f00 (comp47+0x690 manager, +0x738) -> 0x996450 -> 0xa0a3e0
+  (frame-ordered insert). prim-81.py resolves chained .pdata fragments.
+- Next: dump-backed emulation of 0xa08f00 + 0xa0e3c0 with synthetic blobs (tagged
+  fields above) to learn instance/variable encodings; then decide what game-mode
+  state (graphs 0580..13c0/0c8e/0c90) to replicate.
