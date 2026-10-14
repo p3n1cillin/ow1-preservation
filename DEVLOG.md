@@ -1776,3 +1776,21 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   the boot leaves its old place and hero geometry appears elsewhere on its own
   (before any input). Later look/W frames differ, but the client sends no new
   message types, so input control is not established. Cleanup passes.
+
+## 2026-10-14 — statescript replication applied on the controller
+
+- Runtime component 47 is the statescript component. Module 1 carries per-entity
+  statescript sync records: base frame, frame delta, optional part, size in bits,
+  then a frame blob. Field readers take FourCC debug tags; enumerating their call
+  sites names the command set (instances, timers, variables, messages, state
+  events, arrays, resources).
+- A dump-backed interpreter (synthetic TEB, seed-transform and allocator stubs)
+  runs the client's module-1 reader and the statescript frame interpreter on real
+  run-78 state. An empty frame is 10 blob bits; one instance creation adds a create
+  bit, a graph-present bit, a 16-bit graph index and four absent optional fields.
+- Livestatescript80 sends a record creating Practice graph index 0x13c0 on the
+  controller (base frame 1, delta 1). The final dump shows that controller's
+  statescript manager advanced to frame 2 with new bookkeeping values; the hero's
+  manager is unchanged. No visible HUD/camera change and no new diagnostic labels.
+  Run 79 never reached the statescript phase (resolution change cost time). Both
+  cleanup audits pass.

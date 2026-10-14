@@ -1193,3 +1193,14 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: dump-backed emulation of 0xa08f00 + 0xa0e3c0 with synthetic blobs (tagged
   fields above) to learn instance/variable encodings; then decide what game-mode
   state (graphs 0580..13c0/0c8e/0c90) to replicate.
+- Statescript live test (livestatescript80, PID 40392; window now 1920x1080:
+  No Thanks 1782,1004 / Training 150,324 / Practice 960,540): responder
+  --statescript DEF GRAPH (driver -Statescript 0,0x13c0 -StatescriptDelay 60) adds
+  module-1 records (update_section in udp_welcome_reply.py). Controller comp47
+  manager (+0x690): +0x908 frame 0->2, +0x900 0->354, +0xc4 1878->6118 = applied.
+  Hero unchanged. No UI change. Tagged readers: 0xd53000 0/10/11 + 16/24/32 bits,
+  0xd531b0 8/16/32, 0xd53320 4/8/16, 0xd53290 zigzag, 0xd53400 unary count.
+  Processing rule 0xa0e630: list +0x748/+0x750, needs +0x8d8, cf=+0x908; discard if
+  base+delta<=cf, wait if part>=0 or base>cf+1, else apply 0xa0e3c0.
+  Next: try graphs 0x0c8e/0x0c90 too, on a game-mode entity if one is needed;
+  decode variable (UVGu) and state-event (SpEC) records to drive game phases.
