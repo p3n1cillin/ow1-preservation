@@ -1863,3 +1863,15 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   (beta build) shows hero selection as a statescript UI action that the client
   reports; retail candidates are instance messages 21605 `{u64,u64,i32}` and 21607
   `{u64,bool,bool}`. The Practice graph tree has 62 graphs, 16 with UI presenters.
+
+## 2026-10-15 — original hero-change UI and teleports
+
+- Creating Practice subgraph 0x288b (reached from 0x0c90 state 119 via container 0x288a)
+  as a controller instance activates the original hero-change flow: H shows "You must
+  be in a spawn room to change heroes" (liveui103).
+- A module-3 movement snapshot carrying only the position fields teleports the hero
+  (emulator-verified 140-bit form); runs 105/107/108 move the hero around the base,
+  including a spawn-room-like interior. The spawn-room message persists at every
+  candidate location and with the welcome's +0x78 byte set to 1, so the remaining gate
+  is spawn-room ownership/team or volume membership. Map entities with component 1
+  expose positions at component +0x90.

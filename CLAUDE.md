@@ -1245,3 +1245,35 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Responder reply bound (2000) is now reached early: raise it. Red vignette = no
   health replication. Next: decode client module-3 input commands, reply with
   movement/health state; then weapons/abilities.
+
+## Hero-change UI, teleport and spawn-room frontier (Claude, 2026-10-15, runs 101-108)
+
+- Statescript entries run on the client only when `m_clientOnly`; other entries are
+  server-driven (their effects arrive as state sync). Practice tree (13c0/0c8e/0c90 ->
+  62 graphs, 16 with UXPresenter): private .local/runs/practice-subgraph-tree-100.json,
+  .local/re/subgraph-tree-100.py, graph-bundle-scan-100.py, graph-288b/20e4/288a-100.txt.
+- 0c90 state 119 runs container 0x288a whose state 0 runs 0x288b (hero-change UI:
+  client-only entry -> BoolSwitch owner==local player -> UXPresenter state 92).
+  liveui103: creating 0x288b directly as a controller instance makes H show the
+  original "You must be in a spawn room to change heroes". Activating 13c0 state 5 /
+  0c90 state 119 via full snapshot (runs 101/102) gave no visible change.
+- TELEPORT: create flag 8 transform is ignored for the hero's movement. A module-3
+  snapshot with only fields 16-18 changed (position x/y/z: changed 1, selectors 000,
+  raw s32 q, value = q/1024; 140-bit movement block, emulator-verified) teleports the
+  hero; send a few, then stop (client prediction continues). Responder
+  --spawn-snapshot / --spawn-sequence 't:x,y,z;...' (driver -SpawnSnapshot/-SpawnSequence).
+- Map entity census (entity-census-63.py + entity-positions-103.py on liveui103):
+  component-1 position at comp+0x90 (xyz). Candidates: (1,12)x2 at (26.0,13.5,-18.9)
+  rooftop and (90.1,10.6,36.4) doors; (1,6)x5 volumes (size +0x50); (1,110)x15,
+  (1,111)x18, (1,38)x10 markers. (48.7,6.3,37.8) is a spawn-room-like interior
+  (monitors/benches). All teleports still show the spawn-room message, also with
+  welcome +0x78=1 (liveteam108). Spawn-room ownership/team gate is unresolved.
+- Graph 0x288b condition types E72F6348/3D5F853C (m_entity) register evaluators at
+  0xcfb290/0xcfb1d0 (vtables 0x2663070/0x2663968); E72F's evaluate 0xce4a60 is a
+  generic entity-reference evaluator, not the spawn-room test.
+- Window can be 2560x1080 (pillarboxed): use .local/re/ow-menu.ps1 -Prefix <runs path>,
+  which picks menu coordinates from the reported width. Run 106 was wasted by 1920
+  clicks on a 2560 window. Runs 99-108 cleanup audits pass (99 fatal-exited on
+  forced weapon states; 100 never launched).
+- Next: find the native/statescript "in spawn room" test (team assignment, spawn-room
+  volume membership), then hero select -> 21605/21607 -> create chosen hero at spawn.
