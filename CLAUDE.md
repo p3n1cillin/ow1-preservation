@@ -1277,3 +1277,24 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   forced weapon states; 100 never launched).
 - Next: find the native/statescript "in spawn room" test (team assignment, spawn-room
   volume membership), then hero select -> 21605/21607 -> create chosen hero at spawn.
+
+## HERO SELECT SCREEN REACHED (Claude, 2026-10-15, runs 109-111)
+
+- Spawn-room test in 0x288b = config var E4C6AAB4(self) -> evaluator vtable 0x26643e8,
+  evaluate 0xcf1f40 -> component getter 0xd0c210 (mask 0xbcb8e0 = component **74**)
+  -> byte comp+0xf6. Component 74 (added with create flag 0x20; builder B) has
+  replicated state at comp+0x70 (9 fields: u64 36bb7775, s16, s8, u8, u8, s8,
+  **u8 field 6 = +0x86 = spawn-room flag**, u8, u8); component 64/65/75 also appear.
+- Private responder --controller-comp74 '6=1' (driver -ControllerComp74) adds comp 74
+  state to the controller create (with -CreateFlags '0:0x30'); together with the
+  0x288b instance and a teleport into the spawn room (48.71,6.31,37.77), H opens the
+  ORIGINAL "SELECT A HERO" screen (livespawnroom110). With all 56 hero records in the
+  20505 hero list (liveroster111b) the full 32-hero roster (tank/damage/support) shows.
+- Picking Tracer + CONTINUE makes the client send reliable **21616** {struct{u32 entity},
+  blob(0x28), u64, i16}: entity = controller 0x80000304, u64 = game message
+  0x0240000000001360, i16 4, 23-byte parameter blob. Also 21602/21603 (empty) early.
+  Private decoder .local/re/decode-21616-111.py. Next: map the blob to the chosen hero,
+  then server-side: create that hero's definition entity at the spawn point, link
+  the controller's comp44 actor, give health, and send the hero graphs.
+- Driver window size may be 2560 wide: always use .local/re/ow-menu.ps1. Never launch
+  a new run until the previous run's launcher has exited (driver refuses).

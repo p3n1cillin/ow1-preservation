@@ -1875,3 +1875,13 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   candidate location and with the welcome's +0x78 byte set to 1, so the remaining gate
   is spawn-room ownership/team or volume membership. Map entities with component 1
   expose positions at component +0x90.
+
+## 2026-10-15 — original hero-select screen
+
+- The spawn-room check reads component 74's replicated state (field 6). Creating the
+  controller with ownership flags 0x30 and that field set, then pressing H in the spawn
+  room, opens the original "SELECT A HERO" screen; with the full 20505 hero list the
+  complete 32-hero roster is offered (livespawnroom110, liveroster111b).
+- Picking a hero and pressing CONTINUE sends client message 21616 (a client game
+  message from the controller entity, message GUID type 0x024). Runs 109-111 cleanup
+  audits pass.
