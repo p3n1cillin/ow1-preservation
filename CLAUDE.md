@@ -1314,3 +1314,12 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   176ed263/37ab13d3 = controller/hero). Beta lower-case CRC names (Prometheus STU.h,
   e.g. UXHeroSelectScreen 0x8F23FA30, SendHeroSelection) are absent from retail.
   None of the 34 retail types with field 37ab13d3 is a direct statescript node type.
+- 0x1361 gating chain in 0x288b (all client-only): UX entry #1009 STU_EB19DAFA (id
+  0d800000000065d3; sibling #1043 id ...65d0) -> cond #1012 !var 2222 -> cond #1016
+  var 2163 (false -> local message 0x1402) -> cond #1020 var 4208 -> SetVar be44=false
+  -> node 29 sends 0x1361 {0x0a4000000000005d: STUConfigVarHero}. 4208 is an
+  expression over local vars 8d63/4837/6b0c/ac03 (4837 = the STU_9AE5FC4C hero
+  availability input). Synced vars (m_syncVars, 32 slots) include 03ac (hero), 0986,
+  3369, 7acb, 1c61, 0842, 6321, 01de, 07b2, 09d5, 1cbb, 8017, 8793; the chain's
+  locals are not synced. Next: read the live instance's local values at the pick
+  (which condition fails) and which synced var feeds 2163/4208.
