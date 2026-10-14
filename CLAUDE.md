@@ -1122,3 +1122,18 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   (table 0x2d17d88, sign-extended) else raw s32; value = prev + q/1024 (or /256).
   Next: SIMD scalar support in emu-78.py, decode the +0x70 container, send a spawn
   position, then revisit camera/input.
+- Follow-up (Claude, 2026-10-14): emu-78.py now has a scalar/packed SSE subset;
+  float component unit tests pass (0xc67260). snapprev-79.py overlays runtime
+  default object 0x2f82d30 from the run-78 dump: the default prior position and
+  the +0x20 vector are (0,0,0), so minimal snapshots put the hero at the origin.
+  Position = 0xc606c0 first (ungated) 0xc673d0 call: three changed bits (16-18),
+  q/1024 when out+4 bit is 0; stored XOR-encrypted (rolling key +0x10, 7-entry
+  step table). +0x20 vector: gated by bit 19.
+- Camera view classes: labels at 0x68c097..0x6ac357 ("First Person View" 0x698f07,
+  "First Person Spectate View" 0x698d57, Orbit/Lookat/Spectator...). Heap census
+  (vtable-census-79.py) in run 78: one 0x2613450 instance, three 0x26135b0; no
+  direct references from root/world context slots (pointers likely encoded).
+- Practice mode record 023000000000005a (root 494c33c4, 4 instances) references
+  0c000000000280c0 (type 4) and 05800000000013c0 (type 0x1b, likely statescript
+  graph). record-references-75.py has a bundle fallback. Hypothesis: HUD/camera/
+  hero-select are driven by game-mode statescript state the server must replicate.
