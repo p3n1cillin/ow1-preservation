@@ -191,6 +191,14 @@ heroes (run 198).
     passage). This is the new baseline recipe (calibrated Tracer, mode 0x18,
     snapshot frames).
 
+- **Health packs (open):**
+  - At the 4 public pack coordinates the map has bare markers with component 1
+    only (0xc0000042, 0xc0000045, 0xc0000050, 0xc0000129). Next to each is a
+    class-0 entity with [1, 5] (probably the pad).
+  - The pickup entity/definition is unknown: no graph has the 75/250 heal
+    constants together (0x0e95 is UI), and OWLib has no pack type name.
+  - Tool: `.local/claude-scratch/session/near-271.py <dump> <pid> x,y,z ...`.
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are
