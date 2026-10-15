@@ -46,20 +46,31 @@ heroes (run 198).
 
 ## Not working yet (open frontier)
 
-1. **HUD** (health/ammo/abilities/crosshair). UI root graph 0x041a state 20 (node 46)
-   must turn true to run 0x120b (creates HUD layers). Its OR terms:
-   - AECBBA41(8985E00A): needs a world-owned UI context. The only UI entity (definition
-     04000000000001f1) is owned by the global root, so this is false.
-   - var 0x09ba: written by graph 0x0bce. That graph is pushed by 0x046b (front-end,
-     mode 5/9 only), by 0x17c7 (a key binding) and by 0x1e2f (a toggle). Creating
-     0x1e2f client-side did nothing (run 194).
-   - F94506DB and B4F19440: special-client global flags.
-   - CEFF290A: replay/tournament join string.
-   - E95A9C77: constant false.
-   Mode 6 is the correct in-game mode; the older "needs mode 5/9" note is wrong.
-   Untested ideas:
-   - Find what normally pushes 0x0bce or writes 0x09ba in a match.
-   - Look for a second, world-owned UI context.
+1. **HUD** (health/ammo/abilities/crosshair). New chain found (Claude, runs 219-222):
+   - The UI manager sets HUD_Root property 6720 from UI-entity var 0x2206
+     (0xafd420) and property 6729 from var 0x34f5 (0xafd4a0, default true).
+   - Only UI root graph 0x041c writes 0x2206: StateStack state 9 (0x2206 = true)
+     under GameMessageEntry state 8, which waits for game message
+     0x02400000000006dd. On the dump that entry is running and waiting (instance
+     65478, node 19).
+   - 0x06dd appears in no code and in no record (466,358 records scanned), so the
+     server supplies it.
+   - Candidate relay: graph 0x1289 state 9 (STU_38EE1100 client send state, remote
+     sync) sends the message held in its sync var 0x3803 (slot 1) to the local UI
+     target STU_1D719351.
+   - Sending 0x06dd as a server 21616 to the controller or hero does nothing (run
+     220).
+   - Creating 0x1289 on the controller (`--controller-subgraph 2:0x1289:0:0`,
+     `--pick-controller-guid-vars 2:s1=02400000000006dd`, `--pick-controller-states
+     2:9`) makes the whole controller frame fail (emulator: interpreter returns 0
+     after 3 bits). 0x1289 is not resident even with `-PreloadGraph` (runs 221/222);
+     those runs lose hero select.
+   - Next: find which definition owns 0x1289 (record scan
+     `.local/runs/record-1289-222.json`) and load that, or find another resident
+     relay. The older 0x041a state-20 analysis below is now secondary.
+   - Old analysis, 0x041a state 20 terms: AECBBA41 (UI entity is root-owned), 0x09ba
+     (0x0bce: front-end/menu paths), special-client flags, replay string, constant
+     false.
 2. **Hero changes and weapons: fixed (run 218).**
    - Codex (runs 204-213) fixed the state encoding behind McCree's vanishing revolver:
      483 one-bit types, BooleanSwitch = active + branch, inactive two-bit entries keep
