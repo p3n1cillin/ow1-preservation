@@ -49,6 +49,29 @@ H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer →
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
 
+## Public-source research (Claude, 2026-10-15) — untested leads
+
+`reports/Overwatch 1 server emulation research.md` (notes in `research_notes/`)
+summarizes Reed's GDC 2017 Statescript slides, Ford's netcode talk, OWLib OW1-branch
+STU types, Prometheus artpop2, and the 1.74 community server fork. That fork is
+reference-only (the original repo is gone and its license can't be confirmed): do not
+import its code or keys, and verify every claim on the original client. Top leads,
+in order:
+1. The Practice mode may be 0x0230000000000018. Per the fork, its team controller
+   graph 0x13C1 hosts 0x20E4 as a server-created child (state 42), and 0x20E4 is the
+   only sender of 0x1291.
+   - OWLib field names: 0x0C90 = mode-0x5A team controller script (a2781aa4), 0x0C8E =
+     its body script.
+   - Settle the conflict first: the fork lists 0x288B as (30, 4), but our emulation
+     verified (32, 146).
+2. Possession components: 75 on the controller, 123 on the hero.
+3. Filter bits (component 26): controller 0x00040001|(0x800000<<team). 0x10000000 is
+   the spectator bit.
+4. Component 51 should carry one health part.
+5. Bots need one movement record every frame, and no movement state in the create.
+6. Blink and Recall should use native predicted states with ack-only owner deltas,
+   using the corrected StDt table.
+
 ## Latest HUD status (Claude, runs 235-251) — read first
 
 - **Responder bug that invalidated runs 240-246:** loop variables named `_part`
