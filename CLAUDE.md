@@ -1398,3 +1398,25 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   0x04ca,0x0f0c,0x0f10,0x1e50,0x00f3,0x2536,0x0ebc,0x003d,0x787e,0x001f; entity-global
   0x001d weapon list). Prometheus beta set hero 0x001d=[1] and 0x00FD=1 (0xFD unused in
   retail graphs). Array values = kind 15 subkind 4-7 (0xd57430, ArrC/ArrS/ArrE).
+
+## WEAPONS: StDt per-state form + cosmetic states (Claude, 2026-10-15, runs 128-131)
+
+- StDt entries (0xa0c620) are NOT uniformly (has-data, active): 0xf5e960 checks the
+  state's STU type hash; 458 types (StateStack, CosmeticEntity, CD46AF93, BD02E168, ...)
+  read ONE active bit, the rest has-data + active. Entered states may read state data
+  (0x1b72060; zero bits for the ones tested). Private lists: .local/runs/
+  stdt-onebit-types.json, graph-state-types.json; responder _stdt_entry() uses them.
+  Earlier 2-bit encodings (113-130) misaligned everything after the first state.
+- Emulator check: scratchpad ssfull.py runs a responder-encoded full snapshot through
+  0xa0a6e0/0x996450/0xa0e3c0 on a dump (stub destructor 0xf63740) and compares the
+  record's consumed bits (rec+0x34) with the blob size (rec+0x30). ssactive-89.py's
+  "no running nodes" is unreliable (its loop aborts on the first emulator Stop).
+- Hero arrays: kind 15 subkind 6 (0xd57430): ArrC count, list bit 0, same-type bit,
+  elements via 0xd579c0 (kind+payload). -PickWeaponList 1 sets hero global 0x001d=[1].
+  -PickStates 'inst:s,..' (hero instance order = pick graph order) in a hero full
+  snapshot; counts for Tracer graphs added to GRAPH_COUNTS.
+- livecosmetic131: preload 0400000000000017/18 (-PreloadDefinition) + PickStates
+  '9:39,43;10:0,1,30' (weapon manager 0x15 states 39/43; weapon script 0x16
+  CosmeticEntity states 0/1, UXPresenter 30) -> Tracer's PULSE PISTOLS render in first
+  person; after one click the gun display reads 39 (40->39, predicted shot). No
+  crosshair yet (UXPresenter 31?). Run 128 = early instance failure (unrelated).
