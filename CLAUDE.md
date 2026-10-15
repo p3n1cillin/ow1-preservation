@@ -1436,3 +1436,10 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - livehudsub139: also created 0x106b as instance 4 (PIID 3 / PSIn 0, GRAPH_COUNTS
   0x106b=(32,22)): still no HUD. UX presenters likely also need the 0x0717 message
   delivered (message section) and/or the client's in-game UI layer; not established.
+- Message section attempt (emulation, run-139 dump): responder _messages()/msgs param
+  (group bit, RMFr, RMSz, per message bit, mode bit, 8-bit length, TrID+Part+node).
+  Without messages the controller full snapshot aligns (112/112, 0xa0cca0 entered at
+  112). With a group appended, the decoder reads a new frame header (CmFD) at 112 and
+  fails (ret 0): the full-snapshot tail before 0xa0cca0 is EIns (0xa0b850) then 0x9b40f0
+  and a guarded call (0xa0f080 lines 39-99); encode that tail correctly before any live
+  message test. Not used live yet (msgs default None keeps the old [EIns 0, msgs 0]).
