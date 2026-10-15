@@ -1,4 +1,4 @@
-# Verified project status — 2026-10-14
+# Verified project status — 2026-10-15
 
 Active target: final OW1 **1.74.0.0.104319**. Public source:
 [ow1-preservation](https://github.com/p3n1cillin/ow1-preservation).
@@ -9,13 +9,24 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M1: existing project/build understood | Source, continuation and native captures inspected; build/test evidence in TESTING.md. |
 | M2: original client communicates with private backend | Real TLS 1.2, WebSocket, Connect, Logon, GameUtilities referral, lobby proofs and own-key credential handshake exercised. |
 | M3: independent authentication/menu | Local 'Pro' account grant and own-key credential accepted. Group-13 gateway negotiates and heartbeats. Our initial identity reply advances the original UI to **ENTERING GAME…**. **Main menu reached (2026-10-13, run screen8):** with the full initial-data sequence the original client shows PLAY/TRAINING/HERO GALLERY/LOOT BOX/…/EXIT GAME, then the new-player TUTORIAL prompt (direct window capture). The 3D menu backdrop is absent (no world requested). Reproduced as Mercy#1002 through the local-account launcher (`tools/ow1_launcher.py`). |
-| M4: original map | Canonical Practice assignment, opt-in header preload and map-placeable creates reach WORLD_RUNNING. Practice geometry and the in-game menu visibly render in livecodec59/livecamera60. Player/hero control and normal header initiation remain unresolved. |
-| M5–M6: playable hero/roster | No controllable final-retail hero or verified combat/abilities. |
+| M4: original map | Canonical Practice assignment, opt-in native header preload and map-placeable creates reach WORLD_RUNNING. Practice geometry, hero selection and the spawn room visibly render. |
+| M5–M6: playable hero/roster | Hero selection, first-person movement/look, Tracer/Soldier firing, ammo/reload, estimated bot damage/respawn and server-side Blink/Recall teleports work in bounded local runs. Hero changes work (run 193). HUD, previews, complete abilities and authoritative collision/combat remain open. |
 | M7–M9: authoritative multiplayer/6v6 | Not implemented or verified against real final clients. |
 | M10: automatic 6v6 matchmaking | Not implemented or verified. |
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
-Latest (2026-10-14, liveowned93): hero preload, controller actor link, statescript
+Latest (2026-10-15, run 213): corrected state-entry classification and inactive
+firing-state payloads preserve McCree's revolver across two firing cycles and
+reload in the normal recipe. Switching from McCree to Soldier changes hands and
+accepts firing commands but leaves his rifle invisible; this regression remains
+open. Hero Gallery lists all heroes
+(run 198), while cosmetics and models remain absent (run 203). The HUD gate is
+still unresolved; client mode 6 is the normal in-game mode. See HANDOFF.md for the
+current private recipe and BGS_PROTOCOL.md for the state encoding findings.
+The build and all 25 CTest targets pass, including the new 300-second diagnostic
+boundary checks. Private responder fixes and captures remain in shared `.local/`.
+
+Earlier (2026-10-14, liveowned93): hero preload, controller actor link, statescript
 game-mode/hero graphs and the ownership create flag give an original-client
 first-person view. Movement authority, health and combat remain open.
 

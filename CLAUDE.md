@@ -1682,3 +1682,30 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   UI root: F94506DB/B4F19440 = special-client flags; AECBBA41 needs a world-owned UI
   context (UI entity is root-owned). Private: hero-progression-199.json, unlocks-default-
   199.txt, unlock-skins-198.py (STUUnlock_SkinTheme map, long scan).
+
+## 2026-10-15 — Codex continuation, runs 204–212
+
+- Corrected the state-entry table by executing native predicate 0xf5e960 on 486
+  candidate types: 483 one-bit entries, three has-data/active types (691bfa55,
+  b480a974, eed6d952). Old explicit-jump extraction missed 25 fallthrough false
+  returns. BooleanSwitch is active + branch; no extra statescript instance needed.
+- StateStack 25 needs two data bits. Inspect runtime flags as well as total bit
+  consumption: zero tail bits can hide missing state data. McCree runtime node
+  indices for states 0,1,2,4,11,12,25,27,34 are 1,2,4,8,30,31,48,50,61.
+- Actual disappearing-revolver cause: 0xa0c620 still invokes the data reader when
+  has-data=1 and active=0. The responder omitted WeaponVolley's 18 data bits on
+  stop. Two full snapshots reproduced malformed 316/312 consumption/model exit;
+  retaining the payload gives 330/330 and preserves the cosmetic. Baseline recipe
+  without ancestors also passes (282/282 in second frame).
+- Run 211 live: revolver persists after two registered volleys/stops and reload.
+  Experimental ancestor flag left Soldier's rifle absent after re-pick. Remove
+  broad unknown one-bit ancestor activation; leave flag out of the baseline.
+  Native UVGu updates listed globals, rather than clearing the whole table.
+- Runs 204/205 stable but gun still vanished before inactive-data fix. 206/212 did
+  not establish live firing before deadline; 207 click missed responder deadline;
+  208/209 rejected by old launcher cap; 210 known early instance failure.
+- Bounded UDP/CA/TLS cap raised to 300 seconds, private driver forwards RunFor
+  instead of hardcoding 180. Full build and 25/25 CTest targets pass, including
+  combined 180/181/300 duration acceptance through fingerprint guard and 301
+  rejection. Private scripts/results live in .local/codex-scratch and .local/runs;
+  see HANDOFF.md. HUD/previews remain unresolved; mode 6 is correct in-game mode.

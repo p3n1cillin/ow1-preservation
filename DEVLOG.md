@@ -1967,3 +1967,15 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   wrong: the "initial pick" flag stayed set after spawning, and a hero variable that
   only one game-mode graph uses was set. Clearing the first and leaving the second unset
   fixed it.
+
+## 2026-10-15 — revolver state encoding corrected
+
+- Corrected two state-stream errors: several one-bit types were misclassified,
+  and stopping a firing state omitted data that the client still reads. The
+  resulting bit shift was what turned off McCree's revolver. In run 211 it stays
+  visible after two firing cycles and the original reload animation.
+- Five-minute bounded diagnostics now leave time for loading and gameplay checks.
+  All 25 tests pass. The experimental ancestor flag remains outside the baseline.
+- Correction to the earlier HUD note: client mode 6 is normal in-game mode; the
+  mode-5/9 menu path does not establish the missing hero HUD. HUD, hero previews,
+  gallery cosmetics and complete hero behavior remain open.

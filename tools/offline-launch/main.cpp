@@ -801,17 +801,19 @@ int wmain(int argc, wchar_t** argv) {
                 client_arguments += argument.find(L' ') == std::wstring::npos ? argument : L"\"" + argument + L"\"";
             }
             const bool exact_loopback = client_arguments == L"--BNetServer=127.0.0.1:1119";
-            if (!datagram_forwards.empty() && (private_run_ms == INFINITE || private_run_ms > 180000
+            // Allow loading plus interactive gameplay checks within a fixed five-minute bound.
+            constexpr DWORD max_private_probe_ms = 300000;
+            if (!datagram_forwards.empty() && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119 || !exact_loopback))
-                throw std::runtime_error("UDP diagnostic requires a 1..180-second run and the existing port-1119 TCP loopback forward");
-            if (!trust_ca_pem.empty() && (private_run_ms == INFINITE || private_run_ms > 180000
+                throw std::runtime_error("UDP diagnostic requires a 1..300-second run and the existing port-1119 TCP loopback forward");
+            if (!trust_ca_pem.empty() && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || !exact_loopback))
-                throw std::runtime_error("CA probe requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
-            if (observe_tls && (private_run_ms == INFINITE || private_run_ms > 180000
+                throw std::runtime_error("CA probe requires a 1..300-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
+            if (observe_tls && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || !exact_loopback))
-                throw std::runtime_error("TLS observer requires a 1..180-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
+                throw std::runtime_error("TLS observer requires a 1..300-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
             if (trust_socket_ca && (trust_ca_pem.empty() || !observe_tls))
                 throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
             if (!lobby_public_modulus.empty() && !trust_socket_ca)

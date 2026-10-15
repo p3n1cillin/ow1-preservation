@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after run 203, commit a118afe3d). Whoever stops
+Last updated 2026-10-15 by Codex (after run 213). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -52,15 +52,30 @@ Hero Gallery lists all heroes (run 198).
    Untested ideas:
    - Find what normally pushes 0x0bce or writes 0x09ba in a match.
    - Look for a second, world-owned UI context.
-2. **McCree's revolver vanishes on the first shot.** Cause: the revolver (weapon graph
-   0x1d2 state 27) and the volley (state 11) share root switch state 0. When the
-   server-started volley finishes, the client ends that root branch. Activating the
-   volley ancestor chain (`--volley-ancestors`) crashed the client (run 202).
-   - Emulation on dump 200 shows that entering switch 0 makes the per-instance loop
-     (0xa0f080) expect another, probably sub-graph, instance block.
-   - Switch state data is 1 branch bit; LogicalButton state data is 4 bits.
-   - Next: model the switch's sub-instance in the full frame (emulate first with
-     `.local/claude-scratch/emu/ssfull*.py`).
+2. **McCree revolver encoding fixed; Soldier re-pick regression open.** The shared-root
+   explanation from run 203 was wrong. Two encoding omissions caused the symptoms:
+   - Native predicate 0xf5e960 identifies 483 one-bit types among 486 tested inputs;
+     the old table missed 25 false-return fallthrough types, including BooleanSwitch.
+     Switch encoding is active + branch, not has-data + active + branch. There is
+     no missing subinstance block. Private one-bit table has been corrected.
+   - With has-data=1, active=0, the native decoder still reads state data after
+     exiting the state. Omitting WeaponVolley's 18-bit payload shifted later flags
+     and stopped the cosmetic. `_stdt_entry` now retains data for two-bit inactive
+     entries; one-bit inactive entries remain exit-only.
+   - Run 211: two McCree volleys and reload preserve the revolver. It used the
+     experimental ancestor flag; Soldier re-pick changed hands but lacked his rifle.
+     Run 213 verifies two McCree volleys/stops and reload in the normal recipe too.
+     Soldier's rifle is still absent after re-pick without the flag, despite a
+     registered volley/stop. The flag is not established as the cause. Next: inspect
+     dump 213's Soldier weapon instance and initial full frame versus working 193.
+     Dump 213: PID 37512, comp47 0x1dc9c880960; manager cf=2 / frame=5586, globals
+     unset. Full frames still used cmfd=4000+seq and were stale after late re-pick.
+     Emulation with 4008 is ignored; 6000 reaches state entries (renderer path then
+     exceeds emulator support). The private responder now chooses a fresh per-hero
+     cmfd epoch after graph creates: max(4000, current server frame + 1000).
+     Keep the unnecessary flag out of the best recipe. Baseline emulation is aligned
+     (282/282 second-frame bits) and preserves the revolver without ancestors.
+   - StateStack needs two state-data bits; totals alone can hide missing bits.
 3. **Hero-select 3D hero preview and gallery cosmetics.** The user reports no hero
    model in hero select. The backdrop is the map's fixed placed view, which is
    probably correct.
@@ -75,18 +90,18 @@ Hero Gallery lists all heroes (run 198).
 ## How to run the current best recipe
 
 Responder: `.local/re/udp_welcome_reply.py` (private). Driver:
-`.local/re/run-live-preload.ps1`. UI: `.local/re/ow-menu.ps1` and `ow-ui.ps1`.
+`.local/re/run-live-preload.ps1`. Use the Computer Use skill for UI interaction
+(the old `ow-menu.ps1` and `ow-ui.ps1` helpers remain in private research).
 The game window is 2560×1080.
 - Roster y = 928: Tracer x 1700, Soldier 1485, McCree 1000 (more in `CLAUDE.md`).
 - CONTINUE is at (1280, 1011).
 
 ```powershell
 $heroes=(Get-Content 'Y:\repos\WIP\OW1\.local\runs\hero-guids-111.txt').Trim().Split(',')
-$base=@{Name='liveNAME';MapRoot=$true;NativeHeaderControl=$true;PlaceableCreate=$true;SelectedEntity=$true;SelectedEntityValue=3221225473;SelectedEntityDelay=30;DefinitionCreate=$true;DefinitionGuid=@('040000000000000e','04000000000003cf','04000000000014d2','04000000000014d2','04000000000014d2');SelectDefinitionIndex=0;SelectDefinition=$true;HeroList=$heroes;PreloadDefinition=@('0400000000000017','0400000000000018','04000000000004bf','040000000000130d');ControllerActor=@(0,1);ServerTime=$true;CreateSends=150;Statescript=@('0','0x288b');StatescriptDelay=60;CreateFlags=@('0:0x30','1:0x80');LateDefinition=@(0,50);HeroHealth='1:200';ControllerComp74='2=0,6=1';ControllerStates='1:35';ControllerStatesDelay=63;ControllerVars='g:7acb=1,0986=1';HeroSelectServer=$true;HeroOnPick=1;CloseHeroSelect=@(1,36);PickGraphs='.local/runs/hero-graphs-125.json';HeroConfigs='.local/runs/hero-configs-180.json';PickWeaponList='1';PickVars='g:001f=i1;10:s29=i1,s53=i40,s6=i40,s5=i1';PickStates='9:39,43;10:0,1,30,31';StateData='16:8=0:1,0:1,0:8,0:1,0:1,0:6;16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1';FireVolley='10:8';ReloadStates='10:9,18,26';ReloadTime=1.4;Ammo='10:53:40:1';FireHold=36;DefinitionSkin=@('2:0x0a50000000001afd','3:0x0a50000000001aff','4:0x0a50000000001b00');Bot=@('2:53.0:2.0:22.8:200','3:56.0:2.0:22.8:200','4:59.0:2.0:22.8:200');Blink=7.5;Recall=3.0;RunFor=180}
+$base=@{Name='liveNAME';MapRoot=$true;NativeHeaderControl=$true;PlaceableCreate=$true;SelectedEntity=$true;SelectedEntityValue=3221225473;SelectedEntityDelay=30;DefinitionCreate=$true;DefinitionGuid=@('040000000000000e','04000000000003cf','04000000000014d2','04000000000014d2','04000000000014d2');SelectDefinitionIndex=0;SelectDefinition=$true;HeroList=$heroes;PreloadDefinition=@('0400000000000017','0400000000000018','04000000000004bf','040000000000130d');ControllerActor=@(0,1);ServerTime=$true;CreateSends=150;Statescript=@('0','0x288b');StatescriptDelay=60;CreateFlags=@('0:0x30','1:0x80');LateDefinition=@(0,50);HeroHealth='1:200';ControllerComp74='2=0,6=1';ControllerStates='1:35';ControllerStatesDelay=63;ControllerVars='g:7acb=1,0986=1';HeroSelectServer=$true;HeroOnPick=1;CloseHeroSelect=@(1,36);PickGraphs='.local/runs/hero-graphs-125.json';HeroConfigs='.local/runs/hero-configs-180.json';PickWeaponList='1';PickVars='g:001f=i1;10:s29=i1,s53=i40,s6=i40,s5=i1';PickStates='9:39,43;10:0,1,30,31';StateData='16:8=0:1,0:1,0:8,0:1,0:1,0:6;16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1';FireVolley='10:8';ReloadStates='10:9,18,26';ReloadTime=1.4;Ammo='10:53:40:1';FireHold=36;DefinitionSkin=@('2:0x0a50000000001afd','3:0x0a50000000001aff','4:0x0a50000000001b00');Bot=@('2:53.0:2.0:22.8:200','3:56.0:2.0:22.8:200','4:59.0:2.0:22.8:200');Blink=7.5;Recall=3.0;RunFor=300}
 & 'Y:\repos\WIP\OW1\.local\re\run-live-preload.ps1' @base      # run in background
-# then, in parallel:
-& 'Y:\repos\WIP\OW1\.local\re\ow-menu.ps1' -Prefix 'Y:\repos\WIP\OW1\.local\runs\liveNAME'
-# about 72 s after menu-done: click the hero portrait, then CONTINUE; H reopens hero select.
+# Use Computer Use to dismiss the tutorial, open Training -> Practice Range,
+# then observe the roster before selecting a hero. H reopens hero select.
 ```
 
 Notes:
@@ -94,15 +109,33 @@ Notes:
   after about 5-11 datagrams). Retry.
 - The cleanup audit (hash, signature, ACLs) is printed at the end of each run's output.
 - Recent opt-in responder flags:
-  - `--volley-ancestors` (experimental, crashes).
+  - `--volley-ancestors` (experimental; no longer crashes, unnecessary for revolver fix).
   - `--first-frame-globals` (experimental, no effect).
   - `--ui-entity-var`.
   - `--spawn-at` (also available on the driver).
 - Recent driver flags: `-Unlocks FILE`, `-PreloadProgression`, `-VolleyAncestors`,
   `-UiEntityVar`.
+- Bounded UDP/CA/TLS diagnostics now allow up to 300 seconds. The driver forwards
+  RunFor to the responder (previously hardcoded to 180). Build and all 25 CTest
+  targets passed, including 180/181/300 acceptance through the fingerprint guard
+  and rejection at 301 seconds. Run 210 hit the known early instance failure.
+- Runs 206 and 212 reached the roster too late to establish firing results; run
+  207 spawned but its click missed the responder deadline. Runs 208/209 were
+  rejected by the old 180-second launcher cap before gameplay. Do not count these
+  as successful weapon tests.
 
 ## Key analysis tools
 
+- Codex private tools: `.local/codex-scratch/stdt-native204.py` executes the native
+  one-bit predicate; `.local/codex-scratch/ssfull204.py` tests two full snapshots,
+  including inactive WeaponVolley data. Run these with the emulator directory as
+  cwd. Repro outputs are `.local/runs/stdt-204-native.json`,
+  `ssfull207-inactive-data.txt`, and `ssfull212-baseline.txt`.
+- Dump 200 baseline: PID 30652, hero comp47 0x181436c1b80, counters base 8 / cmfd
+  4005 (older values are ignored). Runtime node indices, not STU object numbers:
+  states 0,1,2,4,11,12,25,27,34 map to nodes 1,2,4,8,30,31,48,50,61.
+- Native global-var reader updates listed UVGu entries without clearing all globals.
+  `--first-frame-globals` is unnecessary for the revolver fix.
 - Dump inspection: `tools/retail_login_state.py --world-state / --scene-state /
   --replication-state ...` (public).
 - Statescript instances and vars on a dump (`.local/claude-scratch/emu/`):

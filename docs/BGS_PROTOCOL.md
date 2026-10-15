@@ -515,7 +515,8 @@ was TCP-only. An explicit `--udp-forward 1119:21120` now adds a datagram bridge
 using the same owner/AppContainer-restricted pipe and fixed loopback endpoints.
 It retains datagram boundaries with a two-byte LE length, caps packets at
 4096 bytes and admits one container-loopback source port per diagnostic run.
-It requires the existing TCP lobby forward and a 1..180-second run. Internet
+It requires the existing TCP lobby forward and a 1..300-second run (the bound was
+raised from 180 seconds on 2026-10-15 to allow loading plus gameplay checks). Internet
 and LAN capabilities remain absent. This is a diagnostic, not multiplayer
 transport for multiple players.
 
@@ -1098,8 +1099,9 @@ emulates that server half; nothing below patches the client.
 ### Statescript state data, sub-graph instances and weapons (2026-10-15, runs 128-138)
 
 - **StDt entries depend on the state type.** `0xf5e960` tests the state's STU type hash.
-  For 458 types (including StateStack, CosmeticEntity and the sub-graph runner
-  `STU_37D754C8`) an entry is one active bit; other types read has-data then active.
+  The original 458-type one-bit list was incomplete (corrected in run 204).
+  One-bit entries include BooleanSwitch, StateStack, CosmeticEntity and the
+  sub-graph runner `STU_37D754C8`. Other types read has-data then active.
   An entered state may read state data through `0x1b72060`. The sub-graph runner reads
   6 bits: a flag, a 4-bit value (the child instance) and a flag.
 - **Every listed instance has blocks.** Creates and updates alike are followed by
@@ -1411,9 +1413,10 @@ emulates that server half; nothing below patches the client.
   running, while the switch condition (global 0x001f == slot 0x001c) holds. The
   revolver and the volley (state 11) share that root branch. The volley's parent chain
   is states 0, 2, 1, 34 (switches), 12 and 4 (LogicalButtons) and 25 (stack); the
-  private generator now records these chains with their branches. The server only
-  activates leaf states, so when the client finishes the volley it ends the root
-  branch, and the revolver with it.
+  private generator now records these chains with their branches. The initial
+  hypothesis that finishing the volley ends the shared root was incorrect: the
+  inactive volley entry omitted state data and corrupted later state flags (see
+  the corrected encoding below).
   - Tracer's pistols sit under a different branch from her volley.
   - Sending only the first frame's entity-global vars (run 200) does not help.
   - Activating the ancestor chain in a full frame is not the fix yet (run 202: the
@@ -1444,7 +1447,57 @@ emulates that server half; nothing below patches the client.
   - The compact codec's body bound is now 16 KiB (24900 needs more than 4 KiB).
 - **Switch state data.** The BooleanSwitch tail at vtable +0x148 (0xa099e0) only
   queues the node and reads no bits, so a switch's state data is one branch bit.
-  Entering McCree's root switch in a full frame still misparses (emulated on dump 200).
-  The per-instance loop (0xa0f080) reads a further instance block, apparently a
-  sub-graph instance started by the switch's subgraph, which our frame does not
-  describe.
+  The apparent extra instance block seen on dump 200 was an encoding error
+  (resolved by emulation in run 204): an extra active bit shifted the frame tail.
+  It is not evidence that the switch creates another statescript instance.
+
+### Corrected state entry classification (2026-10-15, run 204)
+
+The native predicate at `0xf5e960` was executed in an offline emulator for all
+486 types in the existing table and the current graph metadata. Of these, 483
+return false and use the one-bit active form; three return true and use the
+has-data/active form: `0x691bfa55`, LogicalButton (`0xb480a974`), and WeaponVolley
+(`0xeed6d952`). This census covers those inputs, not every possible state type.
+
+The earlier table extracted explicit jumps to the false return but missed false
+returns reached by fallthrough. It omitted 25 observed one-bit types, including
+BooleanSwitch (`0x76f0cf47`). A switch entry therefore needs one active bit followed
+by its branch bit; sending has-data/active/branch shifts all subsequent fields.
+
+On dump 200, with frame counters advanced beyond the saved snapshot, the native
+full-frame interpreter consumes exactly 264/264 blob bits for McCree's root switch
+and cosmetic, and 307/307 for the switch/button ancestors without StateStack 25.
+No additional instance block is needed. Live run 204 reaches hero selection,
+spawns the revolver, accepts a shot and reload, and exits through bounded cleanup
+without the previous crash. The revolver still disappears.
+
+StateStack 25 also needs two state-data bits after its active bit. Omitting these
+can still produce an apparently exact end position: later state flags and the
+zero-valued tail are consumed in their place. Check each state's entry/data events
+and final running flags as well as total consumption. With the stack data supplied,
+the complete chain and volley consume 330/330 bits, every intended ancestor and
+the cosmetic run, and an emulated volley exit leaves the cosmetic running.
+
+**Inactive two-bit entries still carry state data.** A second full snapshot exposed
+another omission: with has-data = 1 and active = 0, the decoder exits WeaponVolley
+and still calls its state-data reader. The former encoder dropped that 18-bit
+payload. The resulting frame consumed 316 bits from a 312-bit blob and stopped
+the cosmetic and later ancestors. Supplying the inactive state's data makes the
+second frame consume exactly 330/330 bits and preserves the cosmetic and ancestors.
+One-bit inactive entries take the separate exit-only path and have no state data.
+Run 206 reached the roster at the bounded deadline and did not test firing.
+
+Live run 211 confirms the corrected inactive payload preserves McCree's revolver
+after two registered volleys and a reload. The experimental ancestor option was
+enabled there; switching to Soldier changed the hands but left his rifle absent.
+It is not needed in the baseline recipe. The normal recipe also preserves
+the cosmetic across two full emulated snapshots (282/282 bits in the second),
+without activating the ancestor chain. Global UVGu entries update the listed
+variables; the native reader does not clear the entire global table first.
+
+Run 213 verifies the normal recipe live: two registered McCree volleys and stops,
+one reload, and the revolver remains visible afterward. Switching to Soldier
+changes the hands but still leaves the rifle absent before and after a registered
+firing cycle. This occurs without the ancestor flag, so the flag is not established
+as its cause. Hero re-pick/weapon initialization needs a separate regression fix.
+The shared 40-round/36-per-second test parameters are not verified McCree tuning.

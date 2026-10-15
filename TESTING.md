@@ -642,3 +642,21 @@ and corrupted mask/field bits. Private re-encoding of captured sections matches
 After the codec extension, all **25/25 CTest targets pass**. The private responder
 is migrated to the public definition writer after the live runs; exact captured
 section equivalence verifies the migration without repeating a live baseline.
+
+## 2026-10-15 — state encoding and longer bounded gameplay diagnostics
+
+Full scripts/Build.ps1 -SkipDependencies completed successfully; all 25/25 CTest
+checks pass. UDP/CA/TLS diagnostic bounds now permit 300 seconds. Tests accept
+180/181/300 through the unrelated-executable fingerprint guard and reject 301,
+while retaining endpoint, certificate and bounded-process requirements.
+
+Offline native emulation on dump 200 tests two complete accepted snapshots. The
+old inactive WeaponVolley entry omits 18 bits, consumes 316/312 bits and stops the
+cosmetic. The corrected entry consumes 330/330 and leaves intended states active.
+The minimal recipe without ancestors also preserves it at 282/282 second-frame
+bits. Live run 211 confirms two registered McCree volleys/stops and one reload
+with the revolver still visible. The experimental ancestor option can hide the
+rifle after switching to Soldier, so it is excluded from the normal recipe.
+Run 212 did not establish firing before its deadline. Cleanup audits for completed
+runs retain the original executable hash/signature, restore saved ACLs and stop
+owned processes. Private captures/dumps/scripts remain in ignored local storage.
