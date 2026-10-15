@@ -1331,3 +1331,24 @@ emulates that server half; nothing below patches the client.
   re-enters both states, so client graph flow ends it. The weapon cosmetic sits in a
   BooleanSwitch subgraph (McCree state 0, Tracer state 2, Soldier a nested false branch)
   that the server does not activate.
+
+### Changing hero in the spawn room (2026-10-15, runs 189-193)
+
+- Pressing H in the spawn room sends 0x1360. The server flips global 0x0986 (hero
+  select open). The client then reopens the original SELECT A HERO screen.
+- Controller graph 0x288b has two client-only paths that send 0x1361 (pick hero):
+  - Initial pick (CONTINUE, UX event 0x65d3): `!0x2222 && 0x6321 && 0x0842`, then it
+    sets 0xbe44 and sends the selected hero.
+  - In-game change (portrait click, UX event 0x65d0, after a short wait node). The
+    conditions are `hero available to the controller && !0x0842 && 0x0986`, then
+    `hovered (0x3748) != current (0x3369) && !0x03ac`. On the first failure it sends
+    local 0x1402 instead.
+- So global 0x0842 marks the initial pick. The server clears it when it closes hero
+  select after the spawn. Global 0x03ac (the StateHero input of graph 0x0c90) must stay
+  unset unless that graph is used. Writing a null GUID into it makes the client exit.
+- With those two variables, liverepick193 sends a second 0x1361 for Soldier: 76. The
+  server destroys the old hero entity and repeats the create, spawn, graph and
+  full-snapshot flow on the same entity index with the new configuration. The view
+  changes to Soldier: 76's rifle in the spawn room, and he fires. Conditions were
+  evaluated on saved dumps by calling the client's own expression evaluator from the
+  definitions held by the instance's graph.

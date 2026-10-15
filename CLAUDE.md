@@ -1648,3 +1648,9 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   but CONTINUE sends NO second 0x1361 (only the first pick's). Next: trace the 0x288b
   chain for the in-game re-pick (#1009 UX -> !0x2222 -> 0x6321 -> 0x0842 -> node 29) on a
   dump (e.g. liverepick189, see PID in its .log) with condnodes.py-style evaluation.
+- HERO CHANGE WORKS (liverepick193): in-game re-pick path is 0x288b portrait UX 0x65d0
+  -> (avail && !0x0842 && 0x0986) -> (0x3748 != 0x3369 && !0x03ac) -> 0x1361. Responder
+  clears global 0x0842 at hero-select close and sets 0x03ac only with graph 0x0c90 (null
+  GUID in 0x03ac crashes the client, run 191). Tracer -> H -> Soldier -> CONTINUE swaps to
+  Soldier's rifle in spawn and he fires. Scratch nodedefs.py evaluates any node's
+  condition (def via 0xf52fa0(graph, idx); condition cv at def+0x98; ctx = presenter node).

@@ -1958,3 +1958,12 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   starts in modes 5 or 9; our Practice Range join leaves the client in mode 6. Several
   intermediate experiments (driving the in-game UI graph directly, filling settings
   strings, changing the referral kind) did not open it.
+
+## 2026-10-15 — changing hero works
+
+- In the spawn room, H opens hero select. Clicking another hero now switches to that
+  hero: run 193 went from Tracer to Soldier: 76, who then fired his rifle.
+- The client was already able to do this. It refused because two server variables were
+  wrong: the "initial pick" flag stayed set after spawning, and a hero variable that
+  only one game-mode graph uses was set. Clearing the first and leaving the second unset
+  fixed it.
