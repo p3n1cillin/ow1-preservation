@@ -1641,3 +1641,10 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   second int (+0x1f0, then 0x185ba50), 0xd60580 field, vt+0x148, 6 bits -> node+0x2c8.
   No cosmetic reference there; cause of McCree's cosmetic exit still unknown. Generator
   pitfall: the Bash tool unescapes '\b' into a backspace; build regex escapes with chr().
+- Hero change (runs 184-189; 184/186/188 = early instance failures, exit 1): responder now
+  handles a later 0x1361 (destroy hero x20, rerun pick flow on same index, apply_hero_config),
+  0x1360 toggles 0x0986 AND 0x7acb, and close keeps ControllerStates (35) with -36. In
+  185/187/189 H reopens the original SELECT A HERO over the game, a portrait highlights,
+  but CONTINUE sends NO second 0x1361 (only the first pick's). Next: trace the 0x288b
+  chain for the in-game re-pick (#1009 UX -> !0x2222 -> 0x6321 -> 0x0842 -> node 29) on a
+  dump (e.g. liverepick189, see PID in its .log) with condnodes.py-style evaluation.
