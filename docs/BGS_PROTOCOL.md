@@ -29,11 +29,11 @@ others may be approximate where the option parse was ambiguous.
 
 service ConnectionService {  // hash = FNV-1a of bnet.protocol legacy name
   rpc Connect = 1; // ConnectRequest -> ConnectResponse
-  rpc Bind = 1; // BindRequest -> BindResponse
+  rpc Bind = 2; // BindRequest -> BindResponse (extraction printed 1; TrinityCore bgs schema: 2)
   rpc Echo = 3; // EchoRequest -> EchoResponse
   rpc ForceDisconnect = 4; // DisconnectNotification -> NO_RESPONSE
   rpc KeepAlive = 5; // NoData -> NO_RESPONSE
-  rpc Encrypt = 1; // EncryptRequest -> NoData
+  rpc Encrypt = 6; // EncryptRequest -> NoData (extraction printed 1; TrinityCore bgs schema: 6)
   rpc RequestDisconnect = 7; // DisconnectRequest -> NO_RESPONSE
 }
 
