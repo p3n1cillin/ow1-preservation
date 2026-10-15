@@ -1664,3 +1664,16 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   set to controller removes the header (run 196, -UiEntityVar); preloading hero preview
   defs does nothing (195). Untested lead: lobby 24900 unlock state (loadouts +0x80, unlock
   records +0x98 -> 0xe233c0/0xe23500); scratch msgnames.py prints lobby layouts.
+- Runs 197-203 (2026-10-15): Hero Gallery lists all heroes once 20505 hero list is sent
+  (run 198), but cosmetics read 0/0, hero pages have no skins/3D model; real default
+  unlocks (24900, --lobby-unlocks) + progression preload (--lobby-preload-progression)
+  change nothing (203). Raw GUID bits 48-59 = bitrev12(type-1): 0x0250=unlock 0xA5,
+  0x0a50=skin theme 0xA6, 0x0ea0=progression. Hero-select backdrop = fixed placed view
+  (not the controller; -SpawnAt on controller no effect, 199). McCree revolver: root
+  switch 0 + cosmetic 27 end with the client-finished volley (dump 200); activating the
+  ancestor chain (--volley-ancestors, generator volley_ancestors) crashes the client (202):
+  entering switch 0 makes the full-frame instance loop read an extra (sub-graph) instance
+  block. Switch StDt = 1 branch bit (+0x148 tail only queues), LogicalButton = 4 bits.
+  UI root: F94506DB/B4F19440 = special-client flags; AECBBA41 needs a world-owned UI
+  context (UI entity is root-owned). Private: hero-progression-199.json, unlocks-default-
+  199.txt, unlock-skins-198.py (STUUnlock_SkinTheme map, long scan).
