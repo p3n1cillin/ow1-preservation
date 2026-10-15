@@ -1433,3 +1433,6 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   (136's pick was the second record). Runs 134 = early instance failure (unrelated).
   Next: deliver 0x0717 via the message section (0xa0cca0) or create 0x106b with PIID 3
   / PSIn 0; then firing (client command buttons, 0xc2ddc0) -> WeaponVolley state 8.
+- livehudsub139: also created 0x106b as instance 4 (PIID 3 / PSIn 0, GRAPH_COUNTS
+  0x106b=(32,22)): still no HUD. UX presenters likely also need the 0x0717 message
+  delivered (message section) and/or the client's in-game UI layer; not established.
