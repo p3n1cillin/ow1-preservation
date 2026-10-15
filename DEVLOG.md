@@ -1897,3 +1897,7 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   gameplay entity as the player's actor in the spawn room. livepickspawn120 shows
   Tracer's first-person arms after choosing Tracer. Variable scopes, value encodings and
   the expression opcodes are in docs/BGS_PROTOCOL.md.
+- Load-in now follows the original flow: the server's hero-select variables open SELECT A
+  HERO automatically, CONTINUE sends the pick, the chosen hero spawns in the spawn room,
+  the overlay closes and the player moves and turns as that hero (liveautoselect125).
+  Weapons, abilities and HUD are the next step.

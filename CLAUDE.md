@@ -1369,3 +1369,13 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Next: activate remote-sync state 36 (#1463: 0x0986 true + state 142 -> UI) for hero
   select at load-in; deactivate it / clear 0x0986 after the spawn; then hero graphs
   (weapons/abilities/HUD from the picked definition's component 47) and hero changes.
+- LOAD-IN HERO SELECT -> SPAWN -> CONTROL (runs 121-125): activating states 35/36/37/142
+  by full snapshot does NOT open the UI (121/122). Writing global 0x7acb=1 and
+  0x0986=1 (-ControllerVars 'g:7acb=1,0986=1' at 63 s) opens the original SELECT A HERO
+  automatically (123). UX event 65d0 is CONTINUE: portrait then CONTINUE sends 0x1361
+  (123 never pressed CONTINUE). liveautoselect125 (PID 29040): auto hero select ->
+  Tracer + CONTINUE -> Tracer created/teleported -> -CloseHeroSelect 4 36 clears
+  0x0986/0x7acb -> overlay closes; first-person Tracer moves (W) and turns (mouse) out of
+  the spawn room. 124 failed at instance startup (client exit 1 after 7 datagrams,
+  unrelated; identical config to 123/125). Red no-entry crosshair, no weapon/HUD yet.
+  Next: create the picked hero's own graphs (definition component 47 + weapon scripts).
