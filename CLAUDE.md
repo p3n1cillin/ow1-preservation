@@ -1542,3 +1542,19 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Generic --button-states MASK:INST:S,S:SECONDS (driver -ButtonStates). Blink attempt
   '0x8:2:6,11:0.5' (BlinkEffect + Anim) made the client EXIT (liveblink160); emulator
   STOP 0xf661e4 after BlinkEffect enter regardless of supplied data. Do not reuse.
+
+## TRAINING BOTS RENDER via skinned create (Claude, 2026-10-15, runs 161-163)
+
+- Create flags 0x41: after the flags byte a u32 skin-theme ref (bit31 flag, low 31 =
+  index, type 0xa6 / 0a50...) + 1 bit (0x787be0). Responder --definition-skin IDX SKIN
+  (driver -DefinitionSkin 'idx:0x0a50...'); component_definition_create(skin=...).
+  Without a skin, non-controlled entities are placed but NOT drawn.
+- liveskin162: Tracer def 0400000000000001 + skin 0a5000000000170f -> third-person Tracer
+  in the spawn room. livebot163: bot record 02e0000000000170 -> def 04000000000014d2 +
+  skin 0a50000000001afd -> original training bot (white/red) renders. Other bot records:
+  0171 skin 1aff, 016b (def 1403) skin 1afc, 0176 (def 16d6) skin 1af3 (dumps in
+  .local/re/hero-02e...txt). Positions: spawn-room floor y=2.0 (hero comp1 +0x440 render
+  pos, comp4 +0x160); ExtraSnapshot '2,48.71,2.0,42.0,60,400'. Remote entities don't fall.
+- Scratch tools: findpos.py (float search in components), compq.py (component diff),
+  filterscan.py. Runs 161-163 cleanup audits pass.
+- Next: bot health (comp51) + damage replication, bot facing, multiple bots in the range.

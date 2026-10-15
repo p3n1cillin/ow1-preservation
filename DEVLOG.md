@@ -1913,3 +1913,14 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Investigated, not solved: local statescript prediction (Blink/abilities), HUD
   visibility (presenters and widgets exist, UI resources loaded, setting the player's
   team does not show it), and non-controlled entity visibility.
+
+## 2026-10-15 — training bots render
+
+- Found why non-player heroes were invisible: the create needs the skin. The flags byte's
+  0x40 bit (with 0x01) carries a skin-theme reference; with it, a Tracer entity and the
+  original white/red Practice Range training bot render in third person in the spawn room
+  (liveskin162, livebot163). This unblocks practice targets; health, damage and bot
+  placement in the range are next.
+- Client commands now decode exactly (movement table fix), giving the real button map;
+  holding fire keeps the weapon volley running, ammo drains, and the original reload
+  animation plays (R or automatically when empty).

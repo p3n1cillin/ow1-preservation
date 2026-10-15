@@ -1203,3 +1203,21 @@ emulates that server half; nothing below patches the client.
   stops at a null variable-type read after the same activation, independent of the
   state data supplied. Blink also needs the hero's movement, which the server does not
   simulate.
+
+### Skinned creates: third-person heroes and training bots render (2026-10-15, runs 161-163)
+
+- **Create flag 0x41.** In the entity-create flags byte (0x78dab0), bit 0x01 means a
+  resource reference follows the flags byte; with bit 0x40 that reference is a skin theme
+  (resource type 0xa6, GUIDs 0a50…), read by 0xdb1290 as one u32 (bit 31 = flag, low 31
+  bits = skin index) followed by one bit (0x787be0). The client maps the skin through a
+  world singleton (0xbb0c70 → 0x641af0) and keeps it with the new entity.
+- **Visibility.** Non-controlled hero entities created without a skin are positioned (their
+  movement snapshots apply) but are never drawn. Created with flag 0x41 and the hero's
+  skin they render in third person: a Tracer entity with her first skin theme
+  (0a5000000000170f, from the hero record's m_skinThemes) appears in the spawn room
+  (liveskin162), and the practice-range training-bot record 02e0000000000170 (definition
+  04000000000014d2, skin 0a50000000001afd) renders as the original white/red training
+  bot (livebot163).
+- **Positions.** Plain positions are readable from component memory in dumps (component
+  1 +0x440 render position, component 4 +0x160, component 24 history). The spawn-room
+  floor is at y ≈ 2.0; remote entities do not fall, so snapshots must use floor height.
