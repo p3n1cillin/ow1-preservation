@@ -395,6 +395,21 @@ class ProbeTests(unittest.TestCase):
         service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
         hotfix=dict(service.initial_notifications())[20505]
         self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IIQQ',0,2,*mixed)+bytes(8))
+        # Opt-in 24900 unlock state: one zero-keyed group of 24-byte records.
+        from lobby_service import UNLOCK_SCHEMA
+        unlock_messages=dict(messages);unlock_messages.update(load_messages(root/'protocol/unlocks-104319.json'))
+        skins=(0x0250000000000876,0x02500000000001fb)
+        service=InitialLobby(hashes,unlock_messages,initial_data='keys',unlocks=skins)
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        mid,packet=service.initial_notifications()[-1]
+        self.assertEqual(mid,24900)
+        record=lambda g:struct.pack('<QQiHBB',g,0,0,0,0,0)
+        self.assertEqual(packet,bytes((hashes.index(UNLOCK_SCHEMA)+1,0))+struct.pack('<iII',0,0,1,)
+                         +struct.pack('<I',2)+record(skins[0])+record(skins[1])+struct.pack('<QI',0,0))
+        for bad in ((0x02e000000000006e,),skins*2,(0x0250000000000000,),(0x0a5000000000170f,)):
+            with self.assertRaises(ValueError):InitialLobby(hashes,unlock_messages,initial_data='keys',unlocks=bad)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys',unlocks=skins)
+        with self.assertRaises(ValueError):InitialLobby(hashes,unlock_messages,unlocks=skins)
 
     def test_message_descriptor_export_rejects_ambiguity_and_cycles(self):
         from gateway_catalogue import extract_message

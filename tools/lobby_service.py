@@ -20,12 +20,15 @@ GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 HERO_GUID_HIGH = 0x02e0  # raw GUID type bits of OWLib type 0x75 (hero record)
 STATESCRIPT_GUID_HIGH = 0x0580  # raw GUID type bits of OWLib type 0x1b (statescript graph)
 DEFINITION_GUID_HIGH = 0x0400  # raw GUID type bits of OWLib type 3 (entity definition)
-RESOURCE_LIST_HIGHS = (STATESCRIPT_GUID_HIGH, DEFINITION_GUID_HIGH)
+PROGRESSION_GUID_HIGH = 0x0ea0  # raw GUID type bits of hero progression records (STUProgressionUnlocks)
+RESOURCE_LIST_HIGHS = (STATESCRIPT_GUID_HIGH, DEFINITION_GUID_HIGH, PROGRESSION_GUID_HIGH)
+UNLOCK_SCHEMA = 0x70e5a247  # server unlock state (24900-24908)
+UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=()):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=()):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -74,9 +77,21 @@ class InitialLobby:
         resource_list=tuple(resource_list)
         if len(resource_list)>64 or len(set(resource_list))!=len(resource_list):raise ValueError('resource list bound/duplicate')
         if any(type(g) is not int or g>>48 not in RESOURCE_LIST_HIGHS or not g&0xffffffffffff for g in resource_list):
-            raise ValueError('resource list accepts only type-0x1b graph and type-3 definition GUIDs')
+            raise ValueError('resource list accepts only graph, definition and hero progression GUIDs')
         if resource_list and 20505 not in self.initial_ids:raise ValueError('resource list requires the 20505 notification')
         self.resource_list=resource_list
+        # Optional 24900 unlock state. Native handler 0x8113d0 passes +0x98
+        # (groups of 24-byte records {GUID, u64, i32, u16, u8, bool} plus a
+        # u64 group key) to the unlock manager (0xe23500), which files each
+        # record by GUID. Only type-0xA5 unlock GUIDs are accepted; every
+        # other record field, the group key and the loadout list stay zero.
+        unlocks=tuple(unlocks)
+        if len(unlocks)>4096 or len(set(unlocks))!=len(unlocks):raise ValueError('unlock list bound/duplicate')
+        if any(type(g) is not int or g>>48!=UNLOCK_GUID_HIGH or not g&0xffffffffffff for g in unlocks):
+            raise ValueError('unlock list accepts only type-0xA5 unlock GUIDs')
+        if unlocks and ((UNLOCK_SCHEMA,24900) not in messages or UNLOCK_SCHEMA not in hashes or initial_data is None):
+            raise ValueError('unlock state requires its registered schema and initial data')
+        self.unlocks=unlocks
 
     @staticmethod
     def schema_of(mid):
@@ -129,6 +144,9 @@ class InitialLobby:
             body=encode(self.messages[schema,mid],values)
             base={PROFILE_SCHEMA:20800,PARTY_SCHEMA:20700}.get(schema,20500)
             packets.append((mid,bytes((self.hashes.index(schema)+1,mid-base))+body))
+        if self.unlocks:
+            values={0x98:[{0x00:[{0x00:g} for g in self.unlocks]}]}
+            packets.append((24900,bytes((self.hashes.index(UNLOCK_SCHEMA)+1,0))+encode(self.messages[UNLOCK_SCHEMA,24900],values)))
         self.updates_sent=True
         return tuple(packets)
 

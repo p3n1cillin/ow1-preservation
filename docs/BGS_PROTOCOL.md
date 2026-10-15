@@ -1432,3 +1432,19 @@ emulates that server half; nothing below patches the client.
   - Hero records' m_skinThemes list skin themes (0xA6). Unlock records (0xA5,
     STUUnlock_SkinTheme.m_skinTheme) point at them through a 16-byte asset reference.
   - Run 197 sent skin-theme GUIDs in a 24900 (wrong type) and nothing visible changed.
+- **Opt-in unlock state (runs 197, 203).** `bnet-probe.py --lobby-unlock-schema
+  protocol/unlocks-104319.json --lobby-unlocks FILE` sends one 24900. It carries a
+  single zero-keyed group of type-0xA5 unlock records; every other field and the
+  loadout list stay zero. `--lobby-preload-progression` adds hero progression records
+  (raw 0x0ea0, STUProgressionUnlocks) to 20505 list 1.
+  - Run 203 sent each hero's four default unlocks (128 GUIDs from m_7846C401) and
+    requested 34 progression records. The Hero Gallery still shows 0/0 and no skins,
+    so the per-hero cosmetic catalogue needs something else. The group key and the
+    loadouts are untested.
+  - The compact codec's body bound is now 16 KiB (24900 needs more than 4 KiB).
+- **Switch state data.** The BooleanSwitch tail at vtable +0x148 (0xa099e0) only
+  queues the node and reads no bits, so a switch's state data is one branch bit.
+  Entering McCree's root switch in a full frame still misparses (emulated on dump 200).
+  The per-instance loop (0xa0f080) reads a further instance block, apparently a
+  sub-graph instance started by the switch's subgraph, which our frame does not
+  describe.

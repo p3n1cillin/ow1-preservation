@@ -8,7 +8,7 @@ import struct
 
 FORMATS = {1:'b', 2:'B', 3:'B', 4:'h', 5:'H', 6:'i', 7:'I', 8:'Q', 9:'q', 10:'f', 11:'d'}
 BLOB = 15  # u32 length + raw bytes (native writer 0x005668e0, reader case 15)
-MAX_BODY = 4096
+MAX_BODY = 16384  # own compact-codec bound (lobby frames allow far more); unlock state needs >4 KiB
 MAX_ITEMS = 1024
 MAX_SCHEMA_FILE = 262144
 MAX_SCHEMA_FIELDS = 4096
