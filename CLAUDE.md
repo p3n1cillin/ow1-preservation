@@ -1389,3 +1389,12 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   m_childEntityData hardpoints) are not created yet; weapon states are server-driven
   (forcing them crashed in run 99). Next: child entity creates with parent/hardpoint,
   then the weapon/game-mode state that clears the no-entry crosshair.
+- livenomode127: controller graphs only 0x288b (-Statescript 0,0x288b; -ControllerStates
+  '1:35'; -CloseHeroSelect 1 36) + full -PickGraphs map: auto hero select/pick/spawn/close
+  still work and the red no-entry crosshair is GONE (it comes from the game-mode graphs
+  0x13c0/0x0c8e/0x0c90, probably a pre-game weapons-disabled status: 0x13c0 has five
+  STU_37D754C8 states with ids in m_F09A03B3). No crosshair/pistols: weapon manager
+  0x15 is server-driven (remote-sync states 13..44, sync vars 0x21,0x22,0x2565,0x53c6,
+  0x04ca,0x0f0c,0x0f10,0x1e50,0x00f3,0x2536,0x0ebc,0x003d,0x787e,0x001f; entity-global
+  0x001d weapon list). Prometheus beta set hero 0x001d=[1] and 0x00FD=1 (0xFD unused in
+  retail graphs). Array values = kind 15 subkind 4-7 (0xd57430, ArrC/ArrS/ArrE).
