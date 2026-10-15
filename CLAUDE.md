@@ -1379,3 +1379,13 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   the spawn room. 124 failed at instance startup (client exit 1 after 7 datagrams,
   unrelated; identical config to 123/125). Red no-entry crosshair, no weapon/HUD yet.
   Next: create the picked hero's own graphs (definition component 47 + weapon scripts).
+- Picked hero's own graphs (run 126): .local/re/hero-graphs-125.py dumps every hero
+  gameplay definition (stu-dump-89.py -> .local/re/defs/) into .local/runs/
+  hero-graphs-125.json (54 defs: component 47 graphs, weapon manager 0x15, weapon
+  scripts, child entities). Responder --pick-graphs JSON (driver -PickGraphs) creates
+  graphs+manager+weapons (<=15) on the picked hero after its spawn. liveherographs126
+  (Tracer: 1a,24,34,33,43,4b,3d,8b6,15,16): a world-space cyan chevron marker appears;
+  still red no-entry crosshair and no pistols. Child entities (Tracer 0x169, 0x17 x2;
+  m_childEntityData hardpoints) are not created yet; weapon states are server-driven
+  (forcing them crashed in run 99). Next: child entity creates with parent/hardpoint,
+  then the weapon/game-mode state that clears the no-entry crosshair.
