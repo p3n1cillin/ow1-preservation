@@ -1455,3 +1455,12 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   accepted without error, no visible change. HUD presenters run but nothing is drawn:
   the remaining gap is the client UI layer / data binding (local player/hero context),
   not statescript activation.
+- livehudhero141: component 74 field 0 (u64) = Tracer hero GUID at controller create:
+  no HUD. liveherostate143 (142 = early instance failure): controller graphs 0x13c0,
+  0x0c90, 0x288b; on pick global 0x03ac = hero and 0x0c90 state 0
+  (STUStatescriptStateHero, m_hero = 0x03ac*) activated (--pick-controller-states 2:0):
+  no hero HUD, but the red no-entry indicator returns (0x13c0 client state 20 ->
+  sub-graph 0x255d; its condition involves the 0x0c90 player state). HUD layer can
+  draw; the hero HUD (health/abilities/crosshair) still needs its trigger/data.
+- Early instance failures (124/128/134/142): identical first exchange; the client keeps
+  resending 33-byte join packets, then exits 1. Intermittent; retry. Cause not found.
