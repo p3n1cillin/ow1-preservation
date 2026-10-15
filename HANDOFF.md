@@ -116,6 +116,12 @@ heroes (run 198).
     computing the destination.
   - The old "prediction gate" byte image+0x2f7f840 has NO writer: it is a
     dev-only check in 0x64d990, not the gameplay gate.
+  - Instance +0x318 bit 8 (0x100) is NOT a prediction flag. 0x1b92c30 sets
+    it after queuing a type-7 request (rcx+0x10 vt+0x98).
+  - Instance creation (0xa0adc0) has more optional parts than the responder
+    encodes: PIID/PSIn, then 'SPUI' plus a list of {entity (0xdb0f70),
+    SrcI u16, SrcS u16}. Their meaning (source/predicting entity?) is
+    untested.
   - Tracer child entities (0x17 x2, 0x169) do not exist in the world
     (`entity-ids-265.py`: only 0x80000300..308 plus map entities). The
     client never self-instantiates them.
