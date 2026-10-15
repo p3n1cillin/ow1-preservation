@@ -1654,3 +1654,13 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   GUID in 0x03ac crashes the client, run 191). Tracer -> H -> Soldier -> CONTINUE swaps to
   Soldier's rifle in spawn and he fires. Scratch nodedefs.py evaluates any node's
   condition (def via 0xf52fa0(graph, idx); condition cv at def+0x98; ctx = presenter node).
+- CLIENT MODE CORRECTION (runs 194-196): setter 0x657660/0x59ac90; reasons decrypt
+  (key = 8 bytes at str-0xc, len at str-4): 5=Startup/Leaving match lobby/Unloading world,
+  3=RequestExit, 7=replay. World-join listener 0xb456b0 sets 6 => mode 6 IS the normal
+  online mode; 0x046b mode-5/9 path and 0x0bce (in-game menu, pushed by 0x17c7/0x1e2f) are
+  NOT the HUD. 0x041a state-20 terms all false on dump 193; CEFF290A = session+0xd8 join
+  string (replay/tournament URI path only). Run 194: 0x1e2f created client-side, no
+  effect. Hero-select preview missing: 0x07b2 (presenter context, never graph-written)
+  set to controller removes the header (run 196, -UiEntityVar); preloading hero preview
+  defs does nothing (195). Untested lead: lobby 24900 unlock state (loadouts +0x80, unlock
+  records +0x98 -> 0xe233c0/0xe23500); scratch msgnames.py prints lobby layouts.

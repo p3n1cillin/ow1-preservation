@@ -1352,3 +1352,42 @@ emulates that server half; nothing below patches the client.
   changes to Soldier: 76's rifle in the spawn room, and he fires. Conditions were
   evaluated on saved dumps by calling the client's own expression evaluator from the
   definitions held by the instance's graph.
+
+### Client mode values; the earlier HUD lead was the front-end path (2026-10-15, runs 194-196)
+
+- The client-mode setter is 0x657660 (wrapper 0x59ac90). Its decrypted reason strings
+  give the meanings:
+
+  | Mode | Meaning |
+  |---|---|
+  | 3 | "RequestExit" |
+  | 5 | Normal default: "Startup", "Leaving match lobby", "Unloading world", "Aborting replay due to user" |
+  | 7 | Replay: "Loaded replay", "Statescript Requested Transition", sequence capture |
+
+  Modes are also saved and restored around "ForceClientMode", "Play Highlight" and
+  "Sequence Complete". The world-join listener (vtable 0x2655c88 slot 4, 0xb456b0) calls
+  the game-server join 0x82c3e0 and then sets mode 6, except in replay modes.
+  Unloading the world (0xb51f90 -> slot 13, 0xb473e0) restores mode 5.
+- So mode 6 is the correct mode inside an online world. UI graph 0x046b's (mode 5 or
+  mode 9) branch is a front-end/replay path. Graph 0x0bce is the in-game menu layer:
+  graph 0x17c7 pushes it from a logical button, and toggle graph 0x1e2f pushes it into
+  UI layer 1601. The earlier conclusion that the HUD needs mode 5 or 9 is withdrawn.
+- UI root 0x041a state 20 is an OR of five terms: AECBBA41 (local entity), var 0x09ba,
+  F94506DB && B4F19440, CEFF290A and E95A9C77. E95A9C77 is a constant false.
+  CEFF290A tests the join-info string at session +0xd8, which only the replay/tournament
+  URI flow fills (0x82b6a0: schemes file/http/tournament -> 0x828580 -> 0xe3ca60).
+  All five terms are false on dump 193.
+- Creating graph 0x1e2f client-side on the controller (run 194) gives an instance, but
+  no 0x0bce/0x0dfc/0x12ef instances, and no HUD appears.
+- Hero select: global var 0x07b2 is read by every 0x288b presenter and by graph 0x297c,
+  but no graph writes it. Setting it to the controller entity (run 196) removes the
+  SELECT A HERO header, so it is a real UI context entity, but not the controller.
+  Preloading the heroes' preview definitions (m_previewEmoteEntity,
+  m_previewWeaponEntities and three other entity references; run 195) does not show a
+  hero preview.
+- Lobby 24900 (schema 0x70e8b5c7) is the unlock state. Its handler passes msg+0x80
+  (160-byte per-hero entries: five u64 fields and three u64 lists, probably loadouts) and
+  msg+0x98 (unlock records {u64, u64, i32, u16, u8, bool}) to the unlock manager
+  (0xe233c0/0xe23500). 24906-24908 and 24314/24318 are "All/Active/Current Unlocks" debug
+  listings. We never send unlock data. That may explain the empty SELECT SKIN box and
+  Hero Gallery, but it has not been tested.
