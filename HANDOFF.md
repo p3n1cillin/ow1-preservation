@@ -117,8 +117,11 @@ heroes (run 198).
      | 6 | 42900 | 0x7d1c70 | 7 table entries, no direct calls |
      - 30700 (78 msgs), 22300, 25700, 42800 and 42700: only encoder/decoder
        switches found (0x4b..0x4f range). Their client handlers are registered some
-       other way; not yet examined. 30700 is the most likely home for a generic
-       server-to-UI message.
+       other way; not yet examined.
+     - 30700's id switch is 0x4c1b00 (77 cases, table 0x4c231c). Every case calls a
+       per-message decoder (0x4bb240..0x4bd890), so the handlers sit behind a
+       further dispatch layer. Next: follow one decoded 30700 message to its
+       consumer (0x4be180 is the matching send/encode switch).
    - Remaining hypotheses: the server delivers UI messages through a channel not
      yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
      entity whose client graph relays to UI), or a native path with an obfuscated
