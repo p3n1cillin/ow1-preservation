@@ -101,6 +101,25 @@ heroes (run 198).
   0x2343c521b80, controller 0x2343c522da0, PID 18040). 257 (pre-pick mode-18
   emulation base) is kept. 263 is deleted after analysis.
 
+- **Native Blink attempt (run 265):**
+  - The run-160 crash cause: LogicalButton state data is missing. Tracer
+    graph 0x24 state 0 (LogicalButton 0xb480a974) needs 4 data bits.
+    Without them the native decoder stops at 0xf661e4, exactly the run-160
+    signature. With `StateData 24:0=0:4` the frame aligns (387/387).
+    BlinkEffect (state 6) enters cleanly (382/382).
+  - Live 265 (`PickExtraStates '6:3;2:0'`, server Blink off): the client
+    survives and node 1 (the LogicalButton) is running. Shift still does
+    nothing: no transition and no message to the server.
+  - Abilities therefore need the hero's instances to be client-predicted, or
+    server-driven Ability state 38 plus synced vars 0x9a/0xb0 on states 3/7
+    (STU_75D1C308, likely a teleport over duration), still with the server
+    computing the destination.
+  - The old "prediction gate" byte image+0x2f7f840 has NO writer: it is a
+    dev-only check in 0x64d990, not the gameplay gate.
+  - Tracer child entities (0x17 x2, 0x169) do not exist in the world
+    (`entity-ids-265.py`: only 0x80000300..308 plus map entities). The
+    client never self-instantiates them.
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are
