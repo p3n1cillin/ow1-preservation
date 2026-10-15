@@ -94,6 +94,20 @@ heroes (run 198).
      - The UI entity is in no world entity table, so 21616 cannot address it.
      - UI flag updater 0xafd550 on dump 222: 0x08e3=1, 0x0a0d=1, 0x0522=0, 0x1df3=0
        (the last two are used only by front-end graph 0x0151).
+   - More negatives (runs 223 plus emulation):
+     - Map 0x79f is Rialto (Archives PvE event), so 0x1289 is event-mission UI.
+     - No pair of 64-bit code immediates XOR/ADD/SUB to 0x06dd (77,721 movabs
+       scanned).
+     - Channel-0 handlers 20303..20322 send no UI messages directly.
+     - Client UI listeners are global: the root message router dispatches by GUID,
+       so any client-side send of 0x06dd would reach 0x041c.
+     - Resident client sender graph 0x2fca (#16, message = var 0x25c1[var 0x7c95])
+       creates fine on the controller (emulator 115/115). Setting those instance
+       vars, or its sync slots s0/s1, crashes in the native value reader (undeclared
+       instance vars or wrong slots). Run 223 exits 0x1 at the pick.
+     - Responder opt-ins added: `--pick-controller-vars 'inst:key=g<hex>|i<n>|L<hex,..>|b0/1'`
+       (GUID lists = kind 15/6 arrays) and `--pick-controller-guid-vars`. GRAPH_COUNTS
+       now includes 0x2fca/0x1289.
    - Remaining hypotheses: the server delivers UI messages through a channel not
      yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
      entity whose client graph relays to UI), or a native path with an obfuscated
