@@ -1385,9 +1385,50 @@ emulates that server half; nothing below patches the client.
   Preloading the heroes' preview definitions (m_previewEmoteEntity,
   m_previewWeaponEntities and three other entity references; run 195) does not show a
   hero preview.
-- Lobby 24900 (schema 0x70e8b5c7) is the unlock state. Its handler passes msg+0x80
+- Lobby 24900 (schema 0x70e5a247) is the unlock state. Its handler passes msg+0x80
   (160-byte per-hero entries: five u64 fields and three u64 lists, probably loadouts) and
   msg+0x98 (unlock records {u64, u64, i32, u16, u8, bool}) to the unlock manager
   (0xe233c0/0xe23500). 24906-24908 and 24314/24318 are "All/Active/Current Unlocks" debug
   listings. We never send unlock data. That may explain the empty SELECT SKIN box and
   Hero Gallery, but it has not been tested.
+
+### UI root terms, McCree's revolver and the Hero Gallery (2026-10-15, runs 197-202)
+
+- **UI root state-20 terms.**
+  - F94506DB is a global client byte (image +0x2e2f420). B4F19440 is
+    `(0x2e2f420 || 0x2e2f448) && 0x2e2f5c8`. Both are special-client flags with no
+    normal writer found.
+  - AECBBA41(8985E00A) means "the local player's selected entity has component 44".
+    It resolves through the UI instance's owner (inner vtable +0x240), and 0x978a30
+    accepts only world owners (IsA 0x2cff278).
+  - The single UI entity (definition 04000000000001f1, returned by UI manager vtable
+    slot 17) is owned by the global client root, so this term is false for it.
+  - The world-join listener sets mode 6 when entering from mode 5, 7 or 9, so mode 6
+    is the normal in-game mode. The in-game HUD therefore needs 0x09ba from some
+    other source, or a world-owned UI context. Neither is identified yet.
+- **McCree's revolver.** On dump 200, after the first shot, both the weapon graph's
+  root BooleanSwitch (state 0) and the revolver CosmeticEntity (state 27) are not
+  running, while the switch condition (global 0x001f == slot 0x001c) holds. The
+  revolver and the volley (state 11) share that root branch. The volley's parent chain
+  is states 0, 2, 1, 34 (switches), 12 and 4 (LogicalButtons) and 25 (stack); the
+  private generator now records these chains with their branches. The server only
+  activates leaf states, so when the client finishes the volley it ends the root
+  branch, and the revolver with it.
+  - Tracer's pistols sit under a different branch from her volley.
+  - Sending only the first frame's entity-global vars (run 200) does not help.
+  - Activating the ancestor chain in a full frame is not the fix yet (run 202: the
+    client exits). Emulation shows the client reads one bit for children that their
+    newly started parents already entered. The BooleanSwitch reader (0x1b992d0) reads
+    a branch bit and then calls a shared reader (vtable +0x148). The LogicalButton
+    reader (0x1b9c380) reads a 4-bit counter.
+- **Hero Gallery.** With the 20505 hero list (run 198), the menu's Hero Gallery shows
+  every hero card; runs 35/36 without the list showed none. Cosmetic counts are 0/0,
+  and a hero page has no skins and no 3D model. The gallery opens no world. The
+  hero-select backdrop is a fixed framed view of the map exterior, distinct from the
+  pre-select default camera. A controller transform does not change it (run 199).
+- **Unlock GUIDs.** Raw GUID bits 48-59 are the 12-bit reversal of (type - 1).
+  Examples: 0x0400 = type 3, 0x0580 = 0x1B, 0x02e0 = 0x75, 0x0a50 = 0xA6 (skin theme),
+  0x0250 = 0xA5 (unlock).
+  - Hero records' m_skinThemes list skin themes (0xA6). Unlock records (0xA5,
+    STUUnlock_SkinTheme.m_skinTheme) point at them through a 16-byte asset reference.
+  - Run 197 sent skin-theme GUIDs in a 24900 (wrong type) and nothing visible changed.
