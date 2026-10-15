@@ -21,7 +21,8 @@ HERO_GUID_HIGH = 0x02e0  # raw GUID type bits of OWLib type 0x75 (hero record)
 STATESCRIPT_GUID_HIGH = 0x0580  # raw GUID type bits of OWLib type 0x1b (statescript graph)
 DEFINITION_GUID_HIGH = 0x0400  # raw GUID type bits of OWLib type 3 (entity definition)
 PROGRESSION_GUID_HIGH = 0x0ea0  # raw GUID type bits of hero progression records (STUProgressionUnlocks)
-RESOURCE_LIST_HIGHS = (STATESCRIPT_GUID_HIGH, DEFINITION_GUID_HIGH, PROGRESSION_GUID_HIGH)
+STACK_ITEM_GUID_HIGH = 0x0d60  # raw GUID type bits of statescript state-stack item records
+RESOURCE_LIST_HIGHS = (STATESCRIPT_GUID_HIGH, DEFINITION_GUID_HIGH, PROGRESSION_GUID_HIGH, STACK_ITEM_GUID_HIGH)
 UNLOCK_SCHEMA = 0x70e5a247  # server unlock state (24900-24908)
 UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
@@ -77,7 +78,7 @@ class InitialLobby:
         resource_list=tuple(resource_list)
         if len(resource_list)>64 or len(set(resource_list))!=len(resource_list):raise ValueError('resource list bound/duplicate')
         if any(type(g) is not int or g>>48 not in RESOURCE_LIST_HIGHS or not g&0xffffffffffff for g in resource_list):
-            raise ValueError('resource list accepts only graph, definition and hero progression GUIDs')
+            raise ValueError('resource list accepts only graph, definition, hero progression and stack-item GUIDs')
         if resource_list and 20505 not in self.initial_ids:raise ValueError('resource list requires the 20505 notification')
         self.resource_list=resource_list
         # Optional 24900 unlock state. Native handler 0x8113d0 passes +0x98

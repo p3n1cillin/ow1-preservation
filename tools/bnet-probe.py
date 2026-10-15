@@ -726,6 +726,8 @@ def main():
                     help="opt-in entity definition GUID (hex, type 3) added to the same 20505 list 1")
     ap.add_argument("--lobby-preload-progression", action="append", default=[], type=lambda v: int(v,16),
                     help="opt-in hero progression GUID (hex, raw 0x0ea0) added to the same 20505 list 1")
+    ap.add_argument("--lobby-preload-stack-item", action="append", default=[], type=lambda v: int(v,16),
+                    help="opt-in statescript state-stack item GUID (hex, raw 0x0d60) added to the same 20505 list 1")
     ap.add_argument("--lobby-unlock-schema", help="opt-in numeric 24900 unlock-state schema (protocol/unlocks-104319.json)")
     ap.add_argument("--lobby-unlocks", help="opt-in file of type-0xA5 unlock GUIDs (hex, whitespace/comma separated) sent as one 24900")
     ap.add_argument("--lobby-initial-data", choices=('keys','keys-hotfix','keys-hotfix-player','keys-hotfix-player-settings','full'),
@@ -771,6 +773,12 @@ def main():
             or len(set(args.lobby_preload_progression))!=len(args.lobby_preload_progression)
             or any(g>>48!=0x0ea0 or not g&0xffffffffffff for g in args.lobby_preload_progression)):
         ap.error('progression preload needs 20505 initial data and unique hero progression GUIDs (64 total)')
+    if args.lobby_preload_stack_item and (args.lobby_initial_data in (None,'keys')
+            or len(args.lobby_preload_graph)+len(args.lobby_preload_definition)+len(args.lobby_preload_progression)
+               +len(args.lobby_preload_stack_item)>64
+            or len(set(args.lobby_preload_stack_item))!=len(args.lobby_preload_stack_item)
+            or any(g>>48!=0x0d60 or not g&0xffffffffffff for g in args.lobby_preload_stack_item)):
+        ap.error('stack-item preload needs 20505 initial data and unique raw-0x0d60 GUIDs (64 total)')
     if args.lobby_queue_reply is not None and (not args.lobby_login_schema or not args.lobby_queue_schema):
         ap.error('queue-reply experiments require initial login and queue schemas')
     if args.lobby_queue_schema and args.lobby_queue_reply is None:
@@ -875,7 +883,7 @@ def main():
                         from lobby_service import InitialLobby
                         lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
-                                                     args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression,
+                                                     args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression+args.lobby_preload_stack_item,
                                                      unlock_list) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,

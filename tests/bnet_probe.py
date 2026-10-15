@@ -8,6 +8,7 @@ from unittest import mock
 import sys
 import json
 import tempfile
+import subprocess
 
 spec = importlib.util.spec_from_file_location('probe', Path(__file__).resolve().parents[1] / 'tools/bnet-probe.py')
 probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
@@ -163,6 +164,16 @@ class ProbeTests(unittest.TestCase):
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,queue_reply=23332)
         with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(INSTANCE_SCHEMA,20600)},instance_referral=True)
         self.assertIsNone(InitialLobby(hashes,messages).answer(request))
+
+    def test_resource_list_type_allowlist(self):
+        from lobby_service import RESOURCE_LIST_HIGHS,STACK_ITEM_GUID_HIGH
+        self.assertIn(STACK_ITEM_GUID_HIGH,RESOURCE_LIST_HIGHS)
+        self.assertEqual(STACK_ITEM_GUID_HIGH,0x0d60)
+        self.assertNotIn(0x02e0,RESOURCE_LIST_HIGHS)
+        probe=Path(__file__).resolve().parents[1]/'tools'/'bnet-probe.py'
+        for bad in ('0580000000001d9e','0d60000000000000'):
+            r=subprocess.run([sys.executable,str(probe),'--lobby-initial-data','full','--lobby-preload-stack-item',bad],capture_output=True,text=True)
+            self.assertNotEqual(r.returncode,0)
 
     def test_local_account_store(self):
         import tempfile

@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after run 227; previous update by Codex after run 213). Whoever stops
+Last updated 2026-10-15 by Claude (after run 234; previous update by Codex after run 213). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,8 +24,8 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: liveuiroot226 (0x041a on the
-  controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
+  dumps deleted, D: copies removed). Current keep set: livehudtrig233 (0x0bcf with HUD node running),
+  liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
   livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
   emulation), plus `dumps\instance-sending5.dmp`. Delete each new run's dump after
   analysing it unless you add it to this list.
@@ -155,6 +155,38 @@ heroes (run 198).
        startup, so HUD_Root exists; visibility is property 6720 = UI var 0x2206.
      - New private responder option `--controller-guid-vars` (driver
        `-ControllerGuidVars`): GUID instance vars from the first controller frame.
+   - Session 228-234 (Claude): **FRAME ALIGNMENT FIX.** 0x288b state 35 is a
+     StateStack; the native StDt reader (0x1b96460) reads 2 state-data bits (+0x238
+     is-top, +0x239 is-under) after its entry, but the recipe sent none. Every
+     controller frame since hero select was 2 bits short; harmless only while all
+     following bits were zero. Any later instance with active states (0x041a, 0x120b,
+     0x0bcf) was misparsed, which explains run 227's crash. The baseline recipe now
+     has `StateData='288b:35=0:1,0:1;...'`; emulation aligns exactly (116/116).
+     - HUD_Root binding names (layer 0502 strings): `ShowDistortion` (prop 6720 = UI
+       var 0x2206, message 0x06dd) and `ShowHeroHud` (6729 = 0x34f5, default true).
+       So 0x06dd is the distortion effect, NOT the HUD gate. Drop that lead.
+     - HUD_Root is displayed only by node type STU_501733D7 (mode switch 0x9c2380:
+       mode 4 -> 0x9cf9b0 shows HUD_Root; node waits in mode 0 until its load input
+       plug STU_2561471D fires, handler vt+0x198 0x9c2490 -> 0x9cad70 job +0x1c0).
+       Only two graphs contain it: 0x120b (UI root 0x041a branch, gated by special
+       client flags/selected-entity term that is false for the root-owned UI entity)
+       and 0x0bcf.
+     - 0x0bcf is the HIGHLIGHT/REPLAY viewer graph (resident; 128 sync vars, 86
+       states). Creating it on the controller (`--controller-subgraph 2:0x0bcf:0:0`)
+       and activating StateStack state 1 with is-top (`bcf:1=1:1,0:1`) shows HUD_Root
+       (the orange network-warning icon appears top-left, run 231). State 3 = its
+       HUD_Root node (enters, mode 0, no load). States 22/25 start "LOADING
+       HIGHLIGHT" (run 234). Not the live-play HUD path.
+     - The StDt mask covers all `m_states` (graph data +0x60 list); entries of a
+       newly created instance are not read in its creation frame.
+     - New: public probe `--lobby-preload-stack-item` (raw 0x0d60; these are IDs, no
+       records exist), private responder `--pick-controller-messages 'inst:node:width'`
+       (one-shot mode-0 entry triggers, driver -PickControllerMessages), GRAPH_COUNTS
+       for 0x0bcf/0x041a/0x1d9e.
+     - User-reported bugs (run 229 play): Blink can launch the hero into the air
+       (server-side teleport to an estimated position), and Tracer's tracers start
+       at her stomach (no weapon child entity/muzzle hardpoint, so effects use the
+       hero origin).
    - Remaining hypotheses: the server delivers UI messages through a channel not
      yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
      entity whose client graph relays to UI), or a native path with an obfuscated
@@ -198,7 +230,7 @@ The game window is 2560×1080.
 
 ```powershell
 $heroes=(Get-Content 'Y:\repos\WIP\OW1\.local\runs\hero-guids-111.txt').Trim().Split(',')
-$base=@{Name='liveNAME';MapRoot=$true;NativeHeaderControl=$true;PlaceableCreate=$true;SelectedEntity=$true;SelectedEntityValue=3221225473;SelectedEntityDelay=30;DefinitionCreate=$true;DefinitionGuid=@('040000000000000e','04000000000003cf','04000000000014d2','04000000000014d2','04000000000014d2');SelectDefinitionIndex=0;SelectDefinition=$true;HeroList=$heroes;PreloadDefinition=@('0400000000000017','0400000000000018','04000000000004bf','040000000000130d');ControllerActor=@(0,1);ServerTime=$true;CreateSends=150;Statescript=@('0','0x288b');StatescriptDelay=60;CreateFlags=@('0:0x30','1:0x80');LateDefinition=@(0,50);HeroHealth='1:200';ControllerComp74='2=0,6=1';ControllerStates='1:35';ControllerStatesDelay=63;ControllerVars='g:7acb=1,0986=1';HeroSelectServer=$true;HeroOnPick=1;CloseHeroSelect=@(1,36);PickGraphs='.local/runs/hero-graphs-125.json';HeroConfigs='.local/runs/hero-configs-180.json';PickWeaponList='1';PickVars='g:001f=i1;10:s29=i1,s53=i40,s6=i40,s5=i1';PickStates='9:39,43;10:0,1,30,31';StateData='16:8=0:1,0:1,0:8,0:1,0:1,0:6;16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1';FireVolley='10:8';ReloadStates='10:9,18,26';ReloadTime=1.4;Ammo='10:53:40:1';FireHold=36;DefinitionSkin=@('2:0x0a50000000001afd','3:0x0a50000000001aff','4:0x0a50000000001b00');Bot=@('2:53.0:2.0:22.8:200','3:56.0:2.0:22.8:200','4:59.0:2.0:22.8:200');Blink=7.5;Recall=3.0;RunFor=300}
+$base=@{Name='liveNAME';MapRoot=$true;NativeHeaderControl=$true;PlaceableCreate=$true;SelectedEntity=$true;SelectedEntityValue=3221225473;SelectedEntityDelay=30;DefinitionCreate=$true;DefinitionGuid=@('040000000000000e','04000000000003cf','04000000000014d2','04000000000014d2','04000000000014d2');SelectDefinitionIndex=0;SelectDefinition=$true;HeroList=$heroes;PreloadDefinition=@('0400000000000017','0400000000000018','04000000000004bf','040000000000130d');ControllerActor=@(0,1);ServerTime=$true;CreateSends=150;Statescript=@('0','0x288b');StatescriptDelay=60;CreateFlags=@('0:0x30','1:0x80');LateDefinition=@(0,50);HeroHealth='1:200';ControllerComp74='2=0,6=1';ControllerStates='1:35';ControllerStatesDelay=63;ControllerVars='g:7acb=1,0986=1';HeroSelectServer=$true;HeroOnPick=1;CloseHeroSelect=@(1,36);PickGraphs='.local/runs/hero-graphs-125.json';HeroConfigs='.local/runs/hero-configs-180.json';PickWeaponList='1';PickVars='g:001f=i1;10:s29=i1,s53=i40,s6=i40,s5=i1';PickStates='9:39,43;10:0,1,30,31';StateData='288b:35=0:1,0:1;16:8=0:1,0:1,0:8,0:1,0:1,0:6;16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1';FireVolley='10:8';ReloadStates='10:9,18,26';ReloadTime=1.4;Ammo='10:53:40:1';FireHold=36;DefinitionSkin=@('2:0x0a50000000001afd','3:0x0a50000000001aff','4:0x0a50000000001b00');Bot=@('2:53.0:2.0:22.8:200','3:56.0:2.0:22.8:200','4:59.0:2.0:22.8:200');Blink=7.5;Recall=3.0;RunFor=300}
 & 'Y:\repos\WIP\OW1\.local\re\run-live-preload.ps1' @base      # run in background
 # Use Computer Use to dismiss the tutorial, open Training -> Practice Range,
 # then observe the roster before selecting a hero. H reopens hero select.
