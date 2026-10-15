@@ -1443,3 +1443,15 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   fails (ret 0): the full-snapshot tail before 0xa0cca0 is EIns (0xa0b850) then 0x9b40f0
   and a guarded call (0xa0f080 lines 39-99); encode that tail correctly before any live
   message test. Not used live yet (msgs default None keeps the old [EIns 0, msgs 0]).
+- Message section fixed in emulation (run-139 dump): full-mode tail = EIns bit,
+  continuation bit (0x9b40f0: 1 = another sub-frame), then 0xa0cca0; message length
+  counts from its own start (8 or 17 bits). Mode 0 (8-bit) triggers ENTRY nodes
+  (0x1b73b90, is-a 0x2eac9f0); mode 1 (17-bit) calls the node's vtable +0x38, which is
+  the shared default 0x1ce5640 for GameMessageEntry states and UX presenters.
+- Run-139/140 dumps (scratchpad ssnodes.py: 0x1b93000 node objects, +0x40 bit 0 =
+  running): HUD root 0x0cb6 and HUD graph 0x106b nodes are RUNNING, including all UX
+  presenters under the 0x0717 GameMessageEntry, already in 139. livehudmsg140 also
+  sends a server->client 21616 (controller, 0x0240000000000717; --server-game-message):
+  accepted without error, no visible change. HUD presenters run but nothing is drawn:
+  the remaining gap is the client UI layer / data binding (local player/hero context),
+  not statescript activation.
