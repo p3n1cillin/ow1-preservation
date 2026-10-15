@@ -175,6 +175,10 @@ heroes (run 198).
   - Next: find how a child entity is attached to the hero's hardpoint
     (components 3/4/40 or a create field), or how the client-side cosmetic
     entity's handle is meant to reach vars 0x31/0x32.
+  - Attachment negatives: components 3 and 4 (present on the hero, the
+    pistols and attached map props) have no state visitor (slot 0x18 =
+    0x1ce5640), so they are not replicated as component state. Module-4 op 0
+    is "none". The create format has no known parent field.
   - Tool: `.local/claude-scratch/session/instvar-269.py` (reads instance vars
     via 0xbe8b60(comp47, instance id, var GUID)).
 
