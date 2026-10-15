@@ -1464,3 +1464,16 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   draw; the hero HUD (health/abilities/crosshair) still needs its trigger/data.
 - Early instance failures (124/128/134/142): identical first exchange; the client keeps
   resending 33-byte join packets, then exits 1. Intermittent; retry. Cause not found.
+
+## FIRING WORKS (Claude, 2026-10-15, runs 144-145)
+
+- .local/re/commands-144.py decodes client module-3 commands (0xc2ddc0); buttons:
+  0x1000 primary fire, 0x800 edge, 0x2 Shift, 0x4 E, 0x10 Space (livebuttons144).
+- WeaponVolley (Tracer 0x16 state 8, two-bit type 0xeed6d952) state data = signed int
+  (0x1b736a0) + flag[+int+Part] + flag[+Part] + 6 bits; zero form
+  '16:8=0:1,0:1,0:8,0:1,0:1,0:6' (--state-data) aligns exactly (emulator; emu.py now
+  has idiv/bsf/bsr/prefetch*). Responder --fire-volley 10:8 (driver -FireVolley): fire
+  press -> hero full snapshot frame (HERO_SNAP seq) with state 8 active, 250 ms later
+  inactive. livefire145 (PID 28532): 4 clicks -> 4 volleys -> recoil, tracers, impacts.
+- Next: ammo (0x0035/0x00c6), reload, abilities (Shift/E graphs 0x1a/0x24/0x34),
+  practice targets/bots and damage, HUD.

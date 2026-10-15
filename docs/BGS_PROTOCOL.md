@@ -1120,3 +1120,27 @@ emulates that server half; nothing below patches the client.
   messages to state nodes: `RMFr` frame, `RMSz` size, then per message a 17-bit id,
   `TrID` target instance and a node reference. The HUD graph 0x106b keeps most of its
   17 UX presenters under a game-message state (message 0x0240000000000717).
+
+### Client input and server-driven firing (2026-10-15, runs 144-145)
+
+- **Client commands (module 3).** The encoder is 0xc2ddc0, with fixed-width fields
+  written by 0x7cad20. After the header (10 bits, u32, u16, u8, u8 count), the first
+  command is written in full: u32 seq, movement, s16, s16, u24 buttons, u8, optional
+  extras when button bit 16 is set, then u16.
+  - Later commands are deltas against the previous one. The sequence delta is one bit
+    (+1) or an unsigned varint (widths 2, 6, then 32). A change bit follows; if set:
+    movement, signed deltas (8, 10, then 16 / 5, 8, then 16), button presence + 24 bits,
+    and +0x1c presence + 8 bits.
+  - Movement is a presence bit, then either a 3-bit index (written index - 1) into a
+    9-entry direction table of axes 0/±127, or explicit 8-bit axes.
+  - Observed buttons: 0x1000 primary fire, 0x0800 press edge, 0x0002 ability 1 (Shift),
+    0x0004 ability 2 (E), 0x0010 jump.
+- **State data.** Entered two-bit states carry state data. WeaponVolley (0xd60400) is:
+  start time as a sign-magnitude int (0x1b736a0: sign, width selector 0→8 / 10→16 /
+  11→32, value); a flag (if set: second int + Part); a flag (if set: Part); then 6 bits.
+  Zero values (18 bits) align exactly in emulation.
+- **Firing.** On primary fire the private responder sends a new hero full-snapshot frame
+  activating Tracer's weapon-script WeaponVolley state (0x16 state 8) with that data,
+  then deactivates it about 250 ms later. livefire145: four clicks give four volleys; the
+  client shows pistol recoil, tracers and wall impacts. Damage, ammo and the HUD are
+  separate and not yet driven.
