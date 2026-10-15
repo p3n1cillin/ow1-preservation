@@ -1423,3 +1423,13 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   remote-sync UXPresenters 0x1a:32, 0x24:32, 0x34:13, 0x16:30/31: no HUD/crosshair
   appears (they likely need their synced vars, e.g. 0x2ad4/0x73ed/0x001f/0x001c, or
   game-mode HUD context). Run 128 = early instance failure (unrelated).
+- HUD frontier (runs 134-138): game mode 0x13c0 state 21 (sub-graph runner STU_37D754C8)
+  runs HUD root 0x0cb6 (client-only), which runs 0x106b (17 UX presenters, mostly under a
+  GameMessageEntry waiting for 0x0240000000000717), 0x2056, 0x0dea, 0x0ec8, 0x1fc0.
+  Responder: --controller-subgraph 'id:graph:piid:psin' (create with parent link in the
+  first controller full snapshot) and --state-data 'graph:state=v:w,..' (13c0:21 =
+  0:1,3:4,0:1). livehudsub138: instance 3 = 0x0cb6 exists live; no nested 0x106b and no
+  HUD yet. 21616 records can follow other records: the responder now walks them all
+  (136's pick was the second record). Runs 134 = early instance failure (unrelated).
+  Next: deliver 0x0717 via the message section (0xa0cca0) or create 0x106b with PIID 3
+  / PSIn 0; then firing (client command buttons, 0xc2ddc0) -> WeaponVolley state 8.

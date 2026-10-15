@@ -1094,3 +1094,29 @@ emulates that server half; nothing below patches the client.
   definition (hero record → gameplay entity map) as the controller's linked actor and
   moves it into the spawn room. The client shows Tracer's first-person arms and offers
   CHANGE HERO. Weapons, abilities, HUD and closing the overlay are not yet verified.
+
+### Statescript state data, sub-graph instances and weapons (2026-10-15, runs 128-138)
+
+- **StDt entries depend on the state type.** `0xf5e960` tests the state's STU type hash.
+  For 458 types (including StateStack, CosmeticEntity and the sub-graph runner
+  `STU_37D754C8`) an entry is one active bit; other types read has-data then active.
+  An entered state may read state data through `0x1b72060`. The sub-graph runner reads
+  6 bits: a flag, a 4-bit value (the child instance) and a flag.
+- **Every listed instance has blocks.** Creates and updates alike are followed by
+  their IVDt and StDt blocks; earlier creates only worked because bits past the end of
+  a frame read as zero.
+- **Sub-graph instances are created by the server.** The create's option bits (0xa0adc0)
+  are: owner entity, a flag, `PIID`/`PSIn` (parent instance and parent state), and `SPUI`
+  plus (entity, `SrcI`, `SrcS`) triples. A child created with PIID/PSIn shows in the
+  instance table (verified in emulation and live: game-mode state 21's HUD root 0x0cb6).
+- **Arrays.** Kind 15 subkind 6 (0xd57430): `ArrC` count, list/map bit, same-type bit,
+  elements via 0xd579c0. Integers: kind 1 (4 bits) or kind 4 (32 bits).
+- **Weapons.** The weapon script's `STUStatescriptStateCosmeticEntity` states spawn the
+  weapon models from their `m_entityDef` (Tracer: 0x0400000000000017), which must be
+  resident (lobby preload list). Activating them plus the weapon manager states renders
+  Tracer's pistols in first person (livecosmetic131). Firing, ammo and the HUD are not
+  yet driven.
+- **Messages to state nodes.** The frame's message section (0xa0cca0) delivers remote
+  messages to state nodes: `RMFr` frame, `RMSz` size, then per message a 17-bit id,
+  `TrID` target instance and a node reference. The HUD graph 0x106b keeps most of its
+  17 UX presenters under a game-message state (message 0x0240000000000717).
