@@ -1572,3 +1572,43 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   livekill168 recipe = run 167 recipe; UI look X 1826 Y -120 centers the bot at
   (48.71,2.0,42.0). Events bot_killed/bot_respawned. --bot-test (scheduled op2/op3).
 - Next: bots in the range proper (positions/facing), more bots, death effect, HUD.
+
+## HUD gate and server-side abilities (Claude, 2026-10-15, runs 174-177)
+
+- DISK: 25 oldest dumps (udpapp10 .. liveheader38) moved (robocopy /MOV, verified) to
+  D:\OW1-preservation-dumps. Newer dumps stay beside the package-cache client. C: had
+  ~122 GB free afterwards; each run adds ~3.9 GB.
+- 0x106b is NOT the hero HUD: its root layer 09a0...0571 is HUD_Elements_Objectives.
+  Layer names: private .local/re/ux-layer-names-175.py -> .local/runs/ux-layer-names-175.json.
+  Hero HUD: HUD_Tracer 00f3 (graph 0x3d), HUD_Hero_Common 059d/05d0 + _Animated 05a7
+  (graphs 0x01cf/0x20e4), HUD_Root 0502 (native only). .local/re/graph-layer-scan-175.py
+  demangles unknown u64 STU fields (asset_reference) to find layer GUID references;
+  graph-text-scan-175.py decodes all 1586 graphs and greps tokens (writes scan175/).
+- HUD_Root creators: 0x9cf9b0 (via node vtable 0x26337e8 slot 0x70 = 0x9c2380 switch on
+  +0x1d8) and 0xafb740 (vtable 0x26552a8 slot 6). Node class = STU_501733D7, graph 0x120b
+  state 15 (node idx 23). 0x120b runs from UI root 0x041a state 25 (#227) after
+  BooleanSwitch #194 (state 20, node 46, condition #196 = OR of AECBBA41{m_entity
+  8985E00A}, global 0x09ba, F94506DB&B4F19440, CEFF290A, E95A9C77). In dump 177 node 46
+  runs, nodes 52/54 (true branch, 0x120b runner) do not. UI comp47 0x1927a1a7620 (dump 177)
+  is not in either world's entity table: 47 client-local instances under 0x041a/041b/041c.
+  Its BooleanSwitch listens to 4-5 native observable objects (listener arrays at
+  node +0xf8..+0x140). Evaluator registry (0x1b8fe40 entries, e.g. 0xcfb290) not yet
+  mapped to type hashes. Next: identify the five predicates (emulate their evaluate).
+- Client-local game messages: create client-only graph on the controller with
+  --controller-subgraph 'ID:GRAPH:0:0' (new top-level create, PIID 0) and activate its
+  STU_38EE1100 send state at pick with --pick-controller-states 'ID:STATE'. Run 177:
+  0x0cb6 state 3 -> 0x0717 -> client-spawned 0x106b nodes 16/17 (states 15/16) running,
+  0x2246 true. The cyan chevron marker disappears with 0x0cb6 present. No HUD.
+  Run 175 (0x106b created directly, states 15/16 by StDt): state 15 entered, 16 not.
+- Channel 0 has no generic game-message record: 20315 = {string +0x78, u64 +0xa0,
+  selected entity +0xa8, u32 +0xac, f32 +0xb0} -> 0xe3dca0 string compare -> local 0x02df.
+  20317 = bool+f32 -> local 0x08cc (param 0x0a400000000004cd) / 0x08cd.
+- Server-side Blink/Recall (private responder --blink/--recall, driver -Blink 7.5
+  -Recall 3.0, -TeleportDy 0.3): press edges from decoded buttons (0x8/0x10), teleports by
+  hero position snapshot x4. liveblink176: blink 1 to the spawn door works; blink 2
+  (48.71, 22.77) and run 177's blink end on the rock top: x=48.71 is inside the wall past
+  the door (run 172 walk slid to x=49.4). Teleports into geometry go to ~(52.5,30,14.3).
+  Live comp1+0x440 logger (scratchpad live_pos.py) is only valid after the hero moves.
+- Multi-bot: DefinitionGuid adds 04000000000014d2 at indices 2-4 with skins 1afd/1aff/
+  1b00; Bot '2:53:2:22.8:200' etc. All three killed/respawned (server-estimate hits).
+- Runs 175-177 cleanup audits pass. PIDs: 175=38840, 176=45044, 177=14356.

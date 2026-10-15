@@ -1931,3 +1931,19 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   with calibrated axes) and where they aim, so it can tell when Tracer's shots hit a
   bot. Hits lower the bot's health through entity updates; at zero the bot is removed and
   comes back three seconds later (livekill168).
+
+## 2026-10-15 — HUD root cause narrowed; Blink and Recall
+
+- The panel we had been trying to show (0x106b) is the objectives element, not the hero
+  HUD. UI layer resources carry readable view names, which let us find the real
+  structure: the hero HUD layers hang under a native `HUD_Root` that is only created
+  when a client-side UI condition (five native predicates) becomes true. That condition
+  stays false in our sessions; finding what satisfies it is the next HUD step.
+- Server state data can make the client send a local game message by activating a
+  client-only "send message" node. That delivered 0x0717 to the HUD graphs for the
+  first time (livehudmsg177).
+- Shift now blinks Tracer 7.5 m and E recalls her 3 s back. The server performs these
+  as teleports from its estimate of the player's position, so they work in open space.
+  Without collision data they can land inside geometry.
+- Three skinned training bots stand outside the spawn room on verified floor. Shooting
+  kills them and they respawn; the hit test uses the server's position estimate.

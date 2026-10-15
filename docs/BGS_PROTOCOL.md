@@ -1242,3 +1242,45 @@ emulates that server half; nothing below patches the client.
   throttled op-2 updates, destroys it at zero and re-creates it (skin, health, position
   snapshots) after 3 s. livekill168: tracers hit the bot, it disappears after 200
   damage (53 server-side hits) and respawns.
+
+### Client-local game messages, HUD layers and server-side movement abilities (2026-10-15, runs 174-177)
+
+- **No generic server→client game-message record.** The 20300-family channel-0 handler
+  set has no "game message to entity" record. 20315 (string, u64, selected entity, u32,
+  f32) compares a string and then raises one fixed local message; the client handles no
+  incoming 21600-family records (the client only sends 21616).
+- **Client-local delivery works.** Client-only `StateGameMessageEntry` nodes register a
+  local listener; local messages are dispatched through the root object's message
+  router (build message, set its GUID with 0x1ba7e20, router = root vtable +0x110,
+  dispatch = router vtable +0x18). A client-only "send game message" state
+  (STU_38EE1100) is entered by ordinary server state data: creating the client-only HUD
+  root graph 0x0cb6 on the controller and activating its state 3 makes the client send
+  0x0240000000000717 itself, and the client-spawned 0x106b receives it (both of its
+  0x0717-triggered stacks become active; livehudmsg177). This is a general way to
+  deliver a message to client graphs when such a send node exists.
+- **UI layers are named.** UI layer resources (09a0…, "DUTS" format) carry view names:
+  0571 `HUD_Elements_Objectives`, 0502 `HUD_Root`, 059d and 05d0 `HUD_Hero_Common`,
+  05a7 `HUD_Hero_Common_Animated`, 00f3 `HUD_Tracer`, 008c `HeroSelection2`. The 0a88…
+  resources only declare a presenter's bindable properties (for 0571: container, an
+  int, and the bool 07aa that the presenter sets to `!0x2246`).
+- **The hero HUD is not 0x106b.** 0x106b presents the objectives panel. Hero HUD
+  presenters (`HUD_Tracer` from Tracer's graph 0x3d; `HUD_Hero_Common` from graphs
+  0x01cf/0x20e4) were present with widgets in earlier runs but drew nothing.
+- **HUD_Root is native.** No statescript graph references `HUD_Root`. It is created by
+  a native state class (vtable 0x26337e8; a 15-way mode switch at +0x1d8 calls 0x9cf9b0,
+  which creates layers 029b, 029c and 0502). That state is state 15 (STU_501733D7) of the
+  UI graph 0x120b. 0x120b is run by the client UI root graph 0x041a (state 25), which
+  lives on a separate client-only statescript component (47 local instances). Its
+  BooleanSwitch (state 20) is true when any of five native predicates is true:
+  AECBBA41 on an entity reference (8985E00A), global var 0x09ba, F94506DB and B4F19440,
+  CEFF290A, or E95A9C77. In our sessions this switch stays false, so `HUD_Root` is never
+  created. What makes these predicates true in a normal game is the next HUD question.
+- **Movement abilities (server side).** The private responder now implements Tracer's
+  Blink (ability-1 press: 7.5 m along the movement input, or forward when idle; three
+  charges recharging 3 s each) and Recall (ability-2 press: back to the tracked
+  position 3 s earlier, 12 s cooldown) as position snapshots (fields 16-18). Blink from
+  the spawn moves Tracer to the spawn-room door with the bots visible outside
+  (liveblink176). The server has no collision data, so its tracked position can be
+  wrong: a teleport into geometry is resolved by the client onto the top of the rock
+  mass near (52.5, 30, 14.3). The local hero's component-1 render position is not a
+  reliable position probe until the hero has moved.
