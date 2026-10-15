@@ -65,9 +65,21 @@ heroes (run 198).
      2:9`) makes the whole controller frame fail (emulator: interpreter returns 0
      after 3 bits). 0x1289 is not resident even with `-PreloadGraph` (runs 221/222);
      those runs lose hero select.
-   - Next: find which definition owns 0x1289 (record scan
-     `.local/runs/record-1289-222.json`) and load that, or find another resident
-     relay. The older 0x041a state-20 analysis below is now secondary.
+   - Graph 0x1289 is map-specific. Its only reference is per-map package
+     0x0dd0000b0000079f; 0x0dd0 records are per-map packages indexed by map id, and
+     Practice 0x688 has no 000b package. It is not how Practice raises the HUD.
+   - Of the 36 send nodes whose message comes from a variable, only graphs 0x05ad (a
+     server-side gameplay flow) and 0x2fca are resident. 0x2fca is a client
+     STU_38EE1100 sender whose message is an array lookup `var c125[var 967c]` (comm
+     or emote wheel?); its literal entries are 0x17ab, 0x17ac and 0x15d4.
+   - Emulator control: creating resident graph 0x0cb6 in the same controller frame
+     parses (114/114); 0x1289 fails only because it isn't loaded.
+   - Next:
+     - Decide which Practice-resident path sends a variable UI message, or trace the
+       client's handling of server statescript "remote messages" (RMFr/TrID,
+       0xa0cca0) to UI targets.
+     - Check whether any native path forwards entity game messages to the UI entity.
+   - The older 0x041a state-20 analysis below is now secondary.
    - Old analysis, 0x041a state 20 terms: AECBBA41 (UI entity is root-owned), 0x09ba
      (0x0bce: front-end/menu paths), special-client flags, replay string, constant
      false.
