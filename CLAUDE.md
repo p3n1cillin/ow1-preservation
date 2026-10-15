@@ -1634,3 +1634,10 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   Echo 1105, Genji 1160, Hanzo 1210, Junkrat 1265, Mei 1320, Pharah 1375, Reaper 1430,
   Soldier 1485, Sombra 1540, Symmetra 1595, Torbjorn 1645, Tracer 1700, Widow 1755;
   tanks 435..810 step ~55; supports 1830..2160. Soldier PID 6708, McCree PID 35608.
+- McCree run 183: also activating the cosmetic's BooleanSwitch ancestor (state 0, true
+  branch; generator field cosmetic_switches) still loses the revolver on the first volley
+  (frame 120 ms after click). Responder no longer activates switch ancestors. WeaponVolley
+  state-data reader 0xd60400: entering -> signed int (start offset, node+0x48), optional
+  second int (+0x1f0, then 0x185ba50), 0xd60580 field, vt+0x148, 6 bits -> node+0x2c8.
+  No cosmetic reference there; cause of McCree's cosmetic exit still unknown. Generator
+  pitfall: the Bash tool unescapes '\b' into a backspace; build regex escapes with chr().
