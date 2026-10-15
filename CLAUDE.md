@@ -1,6 +1,11 @@
 # OW1 preservation continuation
 
 Continue the existing implementation; do not restart or replace working systems.
+**Handoff between Claude and Codex:** read `HANDOFF.md` first (current state, best run
+recipe, open problems) and update it before stopping. Keep ALL work in this project
+directory: never leave tools/results only in an agent temp/scratchpad folder. Private
+material goes in ignored `.local/` (`.local/re`, `.local/runs`, `.local/claude-scratch`
+[emulator toolkit + image.bin, run from its `emu/` folder], `.local/codex-scratch`).
 Work in the project directory `Y:\repos\WIP\OW1` (the UNC path is equivalent),
 as requested by the user. New private research/run artifacts belong in ignored
 `.local/` here. Reuse the existing original client, keys and native build cache
