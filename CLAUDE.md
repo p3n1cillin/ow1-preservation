@@ -1489,3 +1489,9 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   (--extra-snapshot, repeatable) and the create transform (-SpawnAt flag 8) do not
   place a non-controlled entity there. Remote-entity position replication still to find.
   Map placeables 0x88/0x22e/0x234/0x289 have components 1,22,25,26,(58),76,94,97 only.
+- livedummy151: a second Soldier gameplay entity (index 2) with the same snapshot is
+  not visible either, so non-controlled hero-like entities are not drawn in this setup
+  at all (not only a bot-definition issue). Likely needs team/filter-bit state
+  (Prometheus beta spawner set FilterBits/team) and/or a spawned/visible state; the
+  earlier "boot" render was the selected entity. Next for bots: find the filter-bit
+  /team component state and remote-entity position replication.
