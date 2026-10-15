@@ -1501,3 +1501,18 @@ changes the hands but still leaves the rifle absent before and after a registere
 firing cycle. This occurs without the ancestor flag, so the flag is not established
 as its cause. Hero re-pick/weapon initialization needs a separate regression fix.
 The shared 40-round/36-per-second test parameters are not verified McCree tuning.
+
+### Repeated hero changes (2026-10-15, runs 215-218)
+
+- After a re-pick, the replacement hero entity's statescript manager reaches frame 2
+  from its graph-create frame (base 1). Processing 0xa0e630 holds every record whose
+  base is greater than current + 1. Full frames that continued the old hero's
+  sequence (base >= 4) therefore queued forever: dump 215 shows 13 pending records
+  with bases 4..18 and no weapon states. Restarting the sequence at base 2 for each
+  replacement fixes it (run 216: Soldier: 76's rifle appears after a re-pick).
+- The H button lives in the false branch of 0x288b switch #160 (state 96), whose
+  condition is var 0x6321. The server must clear 0x6321 once hero select closes;
+  otherwise H stops working after the first change.
+- Run 218 goes Tracer → Soldier: 76 → McCree in one session. Every hero fires, and
+  McCree keeps his revolver through two volleys (Codex's state-encoding fix,
+  runs 204-213).

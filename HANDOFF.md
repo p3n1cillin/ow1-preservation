@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Codex (after run 213). Whoever stops
+Last updated 2026-10-15 by Claude (after run 218; previous update by Codex after run 213). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -27,14 +27,22 @@ the short "where are we, how do I run it, what next".
 - Never publish keys, certificates, dumps, client bytes or captured payloads.
 - One bounded run at a time; wait for the launcher's cleanup audit before the next
   run, a build, or CTest.
+- Each agent's `%LOCALAPPDATA%` may resolve to a different (virtualized) build tree.
+  After the other agent changes native sources (`tools/offline-launch`, relay, etc.),
+  run `.\scripts\Build.ps1 -SkipDependencies` yourself before CTest or live runs.
+  Example: Codex's 300-second launcher change was missing from Claude's tree until
+  rebuilt.
+- Check for a running `Overwatch.exe` or responder before starting work: the other
+  agent may still have a bounded run in progress.
 
 ## Current state (what works in a live run)
 
 Load-in → original SELECT A HERO → pick → spawn in the spawn room in first person →
-move/look → fire (Tracer, Soldier: 76 with tracers/impacts, ammo, reload) →
+move/look → fire (Tracer, Soldier: 76, McCree; tracers/impacts, ammo, reload) →
 Blink/Recall (server-side teleports) → three training bots that die and respawn →
-H in the spawn room reopens hero select and **changing hero works** (run 193).
-Hero Gallery lists all heroes (run 198).
+H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
+(rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
+heroes (run 198).
 
 ## Not working yet (open frontier)
 
@@ -52,30 +60,19 @@ Hero Gallery lists all heroes (run 198).
    Untested ideas:
    - Find what normally pushes 0x0bce or writes 0x09ba in a match.
    - Look for a second, world-owned UI context.
-2. **McCree revolver encoding fixed; Soldier re-pick regression open.** The shared-root
-   explanation from run 203 was wrong. Two encoding omissions caused the symptoms:
-   - Native predicate 0xf5e960 identifies 483 one-bit types among 486 tested inputs;
-     the old table missed 25 false-return fallthrough types, including BooleanSwitch.
-     Switch encoding is active + branch, not has-data + active + branch. There is
-     no missing subinstance block. Private one-bit table has been corrected.
-   - With has-data=1, active=0, the native decoder still reads state data after
-     exiting the state. Omitting WeaponVolley's 18-bit payload shifted later flags
-     and stopped the cosmetic. `_stdt_entry` now retains data for two-bit inactive
-     entries; one-bit inactive entries remain exit-only.
-   - Run 211: two McCree volleys and reload preserve the revolver. It used the
-     experimental ancestor flag; Soldier re-pick changed hands but lacked his rifle.
-     Run 213 verifies two McCree volleys/stops and reload in the normal recipe too.
-     Soldier's rifle is still absent after re-pick without the flag, despite a
-     registered volley/stop. The flag is not established as the cause. Next: inspect
-     dump 213's Soldier weapon instance and initial full frame versus working 193.
-     Dump 213: PID 37512, comp47 0x1dc9c880960; manager cf=2 / frame=5586, globals
-     unset. Full frames still used cmfd=4000+seq and were stale after late re-pick.
-     Emulation with 4008 is ignored; 6000 reaches state entries (renderer path then
-     exceeds emulator support). The private responder now chooses a fresh per-hero
-     cmfd epoch after graph creates: max(4000, current server frame + 1000).
-     Keep the unnecessary flag out of the best recipe. Baseline emulation is aligned
-     (282/282 second-frame bits) and preserves the revolver without ancestors.
-   - StateStack needs two state-data bits; totals alone can hide missing bits.
+2. **Hero changes and weapons: fixed (run 218).**
+   - Codex (runs 204-213) fixed the state encoding behind McCree's vanishing revolver:
+     483 one-bit types, BooleanSwitch = active + branch, inactive two-bit entries keep
+     their data.
+   - Claude (runs 215-218) fixed the re-pick weapon regression. The replacement hero's
+     statescript manager is at frame 2 after its graph-create frame (base 1). The client
+     queues any full frame whose base exceeds current+1. HERO_SNAP['seq'] was not reset
+     on re-pick, so every frame had base >= 4 and queued forever (dump 215: 13 pending
+     records, bases 4..18). The responder now resets the sequence on re-pick.
+   - H only works while var 0x6321 is false (0x288b switch #160, state 96, H
+     LogicalButton in its false branch). The open handler sets 0x6321 for the re-pick
+     UI, so the close step now clears it again. Before this, the second H did nothing.
+   - StateStack needs two state-data bits; totals alone can hide missing bits (Codex).
 3. **Hero-select 3D hero preview and gallery cosmetics.** The user reports no hero
    model in hero select. The backdrop is the map's fixed placed view, which is
    probably correct.

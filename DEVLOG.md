@@ -1979,3 +1979,12 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Correction to the earlier HUD note: client mode 6 is normal in-game mode; the
   mode-5/9 menu path does not establish the missing hero HUD. HUD, hero previews,
   gallery cosmetics and complete hero behavior remain open.
+
+## 2026-10-15 — change hero as often as you like
+
+- H in the spawn room now works again after a hero change, and every new hero gets its
+  weapon. One session went Tracer → Soldier: 76 → McCree, firing with each, and
+  McCree's revolver no longer disappears.
+- Two server-side mistakes caused this: the replacement hero's script updates were
+  numbered as if it were the old hero, so the game waited for updates that never came,
+  and a hero-select flag was never cleared, which disabled the H key.
