@@ -79,6 +79,25 @@ heroes (run 198).
        client's handling of server statescript "remote messages" (RMFr/TrID,
        0xa0cca0) to UI targets.
      - Check whether any native path forwards entity game messages to the UI entity.
+   - Exhausted so far (runs 219-222 plus offline):
+     - 0x06dd is absent everywhere checked: 466k raw records (including the
+       Practice map packages), 4,885 decoded mode/ruleset/map/definition/UI records,
+       all 1,586 graphs (only receiver 0x041c), code immediates and .rdata as a
+       64-bit or 32-bit value.
+     - Native "send to UI" API: build message 0x1ba7970, set GUID 0x1ba7e20, deliver
+       via root vtable +0x110, then +0x18. All 50 call sites use fixed GUIDs, script
+       node vtables (0x2622280.., 0x2792fb0..) or unrelated data (43301 = clock
+       sync).
+     - Exactly one UI manager (vtable 0x26552a8) exists and is root-owned. It
+       creates the UI entity in slot 15 (0xb0aee0) with its own owner, so no
+       world-owned UI context exists.
+     - The UI entity is in no world entity table, so 21616 cannot address it.
+     - UI flag updater 0xafd550 on dump 222: 0x08e3=1, 0x0a0d=1, 0x0522=0, 0x1df3=0
+       (the last two are used only by front-end graph 0x0151).
+   - Remaining hypotheses: the server delivers UI messages through a channel not
+     yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
+     entity whose client graph relays to UI), or a native path with an obfuscated
+     GUID constant.
    - The older 0x041a state-20 analysis below is now secondary.
    - Old analysis, 0x041a state 20 terms: AECBBA41 (UI entity is root-owned), 0x09ba
      (0x0bce: front-end/menu paths), special-client flags, replay string, constant
