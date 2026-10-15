@@ -1558,3 +1558,17 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Scratch tools: findpos.py (float search in components), compq.py (component diff),
   filterscan.py. Runs 161-163 cleanup audits pass.
 - Next: bot health (comp51) + damage replication, bot facing, multiple bots in the range.
+
+## SHOOT-TO-KILL LOOP WORKS (Claude, 2026-10-15, runs 164-168)
+
+- Module 4 ops: 1 create, 2 update (component body 0x78e5d0), 3 destroy (0x78e4e0).
+  update_section kinds 'health'/'components' (op 2) and 'destroy' (op 3).
+- Calibration (livecal166): yaw a (theta=a*tau/65536; -32768 at spawn = facing -z),
+  pitch c (neg = up); forward=(sin,0,cos), right=(-cos,0,sin); my=forward, mx=right;
+  ~6 m/s at 62.5 cmds/s. Spawn floor y=2.0.
+- Responder --bot IDX:X:Y:Z:HEALTH (driver -Bot, -BotDps 240, -BotRespawn 3) + skin:
+  tracks player from pick spawn, ray-tests while volley active (bot center +2.4 m,
+  r 0.9, |dy|<1.3), throttled health updates, destroy at 0, re-create after 3 s.
+  livekill168 recipe = run 167 recipe; UI look X 1826 Y -120 centers the bot at
+  (48.71,2.0,42.0). Events bot_killed/bot_respawned. --bot-test (scheduled op2/op3).
+- Next: bots in the range proper (positions/facing), more bots, death effect, HUD.

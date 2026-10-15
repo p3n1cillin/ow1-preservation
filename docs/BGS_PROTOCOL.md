@@ -1221,3 +1221,24 @@ emulates that server half; nothing below patches the client.
 - **Positions.** Plain positions are readable from component memory in dumps (component
   1 +0x440 render position, component 4 +0x160, component 24 history). The spawn-room
   floor is at y ≈ 2.0; remote entities do not fall, so snapshots must use floor height.
+
+### Entity updates and destroys; a working shoot-to-kill loop (2026-10-15, runs 164-168)
+
+- **Module-4 ops.** The per-entity module-4 field is a 2-bit op (0x78bbc0): 1 create,
+  2 update, 3 destroy. Ops 1 and 2 carry a 14-bit length and payload; op 3 has none.
+  Queued records are applied by 0x78e300: op 2 looks the entity up and runs the same
+  component-state body (0x78e5d0: u8 count, then per component u8 type, byte alignment
+  at the absolute body position, u8 mask length, mask, primitive values) that ends a
+  create; op 3 calls 0x78e4e0 and removes the entity (livebot165: the bot disappears).
+- **Movement calibration (livecal166).** Yaw is the first s16 of a command
+  (θ = a·2π/65536, −32768 at the practice spawn), pitch the second (negative = up).
+  Forward is (sin θ, 0, cos θ) and right is (−cos θ, 0, sin θ); the second movement axis
+  is forward (W = +127) and the first is right (D = +127). One second of W moved the
+  hero 5.94 m and one second of D 6.39 m (≈ 6 m/s at 62.5 commands per second), so the
+  server can estimate the player's position from the command stream.
+- **Shoot-to-kill.** The private responder tracks the player from the spawn with those
+  axes, ray-tests each command while the weapon volley is active against each bot's body
+  (centered about 2.4 m above its origin), lowers the bot's component-51 health with
+  throttled op-2 updates, destroys it at zero and re-creates it (skin, health, position
+  snapshots) after 3 s. livekill168: tracers hit the bot, it disappears after 200
+  damage (53 server-side hits) and respawns.

@@ -1924,3 +1924,10 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Client commands now decode exactly (movement table fix), giving the real button map;
   holding fire keeps the weapon volley running, ammo drains, and the original reload
   animation plays (R or automatically when empty).
+
+## 2026-10-15 — shooting a training bot kills it
+
+- The server now knows where the player is (it integrates the client's movement inputs
+  with calibrated axes) and where they aim, so it can tell when Tracer's shots hit a
+  bot. Hits lower the bot's health through entity updates; at zero the bot is removed and
+  comes back three seconds later (livekill168).
