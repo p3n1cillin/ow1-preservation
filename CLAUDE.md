@@ -1418,5 +1418,8 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - livecosmetic131: preload 0400000000000017/18 (-PreloadDefinition) + PickStates
   '9:39,43;10:0,1,30' (weapon manager 0x15 states 39/43; weapon script 0x16
   CosmeticEntity states 0/1, UXPresenter 30) -> Tracer's PULSE PISTOLS render in first
-  person; after one click the gun display reads 39 (40->39, predicted shot). No
-  crosshair yet (UXPresenter 31?). Run 128 = early instance failure (unrelated).
+  person. CORRECTION: the "39" on the right pistol is a fixed marking (present before
+  any click), NOT an ammo counter; firing is not demonstrated. livehud132 also activates
+  remote-sync UXPresenters 0x1a:32, 0x24:32, 0x34:13, 0x16:30/31: no HUD/crosshair
+  appears (they likely need their synced vars, e.g. 0x2ad4/0x73ed/0x001f/0x001c, or
+  game-mode HUD context). Run 128 = early instance failure (unrelated).
