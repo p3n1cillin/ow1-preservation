@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after run 218; previous update by Codex after run 213). Whoever stops
+Last updated 2026-10-15 by Claude (after run 227; previous update by Codex after run 213). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -23,7 +23,12 @@ the short "where are we, how do I run it, what next".
   - Codex: put your equivalents in `.local/codex-scratch/` and list them here.
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
-  (older ones moved to `D:\OW1-preservation-dumps`). Each is ~4 GB; check free space.
+  Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
+  dumps deleted, D: copies removed). Current keep set: liveuiroot226 (0x041a on the
+  controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
+  livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
+  emulation), plus `dumps\instance-sending5.dmp`. Delete each new run's dump after
+  analysing it unless you add it to this list.
 - Never publish keys, certificates, dumps, client bytes or captured payloads.
 - One bounded run at a time; wait for the launcher's cleanup audit before the next
   run, a build, or CTest.
@@ -122,6 +127,34 @@ heroes (run 198).
        per-message decoder (0x4bb240..0x4bd890), so the handlers sit behind a
        further dispatch layer. Next: follow one decoded 30700 message to its
        consumer (0x4be180 is the matching send/encode switch).
+   - Session 224-227 (Claude):
+     - Full demangled scan of all 467,972 records (every field hash, plus raw, plus
+       bits 32-47 wildcarded): the only reference to 0x06dd is receiver 0x041c.
+       Live dump 222 memory holds it once (heap listener), never in the image .data.
+       Tools: `.local/claude-scratch/session/demangled-ref-scan-224.py`,
+       `demangled-wild-scan-224.py`, `dump-qword-scan-224.py`.
+     - Server->client handled channels are only 20300, 25000, 27500, 25800 and 42900
+       (registrar 0x7d5100). 21600, 30700, 42800, 22300, 25700 and 42700 register
+       codecs with NO client handler (client->server only). Field layouts for all
+       families: `.local/runs/instance-families-224.json` (`family-schemas-224.py`).
+     - Generic client relay graph 0x1d9e (on message var 0x3b4e, send var 0x3023;
+       both remote-sync schema vars) exists, but only in other maps' packages
+       (definition 04000000000030b8, packages 0dd0000b00000afe/0b56). Preloading
+       that definition does nothing (run 224: typed cache absent), so the controller
+       frame that creates it fails and hero select is lost. Same gate as 0x1289.
+       Resident graphs with variable messages: only 0x05ad (server-side send) and
+       0x2fca (local instance-var array, not server-settable).
+     - UI root 0x041a created on the controller (`--controller-subgraph
+       2:0x041a:0:0`, GRAPH_COUNTS (16,33), state types in graph-state-types.json):
+       hero select/spawn still work, but none of its nodes run, because its entries
+       are not client-only (run 225). Activating state 25 (0x120b runner, state data
+       0:1,3:4,0:1) makes the runner node run but spawns no child (run 226). Creating
+       0x120b as its child (3:0x120b:2:38) plus state 15 (HUD_Root STU_501733D7)
+       makes the client exit 1 on that frame (run 227). Don't relocate UI graphs.
+     - UI manager slot 6 (0xafb740) creates HUD_Root (layer 0502, 0a88..01c3) at
+       startup, so HUD_Root exists; visibility is property 6720 = UI var 0x2206.
+     - New private responder option `--controller-guid-vars` (driver
+       `-ControllerGuidVars`): GUID instance vars from the first controller frame.
    - Remaining hypotheses: the server delivers UI messages through a channel not
      yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
      entity whose client graph relays to UI), or a native path with an obfuscated
