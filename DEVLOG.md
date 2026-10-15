@@ -1999,3 +1999,20 @@ has no HUD. The new saved state exposes an ownership mismatch: the animation
 graph expects its owner to equal the selected controller, while we placed it on
 the hero. That comparison is false and its presenters never start. Rebuilt
 successfully with all 25 tests passing.
+
+
+## 2026-10-15 continuation: runs 253-255 and Claude research
+
+Controller sender 0x0cb6 state 3 consumes one compact-u16 zero payload bit after
+its active bit. Native two-frame replay improves from 474/460 bits (invalid) to
+492/492 and 461/461, with StateHero activation decoded. Run 254 preserves pistols
+and firing but no HUD. Its native ownership gates require 20e4 on controller and
+01cf on hero; hero 01cf still waits for 1291. All seven cleanup checks pass.
+
+Claude's report/notes from branch d8b2998 are included. Original mode18 assets
+confirm controller13c1, whose state42/node101 runs20e4 (64 sync slots,49 states).
+Run255 cannot test gameplay: the diagnostic preloader admits only mode5a and
+never calls the native header loader for18. The guard now explicitly accepts
+both Practice modes. Follow-up requires rebuild after cleanup and a mode18 run.
+See HANDOFF.md for private audit scripts, recipes and the message-order hypothesis.
+The full goal and remaining acceptance requirements are in docs/PRACTICE_RANGE_PLAN.md.

@@ -43,9 +43,13 @@ bool pending_practice(HANDLE process, uint64_t image, std::stop_token stop) {
                     // variant. Permit it and the canonical Practice map to
                     // isolate the variant flag from the map's resource type.
                     const auto map = read_child<uint64_t>(process, request);
+                    // Both authored Practice modes use this map header. Mode
+                    // 0x18 selects the Practice-specific team controller; 0x5a
+                    // is the existing diagnostic baseline.
+                    const auto mode = read_child<uint64_t>(process, request + 8);
                     if ((map == 0x0790000000000688ULL || map == 0x0800000000000688ULL
                          || map == 0x0800010000000688ULL)
-                        && read_child<uint64_t>(process, request + 8) == 0x023000000000005aULL) return true;
+                        && (mode == 0x0230000000000018ULL || mode == 0x023000000000005aULL)) return true;
                 } catch (const std::exception&) { /* A changing live object is not a valid match. */ }
             }
         }

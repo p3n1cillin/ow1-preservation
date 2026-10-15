@@ -1538,3 +1538,21 @@ analysis finds 0x20e4 switch #159 false because it compares the selected
 controller with the hero owner. All three animation presenters are inactive;
 the hero HUD widgets exist with their parent-handle values unset. This narrows
 the next investigation to ownership and routing rather than another frame fix.
+
+
+### Message-sender state payload (2026-10-15, runs 253-254)
+
+The one-bit StDt classification describes the active flag, not the complete
+state payload. The native sender reader at 0xd4bac0 reads a compact u16 through
+0x185bb20 after the active bit. For controller graph 0x0cb6 state 3 the zero
+form needs one additional bit. Omitting it shifts later instances: the second
+control frame consumed 474 bits from a 460-bit blob and never entered StateHero.
+With the zero payload, creation consumes 492/492 bits and activation 461/461;
+the expected StateHero enter/data/post calls occur. Run 254 preserves pistols
+and registered firing with this payload. This does not establish visible HUD.
+
+Native HUD ownership gates are complementary: 0x20e4 compares selected controller
+to its owner; 0x01cf compares selected hero to its owner. Moving both graphs onto
+the controller therefore cannot work: run 254 has active 0x20e4 widgets while
+the controller-owned 0x01cf stops at its ownership switch. The hero-owned 0x01cf
+passes that switch and waits for 0x1291, with its presenters inactive.

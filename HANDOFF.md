@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Codex (after run 252). Whoever stops
+Last updated 2026-10-15 by Claude (after runs 256-264, mode 0x18). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,8 +24,8 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: liveheroc90-252 (HUD ownership
-  comparison baseline), liveheroc90-250 (captured scheduling-failure replay),
+  dumps deleted, D: copies removed). Current keep set: livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
   livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
@@ -50,6 +50,100 @@ Blink/Recall (server-side teleports) → three training bots that die and respaw
 H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
+
+## Mode 0x18 HUD runs 256-264 (Claude, 2026-10-15) — read first
+
+- **PSIn is a parent STATE index, not a runtime node index.**
+  - Server-creating 0x20e4 under (0x13c1, 101) kills the client (exit 1, no
+    dump) within one packet: runs 256/258/259/260/261.
+  - Top-level (262) or parent (3, 42) (263/264) works. 101 is past 0x13c1's
+    49 states.
+  - The hero recipes' `11:0x01cf:6:7` therefore name 0x4b state 7, not runner
+    state 3 (node 7). This is untested; try `6:3`.
+- Run 257 never picked a hero (no UI driving); 258 = 256 plus 13c1:42 data.
+- 0x03ac is now also set when 0x13c1/0x20e4 are controller graphs
+  (USE_STATE_HERO). This is harmless; it was not the crash cause.
+- **Working mode-0x18 recipe:**
+  - `.local/runs/run-livemode18-264.ps1`: GameMode 18, PreloadGraph 13c1+20e4,
+    `CloseControllerSubgraph '3:0x13c1:0:0;4:0x20e4:3:42'`,
+    `CloseControllerStates '3:42'`, StateData `13c1:42=0:1,4:4,0:1`.
+  - Hero select, pick, pistols and firing all work. No HUD.
+  - The fatal emulator check: dump 257 with
+    `.local/claude-scratch/session/hud258-mode18-replay257.py` (all variants
+    decode cleanly; the crash was runtime).
+- **0x1291 routing (native, dump 264, private session scripts *-264/265.py):**
+  - Graph gates (evaluated natively, `eval-cv-264.py`):
+    - 0x01cf #49 = `STU_1FF67CA6 == self`, where 1FF67CA6 = the local possessed
+      body (the hero) in every context.
+    - 0x20e4 #159 = `selected == self`.
+    - So 0x01cf belongs on the hero and 0x20e4 on the controller. Both gates are
+      true live (the 20e4 presenters run).
+  - Game-message store = per-world system (sender vt+0x1c0 -> 0xa00b10, store
+    vt 0x2657ed8): 64 buckets x 0x1d0, entries 0x70 keyed
+    {entity, mode, message index}.
+    - Sender 0xd4c3e0: a STU_1D719351 target writes entity = invalid (0)
+      (`sender-emu-264.py`: pushes {0, mode 2, 4753}).
+    - node+0xc0 = def byte +0x7a = client-only; client-only senders take only
+      the mode-2/8 branch.
+  - Listener 0xd4bd40/0xd514b0: subscribes under BOTH its own entity and 0
+    (0xd4f5a0 -> 0xd9b2b0). Lookup 0xd9ad40 tries the own key, then key 0.
+    - Hero #101 (node 178) finds #187's record (+0x250 = sender node,
+      +0x238 = 0x80000304), but takes the non-fire path.
+    - Firing requires node+0xf0 != 0 && +0x1b1 == +0x1b2. +0xf0 is set by begin
+      routine 0x1b72ad0 and cleared by 0x1b750c8/0x1ba7230, a per-frame
+      transient. Every node in the dumps has +0xf0 = 0, including 0x01cf #5,
+      which therefore also never "fired": #41/#49/#101 are #5's subgraph,
+      running while #5 waits.
+    - Next: emulate a full instance tick (who calls 0xd514b0/0xd51fc0 while
+      +0xf0 is set), or find the server-side counterpart that marks the
+      GameMessageEntry as received.
+- Dumps: livemode18-264 is the new reference for this path (hero comp47
+  0x2343c521b80, controller 0x2343c522da0, PID 18040). 257 (pre-pick mode-18
+  emulation base) is kept. 263 is deleted after analysis.
+
+## Continuation through 255 (Codex, 2026-10-15)
+
+Active objective: fully functioning Practice Range. Completion requirements are
+in `docs/PRACTICE_RANGE_PLAN.md`; HUD alone is not completion.
+
+Claude's research is now in `reports/Overwatch 1 server emulation research.md`
+and `research_notes/Overwatch 1 server emulation research/`, recovered from
+origin/claude/blissful-bohr-qodvyf at d8b2998. External claims are hypotheses.
+Exact-build asset decoding confirms mode 0x18 references controller 0x13c1;
+state 42 (runtime node 101) runs 0x20e4, state 43 runs 0x288a. Counts are
+64 sync slots / 49 states for 13c1 and 4 / 26 for 20e4. Do not copy the
+external fork's compressed state numbering.
+
+Runs 253/254 discovered another alignment omission: 0x0cb6 state 3 needs a
+compact-u16 payload after its active bit. The zero form is one additional bit.
+Without it the second native replay consumes 474/460 bits and StateHero never
+enters; corrected creation is 492/492, activation 461/461 with StateHero enter,
+data and post calls. Reader 0xd4bac0 calls 0x185bb20. The private responder now
+defaults this known state's zero form. Repro hud253-replay.py; old/corrected
+outputs hud253-replay.txt and hud253-senderbit.txt in .local/runs.
+
+Live 254: pistols and registered firing persist, no HUD, empty UDP stderr,
+all seven cleanup checks true. Controller 20e4 widgets are active. Controller
+01cf stops at node 66 because selected hero != own controller; hero 01cf
+passes that ownership gate and waits at node 178 for 1291, with presenters
+inactive. These are complementary ownership gates: 20e4 belongs on controller,
+01cf on hero. PID 49200; controller comp47 0x138b9952da0, hero 0x138b9951b80.
+Read-only audit: .local/codex-scratch/hud254-audit.py -> hud254-native-audit.txt.
+Retain livehudowner254 as a reference; 253 is superseded after analysis.
+
+Ordering hypothesis: GameMessageEntry subgraphs run while waiting. 20e4 starts
+presenters and sender 187 under its 0717 listener immediately; the message pulse
+separately sets f62a. Thus 1291 may be sent before hero 01cf passes 0717 and
+opens its 1291 listener. This is not yet a demonstrated cause. STU_1D719351 is a
+target descriptor, not a normal config-var evaluator; exact scope is unproved.
+
+255 is a loader-control negative, not a HUD result. Mode 18 returned to Training
+because retail_private_preload.h admitted only mode 5a. The guard now permits
+exactly 18 and 5a for the same Practice map identifiers. Rebuild after 255 cleanup.
+Prepared next: .local/runs/run-livemode18-256.ps1, mode18/preload13c1+20e4,
+create controller13c1 at close, state42 after five seconds, HUD child20e4 after
+eight seconds (after 0717). Driver accepts GameMode and LateControllerSubgraph.
+Check residency and native alignment on its dump before attributing UI failures.
 
 ## Latest HUD status — read first
 
