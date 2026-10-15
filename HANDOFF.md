@@ -148,6 +148,17 @@ heroes (run 198).
     next.
   - Responder now sorts each create's component list by type (harmless).
 
+- **BOTS MOVE (run 269):** module-3 movement items need an increasing frame
+  in movement field 2. See docs/BGS_PROTOCOL.md "Remote movement frames".
+  - Responder `--snapshot-frames` (driver `-SnapshotFrames`) writes the reply
+    server frame. It was emulator-verified with 0xc5f680: 174 bits, decoded
+    frame exact.
+  - `--bot-patrol 'IDX:x|z:AMP:PERIOD'` (driver `-BotPatrol`) streams one
+    framed item per reply, and hit tests follow the moving position.
+  - Recipe: `.local/runs/run-livemode18-269.ps1`; bots 2/3 visibly swing.
+  - Untested: whether framed hero teleports (Blink) behave differently, and
+    bot facing/animation.
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are

@@ -1556,3 +1556,24 @@ to its owner; 0x01cf compares selected hero to its owner. Moving both graphs ont
 the controller therefore cannot work: run 254 has active 0x20e4 widgets while
 the controller-owned 0x01cf stops at its ownership switch. The hero-owned 0x01cf
 passes that switch and waits for 0x1291, with its presenters inactive.
+
+### Remote movement frames (2026-10-15, run 269)
+
+Module-3 per-entity movement items are only applied when they are newer than
+the entity's stored movement history:
+
+- After decoding an item, the client's applier (0x7ca130) compares the decoded
+  movement frame with the newest stored component-28 state (0x7947e0). If the
+  stored frame is greater than or equal to the new one, the item is skipped.
+- The movement frame is movement-block field 2 (reader 0xc66d00). Its
+  encoding:
+  - Unchanged: a single 0 bit, which keeps the prior's frame.
+  - Changed: a 1 bit, then a selector. `1` reads a 4-bit delta, `01` a
+    10-bit delta, and `00` a raw 32-bit delta.
+  - Value: frame = prior frame − delta. The default prior's frame is 0.
+- Items that leave field 2 unchanged all carry the same frame, so only the
+  first is applied. This is why isolated position snapshots never moved
+  non-controlled entities.
+- Live (run 269): position items carrying the reply's server frame in field 2
+  move training bots continuously. Each reply sent one framed item per
+  patrolling bot.
