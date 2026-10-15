@@ -159,6 +159,25 @@ heroes (run 198).
   - Untested: whether framed hero teleports (Blink) behave differently, and
     bot facing/animation.
 
+- **Tracer muzzle origin (runs 269/270):**
+  - The volley (0x16 state 8, #230) muzzles are two {hardpoint 0dc0000000000006,
+    entity handle} pairs. The handles are 0x16 remote-sync vars 0x0031 (slot
+    s49) and 0x0032 (slot s50).
+  - CosmeticEntity states 0/1 (def 0x0400000000000017, hand hardpoints
+    0x0a/0x0b) name those same vars (m_1DEF59FA).
+  - On dump 264 both vars are UNSET (ammo 0x35 = 40 reads fine), so the volley
+    has no muzzle entity and shots start at the hero body.
+  - Run 270: server-created 0x17 x2 (definition indices 5/6) plus
+    `--pick-extra-vars '10:s49=e5,s50=e6'` (new option; `e<idx>` = entity
+    value; driver `-PickExtraVars`). The vars now hold 0x80000309/0x8000030a,
+    but the entities sit unattached at the origin (identity transform,
+    components 1,3,4,22,25,26,40,97), and the tracer still starts low.
+  - Next: find how a child entity is attached to the hero's hardpoint
+    (components 3/4/40 or a create field), or how the client-side cosmetic
+    entity's handle is meant to reach vars 0x31/0x32.
+  - Tool: `.local/claude-scratch/session/instvar-269.py` (reads instance vars
+    via 0xbe8b60(comp47, instance id, var GUID)).
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are
