@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after run 234; previous update by Codex after run 213). Whoever stops
+Last updated 2026-10-15 by Claude (after run 251; previous update by Codex after run 213). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livehudtrig233 (0x0bcf with HUD node running),
+  dumps deleted, D: copies removed). Current keep set: liveheroc90-250 (0x0c90-on-hero failure, next to diagnose), livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
   livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
   emulation), plus `dumps\instance-sending5.dmp`. Delete each new run's dump after
@@ -48,6 +48,47 @@ Blink/Recall (server-side teleports) → three training bots that die and respaw
 H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
+
+## Latest HUD status (Claude, runs 235-251) — read first
+
+- **Responder bug that invalidated runs 240-246:** loop variables named `_part`
+  shadowed the `_part` encoder function, so `statescript_full_payload` crashed
+  with "TypeError: 'str' object is not callable". Renamed to `_ccs/_hls/_cgv/_hev`.
+  After any client "abort", check `.local/runs/<run>-udp.err` first.
+- **Hero HUD chain:**
+  - Tracer graph 0x4b state 3 (runner #68) runs 0x01cf (hero HUD) on the hero.
+  - 0x01cf: #5 waits for 0x0717, then #41/#49 switches, then #101 waits for 0x1291
+    (params 0a4...08fb/08fa = vars 272e/d42a), then stack #149, then presenters
+    #155/#159. Stack #84 sets 0x0406.
+  - Runtime node index = position in the graph's m_nodes:
+    #5=97, #41=1, #49=66, #101=178, #149=179, #155=181, #159=62, #84=126.
+  - 0x1291 is sent only by 0x20e4 #187 (client-only STU_38EE1100). Its target #193
+    is STU_1D719351, which has no broadcast flag, so it is probably the own entity.
+  - 0x20e4 is client-spawned from 0x0c90. So 0x0c90 (and therefore 0x20e4) very
+    likely has to run on the HERO, next to 0x01cf.
+- **Run 251** (run-247 recipe + new `--server-game-message 1:0240000000001291
+  --server-game-message-delay 8`; driver `-ServerGameMessageDelay`):
+  - On the dump, 0x01cf #101 is running and waiting, and #84 is running.
+    Server-sent 21616 does nothing: the client has NO handler for the 21600 family
+    (client->server only; server->client channels are 20300/25000/27500/25800/42900).
+  - The statescript message-section mode 1 calls node vtable +0x38. For
+    GameMessageEntry states that is 0x1ce5640 = `ret 0`, so it cannot fire #101.
+  - Pistols render, no HUD. Its dump was deleted after analysis.
+- **Run 250** (`-PickSubgraph '11:0x01cf:6:7;12:0x0c90:0:0' -HeroLateStates '12:0'`):
+  - Hero frames broke: pistols vanished, and the dump has hero instances 1-10 only.
+  - Emulating the exact sent frame (with and without state 12:0 and the 0x03ac GUID
+    global) on dump 239 aligns perfectly (432/441/490/499 bits). So the failure is
+    not frame encoding as seen from dump 239's state.
+  - **Next:** emulate the same frame on dump 250 itself (the hero's real state at
+    that time; PID in liveheroc90-250.log; hero comp47 via `session/comp_addr.py
+    <dump> <pid> 80000305 47`).
+  - Also check whether StateHero (0x0c90 state 0) on a hero entity resets
+    component 47.
+- Run 249 (0x0c90 late on the controller) reached #187, but 0x1291 did not reach
+  the hero. Its dump was deleted.
+- Still open: Blink (the server dead-reckoned teleport drifts into geometry and the
+  engine pushes the hero up), Tracer projectile origin (no weapon child entities
+  or hardpoints), hero-select 3D preview, Hero Gallery cosmetics.
 
 ## Not working yet (open frontier)
 
