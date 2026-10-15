@@ -1498,7 +1498,7 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 
 ## RELOAD WORKS + prediction/HUD findings (Claude, 2026-10-15, runs 152-157)
 
-- R = command button 0x100. Responder --reload-states 10:9,18,26 --reload-time 1.4
+- R = command button 0x400 (exact decoder; 0x100 was the misaligned value). Responder --reload-states 10:9,18,26 --reload-time 1.4
   (driver -ReloadStates/-ReloadTime/-ReloadAfter) + StateData
   '16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1' and PickVars s5=i1 (anim speed 0x0245).
   Anim state data = optional (instance varint, 6-bit state index) reference + 3 bits +
@@ -1527,3 +1527,18 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Private scratch tools (session scratchpad): comp_addr.py, inst_list.py, comp60.py,
   compcensus.py, comp74.py, res_state.py, presfields.py (old scratchpad), memdump.py.
 - Disk: ~113 GB free at 05:10 (each dump ~4 GB). Runs 152-157 cleanup audits pass.
+
+## Exact command decoding + ammo (Claude, 2026-10-15, runs 158-160)
+
+- FIXED .local/re/commands-144.py: movement table form is 0 bit = no movement, else
+  1 + 3-bit index-1 (0xc2e2f0). Now every block decodes to exactly 42 + header u32 bits,
+  0 mismatches. Buttons: 0x1 fire held, 0x8 Shift, 0x10 E, 0x40 jump, 0x400 R, 0x2000
+  press edge, 0x4000 release edge. Responder masks updated (HERO_SNAP fire/reload/
+  ability1/ability2/buttons). Old 0x1000/0x100 values were misaligned artifacts.
+- Ammo (--ammo 10:53:40:N, driver -Ammo) + --fire-hold R (driver -FireHold, rounds/s):
+  continuous WeaponVolley while held, ammo sync var drained by time, auto reload at 0
+  (liveammo159 pulses: 5 volleys -> auto reload -> resume; liveblink160 hold: one
+  sustained volley -> 0 -> reload). ow-ui.ps1 has 'mousehold' (Ms <= 3000).
+- Generic --button-states MASK:INST:S,S:SECONDS (driver -ButtonStates). Blink attempt
+  '0x8:2:6,11:0.5' (BlinkEffect + Anim) made the client EXIT (liveblink160); emulator
+  STOP 0xf661e4 after BlinkEffect enter regardless of supplied data. Do not reuse.

@@ -1131,10 +1131,17 @@ emulates that server half; nothing below patches the client.
     (+1) or an unsigned varint (widths 2, 6, then 32). A change bit follows; if set:
     movement, signed deltas (8, 10, then 16 / 5, 8, then 16), button presence + 24 bits,
     and +0x1c presence + 8 bits.
-  - Movement is a presence bit, then either a 3-bit index (written index - 1) into a
-    9-entry direction table of axes 0/±127, or explicit 8-bit axes.
-  - Observed buttons: 0x1000 primary fire, 0x0800 press edge, 0x0002 ability 1 (Shift),
-    0x0004 ability 2 (E), 0x0010 jump.
+  - Movement (0xc2e2f0) is a changed bit, then a table bit: in table form a 0 bit means
+    the zero entry (no movement), otherwise a 1 bit and a 3-bit index - 1 into the
+    9-entry direction table of axes 0/±127; without the table bit, per-axis presence
+    bits with 8-bit values. (Corrected 2026-10-15: the earlier decoder always read 3
+    index bits, which misaligned every later field by two bits.)
+  - The module-3 header's u32 is the bit length of the data that follows it; with the
+    corrected movement field every captured command block decodes to exactly that
+    length and repeated commands decode identically across packets.
+  - Buttons: 0x0001 primary fire (held), 0x0008 ability 1 (Shift), 0x0010 ability 2 (E),
+    0x0040 jump, 0x0400 reload (R), 0x2000 press edge, 0x4000 release edge. (The older
+    0x1000/0x0002/0x0004 values came from the misaligned decode.)
 - **State data.** Entered two-bit states carry state data. WeaponVolley (0xd60400) is:
   start time as a sign-magnitude int (0x1b736a0: sign, width selector 0→8 / 10→16 /
   11→32, value); a flag (if set: second int + Part); a flag (if set: Part); then 6 bits.
@@ -1147,7 +1154,7 @@ emulates that server half; nothing below patches the client.
 
 ### Reload, ammo and other per-state data (2026-10-15, runs 152-157)
 
-- **Buttons.** Reload (R) is client command button 0x0100.
+- **Buttons.** Reload (R) is client command button 0x0400 (see the corrected button map above).
 - **More one-bit state types with data.** Entered states read type-specific data after the
   active bit (emulator-verified with the private full-snapshot harness):
   - Stack (594c2d80): two 1-bit flags (0x1b96460).
@@ -1161,7 +1168,7 @@ emulates that server half; nothing below patches the client.
   pistols) plays the first-person reload.
 - **Reload.** Tracer's weapon script 0x16 reloads through Stack state 18 (var 0x0021),
   Anim state 9 (anim alias 0c80000000000004, speed var 0x0245) and Wait state 26, then
-  refills ammo 0x0035 from 0x00c6. On button 0x0100 the private responder activates
+  refills ammo 0x0035 from 0x00c6. On the reload button the private responder activates
   those three states in a new hero full-snapshot frame (Anim data referencing
   instance 10 / CosmeticEntity state 1) and clears them after 1.4 s. livereload157 shows
   the original first-person reload animation (pistols flip, cylinders swap, guns return).
@@ -1186,3 +1193,13 @@ emulates that server half; nothing below patches the client.
   presenters run and create widgets, and every referenced UI resource (0a88…) is loaded,
   but nothing draws. The visible hero-select presenter differs mainly in the root layer
   GUID (09a0…008c versus the HUD's 09a0…0571).
+- **Ammo and continuous fire.** With the corrected decoder, primary fire is a held bit, so the
+  private responder can keep the WeaponVolley state active while fire is held and drain
+  the ammo sync var by time (liveblink160: one sustained volley, 40 rounds drained, then
+  the automatic reload). With per-click pulses (liveammo159) five volleys empty a
+  40-round magazine at 8 rounds each, the reload plays automatically and firing resumes.
+- **Blink (not working).** Activating Tracer's BlinkEffect (0x24 state 6) with its Anim
+  (state 11) through a full snapshot makes the client exit (liveblink160); the emulator
+  stops at a null variable-type read after the same activation, independent of the
+  state data supplied. Blink also needs the hero's movement, which the server does not
+  simulate.
