@@ -1888,3 +1888,12 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - The CONTINUE press's 21616 is game message 0x1360 (one parameter, var cb7a), which
   graph 0x288b's own server-side entry consumes; the chosen hero is not in it. The
   hero-pick message (0x1361 with a hero parameter) has not been observed yet.
+
+## 2026-10-15 — the picked hero spawns
+
+- The hero-select graph's server half is now emulated by the private responder: the
+  "open" request (0x1360) sets the global variable the client checks, the client then
+  sends its pick (0x1361 with the hero GUID), and the responder creates that hero's
+  gameplay entity as the player's actor in the spawn room. livepickspawn120 shows
+  Tracer's first-person arms after choosing Tracer. Variable scopes, value encodings and
+  the expression opcodes are in docs/BGS_PROTOCOL.md.

@@ -1055,3 +1055,42 @@ stream of new instance packets. The public codec accepts
 are rejected. Health and authoritative movement are not replicated yet (red
 damage vignette), and no server-side simulation exists. Entity-ID class 0b101
 (0xA...) tested in run livepred91 does not add component 59.
+
+### Hero select and the picked-hero spawn (2026-10-15, runs 110-120)
+
+Graph `0x058000000000288b` (instance 4 on the controller in our runs) contains both the
+client-only hero-select UI logic and the server half that answers it. Our responder
+emulates that server half; nothing below patches the client.
+
+- **Identifiers.** `STUConfigVarDynamic` is 0x18 bytes: u16 identifier at +0x10, u8
+  `m_60DB8F99` at +0x12. Text dumps that print the identifier as raw bytes show it
+  byte-swapped (`4208` is variable 0x0842). With the flag set, lookup 0x1ba56e0 uses the
+  entity-global table `[[table+8]+0x1f0]`; without it, the instance's own table. The
+  graph's 32-entry `m_syncVars` list (runtime entries 0x18 bytes, GUID `0x0d80…|id` at +8)
+  contains the flagged hero-select variables.
+- **Writing variables.** The body's global section (0xa0c440) is one present bit, then
+  `UVGu` identifiers (SFDt 8/16/32) each followed by a value, ending with identifier 0;
+  values are stored with instance id 0, which is where flagged variables live. The
+  per-instance IVDt mask (0xa0ca20) writes instance-scope values. A value (0xa0d2c0) is a
+  4-bit kind and payload (0xd57de0), then a `StEC` state-event count (unary 0xd53400;
+  zero is one 0 bit). Kind 0 is `Bool` (one bit); kind 9 is a GUID (0xd57a20 type 4,
+  `ResV`: present bit, high u16, SFDt low part); kind 15 has subkinds (0 = raw u64 as four
+  u16 words, 1 = u32, 2 = string, 3 = null, 4-7 = arrays).
+- **Expressions.** Retail opcodes differ from the beta's numbering. Jump targets give:
+  0 end, `2 n` AND-jump and `3 n` OR-jump (relative to the opcode), `8 k` dynamic variable,
+  `14 k` config variable, 30 NOT.
+- **Flow.** H in the spawn room sets global 0x7acb = !0x0986 and sends client game
+  message (21616) `0x0240000000001360` with parameter `0x0a400000000005a2` = that value.
+  The server stores it in global 0x0986 ("hero select open"; entry #1199). Selecting a
+  portrait sends `0x0240000000001361` with parameter `0x0a4000000000005d` = the selected
+  hero GUID (local 0x3748) when the hero is available, !0x0842 and 0x0986 hold. The
+  server's entry #1227 checks spawn room and availability, then sets global 0x3369 = hero
+  and 0x0842 = true. Remote-sync state 36 (#1463) holds 0x0986 true and, through state
+  142, opens the hero-select UI without H.
+- **Parameter blob.** u32 0, u8 count, then per parameter a GUID byte-presence mask with
+  the present bytes, and a value `0c 01 ff <type>` followed by 1 byte (type 1, bool) or
+  8 bytes (type 4, GUID).
+- **Result (livepickspawn120).** On the pick the responder creates the hero's gameplay
+  definition (hero record → gameplay entity map) as the controller's linked actor and
+  moves it into the spawn room. The client shows Tracer's first-person arms and offers
+  CHANGE HERO. Weapons, abilities, HUD and closing the overlay are not yet verified.

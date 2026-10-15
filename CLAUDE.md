@@ -1347,3 +1347,25 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   client still sends only 21616 0x1360 (same blob), no 0x1361. Next: confirm on the
   dump that state 35 is active / var 2163 true, then the 4208 gate (state 71 + game
   message 0x06e4, or m_60DB8F99 semantics on #1033), and the server's #1227 result.
+
+## PICKED HERO SPAWNS (Claude, 2026-10-15, runs 112-120)
+
+- Graph dumps print u16 var ids BYTE-SWAPPED ("4208" = var 0x0842). m_60DB8F99=1 vars
+  are entity-GLOBAL (0x1ba56e0); write them via the body's global UVGu list (0xa0c440).
+  Value = kind(4)+payload (0xd57de0) + StEC count 0 (one 0 bit). Bool kind 0 + bit; GUID
+  kind 9 (0xd57a20 type 4 'ResV': bit, hi u16, SFDt low). Details: docs/BGS_PROTOCOL.md
+  "Hero select and the picked-hero spawn". .local/re/graph-walk-112.py decodes ids and
+  expressions (0 end, 2/3 n AND/OR jumps, 8 dyn var, 14 cfg var, 30 NOT).
+- H -> client 0x1360 {05a2 = !0x0986}; server sets global 0x0986. Portrait -> 0x1361
+  {005d = hero}. Private responder: --hero-select-server (0x1360 toggles global 0x0986,
+  bumps full-snapshot frame/CmFD), --hero-on-pick IDX (create that definition only after
+  0x1361, GUID from .local/re/hero-storage-probe-66.json, global 0x3369=hero, 0x0842=1,
+  then 6 spawn snapshots at --pick-spawn). Driver -HeroSelectServer -HeroOnPick 1.
+  Needs -ControllerStates '4:35' (full snapshot path; GRAPH_COUNTS 0x288b=(32,146)).
+- livepickspawn120 (PID 27860): H -> roster, Tracer -> 0x1361 -> Tracer gameplay entity
+  0x0400000000000001 created -> first-person Tracer arms in the spawn room, overlay shows
+  CHANGE HERO. Invalid: 112 (responder _mask shadowing), 116 (JSON tuple keys), 115
+  (wrong ids -> client exit 1), 117 (0x6321/0x0842 set -> H no longer opened).
+- Next: activate remote-sync state 36 (#1463: 0x0986 true + state 142 -> UI) for hero
+  select at load-in; deactivate it / clear 0x0986 after the spawn; then hero graphs
+  (weapons/abilities/HUD from the picked definition's component 47) and hero changes.
