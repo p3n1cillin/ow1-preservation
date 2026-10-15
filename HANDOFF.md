@@ -126,6 +126,28 @@ heroes (run 198).
     (`entity-ids-265.py`: only 0x80000300..308 plus map entities). The
     client never self-instantiates them.
 
+- **New research on main** (from branch claude/blissful-bohr-qodvyf):
+  `reports/Overwatch 1 complete game reference.md` plus
+  `research_notes/Overwatch 1 complete game reference/`. Hero numbers, Practice
+  bot/health-pack data, and a priority roadmap. Torrent hash redacted.
+- **Tracer calibration from the report (run 268):** FireHold=40 (20 shots x 2)
+  and ReloadTime=1.0. Live, 40 rounds drain in 1 s, auto-reload runs and
+  firing resumes. Recipe: `.local/runs/run-livemode18-268.ps1` (= 264 plus
+  calibration). The 0.686 s ammo-restore point is not modelled yet.
+- **Component 26 (filter bits) cannot be sent in a create:**
+  - The state type is 0x30dabc0, one u64 at state+0x78 (comp+0x90), hash
+    82ce0230, field flags 0x2. Component 44's replicated fields have flags 0.
+  - Runs 266/267 (`--filter-bits` / `-FilterBits`, sorted component lists)
+    crash the client at the first bot create carrying it. Do not use.
+  - All live entities have filter bits 0.
+  - The client's local-session builder 0x829430 sets 0x10040001 (+team bit)
+    itself.
+  - Comp-26 mask functions 0x5d4520/0xbd5b90 are used by 0xb22900, called
+    from module-2 readers 0xb3e8ed/0xb41bac. Module 2 (the per-entity section
+    we send empty) is the likely replication path for team/filter bits; trace
+    next.
+  - Responder now sorts each create's component list by type (harmless).
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are
