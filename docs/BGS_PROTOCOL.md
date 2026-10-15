@@ -1144,3 +1144,45 @@ emulates that server half; nothing below patches the client.
   then deactivates it about 250 ms later. livefire145: four clicks give four volleys; the
   client shows pistol recoil, tracers and wall impacts. Damage, ammo and the HUD are
   separate and not yet driven.
+
+### Reload, ammo and other per-state data (2026-10-15, runs 152-157)
+
+- **Buttons.** Reload (R) is client command button 0x0100.
+- **More one-bit state types with data.** Entered states read type-specific data after the
+  active bit (emulator-verified with the private full-snapshot harness):
+  - Stack (594c2d80): two 1-bit flags (0x1b96460).
+  - Wait (6540c278): none.
+  - Anim (ca60e86e): an optional state reference (0x1b737d0: present bit; if set, the
+    instance id as a varint read by 0x1b75190 — selector 0 → 4 bits, 1,0 → 8 bits,
+    1,1 → 16 bits — then a state index of the graph's m_statesBitCount width), then a
+    3-bit field, then a flag read by 0xcbd370.
+  The reference names the state whose entity the animation plays on. With no reference
+  nothing visible plays; referencing the weapon graph's CosmeticEntity state (the
+  pistols) plays the first-person reload.
+- **Reload.** Tracer's weapon script 0x16 reloads through Stack state 18 (var 0x0021),
+  Anim state 9 (anim alias 0c80000000000004, speed var 0x0245) and Wait state 26, then
+  refills ammo 0x0035 from 0x00c6. On button 0x0100 the private responder activates
+  those three states in a new hero full-snapshot frame (Anim data referencing
+  instance 10 / CosmeticEntity state 1) and clears them after 1.4 s. livereload157 shows
+  the original first-person reload animation (pistols flip, cylinders swap, guns return).
+  Volleys are suppressed while reloading; an opt-in ammo sync var (0x0035, sync index
+  53) counts down per volley and triggers the same reload at zero.
+- **Instance create flag.** The flag bit after the entity bit in an instance create
+  (0xa0adc0 → 0xd55d30 → entry +0x3c → instance +0x5d) is copied to entities the
+  instance spawns (effects/cosmetics). Setting it on the hero's graphs does not make the
+  client predict them.
+- **Local prediction.** The statescript inner's vtable slots 0xd8/0xe0 set and clear a
+  per-instance 0x400 bit (on instances with bit 0x8) plus execute bytes; dumps always
+  show them clear, consistent with a per-frame begin/end bracket. Component 47's slot
+  0x68 reports "locally owned" only when the entity's component 60 lists the selected
+  entity; no entity in the world has component 60, and no definition or create flag adds
+  it. How the original client gets local statescript prediction is still open.
+- **Player info.** Component 74's s8 field 2 (component +0xf2) is the team (-1 = none);
+  a native config-var evaluator (0xcf2120) returns it. Setting team 0 does not make the
+  HUD draw. Create flag 0x80 on a hero with component 31 adds components 86 and 136
+  (plus 69/122); create flag 0x20 adds 74; 0x10 selects the ownership builder.
+- **HUD diagnosis.** The client itself spawns the HUD subtree under 0x0cb6 (0x2056,
+  0x106b, 0x0dea, 0x0ec8, 0x1fc0) with negative (client-side) instance ids; all its UX
+  presenters run and create widgets, and every referenced UI resource (0a88…) is loaded,
+  but nothing draws. The visible hero-select presenter differs mainly in the root layer
+  GUID (09a0…008c versus the HUD's 09a0…0571).

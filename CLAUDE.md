@@ -1495,3 +1495,35 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   (Prometheus beta spawner set FilterBits/team) and/or a spawned/visible state; the
   earlier "boot" render was the selected entity. Next for bots: find the filter-bit
   /team component state and remote-entity position replication.
+
+## RELOAD WORKS + prediction/HUD findings (Claude, 2026-10-15, runs 152-157)
+
+- R = command button 0x100. Responder --reload-states 10:9,18,26 --reload-time 1.4
+  (driver -ReloadStates/-ReloadTime/-ReloadAfter) + StateData
+  '16:9=1:1,0:1,10:4,1:6,0:3,0:1;16:18=0:1,0:1' and PickVars s5=i1 (anim speed 0x0245).
+  Anim state data = optional (instance varint, 6-bit state index) reference + 3 bits +
+  flag; referencing 0x16 CosmeticEntity state 1 plays the reload on the pistols
+  (livereload157). Without the reference (156) nothing visible. Stack data = 2 bits,
+  Wait none (scratchpad ssfull.py emulation on the livebuttons144 dump, PID 48864,
+  hero comp47 0x1da25d251e0). --ammo 10:53:40:2 (driver -Ammo) counts down sync var
+  0x0035 per volley and auto-reloads at 0 (implemented, not yet run live).
+- Instance-create flag bit (--pick-graph-flag, driver -PickGraphFlag) -> instance +0x5d;
+  propagates to spawned effects; does NOT enable prediction (livepredict152).
+- Prediction: inner vt 0xd8/0xe0 (0x97b060/0x97b100) per-frame begin/end (0x400 on
+  instances with bit 8, +0x439/+0x5a1); comp47 vt 0x68 (0x64d990) = entity comp60 list
+  contains selected entity; comp 60 vft 0x260e8e0 (factory 0x5b3640, type getter
+  0xbc1900) exists on NO entity (compcensus). Caller of 0xd8 not found statically.
+  Inner +0x524 = 1 on the hero (comp43 link -> entity with comp29 = controller).
+- Create flag 0x80 (non-ownership builder 0x78cd22..): comp31 entity gets 86 (+136 if no
+  92/44); hero then has 69/86/122/136 (liveflag153). No visible change.
+- Comp74 +0xf2 (field 2, s8) = TEAM (-1 none; evaluator 0xcf2120). ControllerComp74
+  '2=0,6=1' sets team 0 (liveteam154/livehudteam155): no HUD, Tab no scoreboard.
+- HUD: client spawns 0x0cb6 subtree itself (instances 65534.. negative ids); UX presenter
+  vft 0x2636898 nodes run, widget at +0x210, screen GUID +0x448, layer GUID +0x440
+  (HUD 09a0...0571 vs visible hero-select 09a0...008c); all 0a88 UI resources typed
+  status 4. Widget objects (vft I+2644a08) look alike. Visibility gate still unknown.
+- Prometheus beta spawner also sets PlayerInfo (slot 3, selected hero, flags), FilterBits
+  team + 0x800000, entity var 0x00FD = 1 (unused by retail Tracer graphs) and weapon list.
+- Private scratch tools (session scratchpad): comp_addr.py, inst_list.py, comp60.py,
+  compcensus.py, comp74.py, res_state.py, presfields.py (old scratchpad), memdump.py.
+- Disk: ~113 GB free at 05:10 (each dump ~4 GB). Runs 152-157 cleanup audits pass.

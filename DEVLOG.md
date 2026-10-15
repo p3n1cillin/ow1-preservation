@@ -1901,3 +1901,15 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   HERO automatically, CONTINUE sends the pick, the chosen hero spawns in the spawn room,
   the overlay closes and the player moves and turns as that hero (liveautoselect125).
   Weapons, abilities and HUD are the next step.
+
+## 2026-10-15 — reload
+
+- Pressing R as Tracer now plays the original first-person reload: the responder turns
+  on the weapon script's reload stack, wait and animation states, giving the animation a
+  reference to the pistol cosmetic state (without that reference nothing plays). The
+  per-state data formats were confirmed in emulation before the live run
+  (livereload157). Firing is paused while reloading; an optional ammo counter reloads
+  automatically when empty.
+- Investigated, not solved: local statescript prediction (Blink/abilities), HUD
+  visibility (presenters and widgets exist, UI resources loaded, setting the player's
+  team does not show it), and non-controlled entity visibility.
