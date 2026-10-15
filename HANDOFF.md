@@ -51,6 +51,15 @@ heroes (run 198).
 
 ## Public-source research (Claude, 2026-10-15) — untested leads
 
+Broader companion: `reports/Overwatch 1 complete game reference.md` (notes in
+`research_notes/Overwatch 1 complete game reference/`). It covers modes/timers, final
+OW1 hero numbers (balance frozen 6 Jan 2022), maps/Practice Range, progression and
+cosmetics, BGS services (TrinityCore hashes), engine/formats, replay/kill cam, the
+Workshop/AI, history and legal context. It ends with a server roadmap and a list of
+unknowns that only the client data can answer. Recipe calibration to check: Tracer
+reload is 1.0 s with ammo restored at 0.686 s, and she fires 40 rounds/s (the recipe
+uses 1.4 s and 36).
+
 `reports/Overwatch 1 server emulation research.md` (notes in `research_notes/`)
 summarizes Reed's GDC 2017 Statescript slides, Ford's netcode talk, OWLib OW1-branch
 STU types, Prometheus artpop2, and the 1.74 community server fork. That fork is
