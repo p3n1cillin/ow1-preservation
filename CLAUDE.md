@@ -1477,3 +1477,15 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   inactive. livefire145 (PID 28532): 4 clicks -> 4 volleys -> recoil, tracers, impacts.
 - Next: ammo (0x0035/0x00c6), reload, abilities (Shift/E graphs 0x1a/0x24/0x34),
   practice targets/bots and damage, HUD.
+- HUD binding (runs 146/147): 0x106b presenters read entity var 0x2698 (flagged; also
+  an instance-scope read). Setting it to the hero entity (kind 13 entity value
+  'IDVd' bit + u32; --hud-entity-var 'g:2698;4:2698') stores correctly (dump: global
+  0x2698 = 0x80000305 type 0xa) but no HUD draws. Strings only show
+  "Spectator_Show1PHeroHUD"/"Spectator_ShowGameModeHud" setting names (index tables).
+- Bots (runs 148-150): hero records beyond the 32 playable ones (02e...016b-01f9,
+  no weapons) are AI/bot definitions; 0x04000000000014d2 is shared by records
+  0x0170-0x0172. Creating it works (entity 0x80000306 WORLD_RUNNING, 25 components incl.
+  28/43/47/51) but it is not visible near the spawn: module-3 position snapshots
+  (--extra-snapshot, repeatable) and the create transform (-SpawnAt flag 8) do not
+  place a non-controlled entity there. Remote-entity position replication still to find.
+  Map placeables 0x88/0x22e/0x234/0x289 have components 1,22,25,26,(58),76,94,97 only.
