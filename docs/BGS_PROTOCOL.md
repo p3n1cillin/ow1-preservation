@@ -1284,3 +1284,29 @@ emulates that server half; nothing below patches the client.
   wrong: a teleport into geometry is resolved by the client onto the top of the rock
   mass near (52.5, 30, 14.3). The local hero's component-1 render position is not a
   reliable position probe until the hero has moved.
+- **HUD chain to the client-mode byte (runs 178-180, emulated on dumps).** The UI
+  statescript entity (definition 04000000000001f1, root graphs 0x041a/041b/041c) is
+  owned by the global client root, not by a world, so "local player" predicates that
+  resolve through a world owner (AECBBA41 on entity reference 8985E00A) are always false
+  for it. The UI manager (vtable 0x26552a8) updates UI-entity globals every frame
+  (0xafd550): var 0x04d2 = (client mode byte == 5) and var 0x1c8d = (client mode == 9),
+  plus 0x08e3, 0x0522, 0x0a0d and 0x1df3 from other native state. The mode byte is
+  behind an encrypted pointer in a client game object (predicates 0x5981f0/0x597ba0/
+  0x597240/0x597880/0x597560 test modes 3/5/6/8/9). Our Practice Range join leaves the
+  client in mode 6, so UI graph 0x046b's first switch (0x04d2 or 0x1c8d) stays false. That
+  graph would otherwise send local message 0x05ce carrying graph 0x0bce; 0x0bce writes
+  var 0x09ba, which is the term of the UI root's condition (0x041a state 20) that can
+  become true. Only then does 0x041a run 0x120b, whose state 15 is a mode state machine
+  (vtable 0x26337e8; step 4 = 0x9cf9b0) that creates the HUD layers and sets HUD_Root's
+  bool 0d80…6729 (HUD_Root properties are 6720 and 6729). The UI manager's own HUD_Root
+  widget already exists but stays hidden.
+- **Things that did not open the HUD.** Activating 0x120b state 15 on the controller
+  (run 178): the state enters but its loader stays in mode 0 waiting for a native job
+  (set by events of types 0x2def1c0/0x2def1d0). A non-empty 20300 settings string
+  (+0x80/0/0/+0x110 and +0x4d8, run 179b): the strings arrive, but predicate CEFF290A reads
+  a different session string. Referral 20600 +0x28 = 1 instead of 2 (run 180): the client
+  stays in the Training menu, so 2 is required for the Practice Range.
+- **Prediction gate.** Statescript prediction (0x64d990) first requires a global byte
+  (image +0x2f7f840) that is 0 in our sessions. The earlier "entity component 60" reading
+  of the next check is correct (0xbc18d0 tests component bit 60), but the global gate
+  comes first. The writer of that byte has not been found.

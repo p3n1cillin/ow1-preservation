@@ -1612,3 +1612,16 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
 - Multi-bot: DefinitionGuid adds 04000000000014d2 at indices 2-4 with skins 1afd/1aff/
   1b00; Bot '2:53:2:22.8:200' etc. All three killed/respawned (server-estimate hits).
 - Runs 175-177 cleanup audits pass. PIDs: 175=38840, 176=45044, 177=14356.
+- HUD chain (runs 178-180, dump 177 emulation; private scratchpad uicheck.py/condnodes.py/
+  uiflags.py/tracefn.py in the fc082975 scratchpad): UI comp47 owner = global root
+  (vt 0x2612358), so AECBBA41 is always false there. UI manager 0x192788f9ac0-type object
+  (vt 0x26552a8) 0xafd550 sets UI globals: 0x04d2=(mode==5) via 0x597ba0, 0x1c8d=(mode==9)
+  via 0x597560; mode byte at decode([obj+0x48]) (obj+0x40 = session vt 0x2618a60) is 6.
+  0x046b node 1 (0x04d2||0x1c8d) false -> no 0x05ce{graph 0x0bce} -> no var 0x09ba ->
+  0x041a BooleanSwitch false -> no 0x120b -> no HUD_Root 6729. Find the mode-6 setter /
+  what the real practice range server sends to put the client in mode 5.
+- Run 178: 0x120b on controller, state 15 enters but loader stays mode 0 (+0x1c0 job null).
+  Run 179b: --settings-name sets 20300 +0x110 and +0x4d8 (strings present in memory, CEFF290A
+  still false). Run 180: temporary OW1_REFERRAL_KIND=1 -> client stays in Training menu
+  (reverted; tools/instance_referral.py unchanged). Run 179 = responder arg-split failure.
+- Prediction gate 0x64d990 needs global byte image+0x2f7f840 (0 here); writer unknown.
