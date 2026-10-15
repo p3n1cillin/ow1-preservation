@@ -178,6 +178,19 @@ heroes (run 198).
   - Tool: `.local/claude-scratch/session/instvar-269.py` (reads instance vars
     via 0xbe8b60(comp47, instance id, var GUID)).
 
+- **Range populated from map data (run 271):**
+  - The Practice map has exactly 15 entities with components [1, 110] (ids
+    0xc0000004..0xc000020c): the training-bot spawn markers.
+  - `.local/claude-scratch/session/comp-positions-271.py <dump> <pid> 110`
+    lists them with comp-1 positions (+0x90). Floors are y -4/-2/2/5/11; the
+    y=-2 floor matches the public health-pack coordinates.
+  - `.local/runs/run-livemode18-271.ps1` spawns 13 bots (0x14d2, three skins)
+    at 13 markers. Definitions are capped at 16, so 2 markers are unused.
+    Three bots patrol via framed snapshots.
+  - Live: bots stand across the range (upper deck, far target area, behind the
+    passage). This is the new baseline recipe (calibrated Tracer, mode 0x18,
+    snapshot frames).
+
 ## Continuation through 255 (Codex, 2026-10-15)
 
 Active objective: fully functioning Practice Range. Completion requirements are
