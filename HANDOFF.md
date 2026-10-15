@@ -108,6 +108,17 @@ heroes (run 198).
      - Responder opt-ins added: `--pick-controller-vars 'inst:key=g<hex>|i<n>|L<hex,..>|b0/1'`
        (GUID lists = kind 15/6 arrays) and `--pick-controller-guid-vars`. GRAPH_COUNTS
        now includes 0x2fca/0x1289.
+   - Game-server reliable channels (client receive side):
+     | Channel | Family (schema) | Dispatcher | What it carries |
+     |---|---|---|---|
+     | 2 | 25000 (8f89e0df) | 0x7d1dc0 | 19 handlers 0x6c2xxx..0x6c4xxx; 25003/4/5/7 raise UI messages, all fixed GUIDs (0x8cb, 0xf72, 0xf76, 0xf7b, 0xf7c) |
+     | 3 | 27500 (82a2f991) | 0x7d2400 | 0xb12cd0/0xb12d60: three entity ids + u64s (+ floats/bool in 27501) appended to world+0x138 via 0xb11070 = combat events (use later for damage numbers/kill feed) |
+     | 4 | 25800 (9f0a9f88) | 0x7d22a0 | 0xaeb2e0..0xaebd80: stats ("Stat: %s", "Shots Fired", time played) |
+     | 6 | 42900 | 0x7d1c70 | 7 table entries, no direct calls |
+     - 30700 (78 msgs), 22300, 25700, 42800 and 42700: only encoder/decoder
+       switches found (0x4b..0x4f range). Their client handlers are registered some
+       other way; not yet examined. 30700 is the most likely home for a generic
+       server-to-UI message.
    - Remaining hypotheses: the server delivers UI messages through a channel not
      yet decoded (e.g. statescript frame remote-message section RMFr/TrID on an
      entity whose client graph relays to UI), or a native path with an obfuscated
