@@ -660,3 +660,22 @@ rifle after switching to Soldier, so it is excluded from the normal recipe.
 Run 212 did not establish firing before its deadline. Cleanup audits for completed
 runs retain the original executable hash/signature, restore saved ACLs and stop
 owned processes. Private captures/dumps/scripts remain in ignored local storage.
+
+## 2026-10-15 — HUD subgraph scheduling regression (run 252)
+
+Rebuilt this agent's native tree with scripts/Build.ps1 -SkipDependencies; full
+build succeeds and all 25/25 CTest targets pass (tests.log: 13.26 seconds).
+Private responder syntax compilation passes. Offline replay uses run 250's actual
+first snapshot and its own dump: original update-only subgraph entries return 0
+at 3 bits; corrected creation returns 1 at 656/656 bits and the next activation
+returns 1 at 607/607 bits. Both subgraphs exist after the corrected pair.
+
+Live run 252 confirms first-send create flags true, then update flags false and
+late activation in the following frame. The dump has all 12 server instances,
+plus 0x0c90's client-spawned 0x1a36 and 0x20e4. Tracer's weapons stay visible;
+firing and the original reload animation work. HUD remains absent. Native
+condition evaluation reproduces selected-controller/hero-owner mismatch in
+0x20e4 node 19; its three UX presenters are inactive. All seven cleanup audit
+fields are true, original hash/signature retained, exact ACLs restored and owned
+processes stopped. UDP error log is empty. Reference dumps 250/252 and private
+replay/audit tools remain in shared ignored storage, listed in HANDOFF.md.

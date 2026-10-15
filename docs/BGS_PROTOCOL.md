@@ -1516,3 +1516,25 @@ The shared 40-round/36-per-second test parameters are not verified McCree tuning
 - Run 218 goes Tracer → Soldier: 76 → McCree in one session. Every hero fires, and
   McCree keeps his revolver through two volleys (Codex's state-encoding fix,
   runs 204-213).
+
+### HUD subgraph creation order (2026-10-15, run 252)
+
+Run 250's first captured hero full snapshot had base 3 and update-only entries for
+instances 11 (0x01cf) and 12 (0x0c90), although neither instance existed. Closing
+hero select had advanced the hero sequence before the first full send. The
+encoder used sequence zero to decide whether to create subgraphs, so the create
+packet was skipped entirely. Replaying that captured snapshot on dump 250 returns
+0 after consuming only 3 bits, with the manager still at frame 2.
+
+The private responder now bases creation on the first full-send count and advances
+the late-state sequence after that send. On dump 250, the corrected first snapshot
+creates both instances and succeeds at 656/656 bits; the next snapshot activates
+0x0c90 state 0 and succeeds at 607/607. This removes a transport/scheduling failure;
+it does not by itself establish a visible HUD or normal StateHero ownership.
+
+Run 252 live: both subgraphs and the 0x20e4 child exist, and Tracer's pistols,
+firing and reload remain functional. No HUD is visible. Native condition
+analysis finds 0x20e4 switch #159 false because it compares the selected
+controller with the hero owner. All three animation presenters are inactive;
+the hero HUD widgets exist with their parent-handle values unset. This narrows
+the next investigation to ownership and routing rather than another frame fix.

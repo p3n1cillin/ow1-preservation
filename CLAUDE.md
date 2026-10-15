@@ -1709,3 +1709,31 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   combined 180/181/300 duration acceptance through fingerprint guard and 301
   rejection. Private scripts/results live in .local/codex-scratch and .local/runs;
   see HANDOFF.md. HUD/previews remain unresolved; mode 6 is correct in-game mode.
+
+## 2026-10-15 — Codex HUD continuation after run 251
+
+- Replayed run 250's actual first hero full snapshot on its own dump (PID 49608,
+  hero comp47 0x230c1f11b80). Both subgraphs were update-only, not creates: the
+  close handler had incremented HERO_SNAP seq before the first full send. Native
+  interpreter returned 0 after 3 bits; instances 11/12 never existed.
+- Private responder now uses first full-send count for subgraph creates and moves
+  the late-state sequence increment after that first full send. Exact corrected
+  replay creates 0x01cf/0x0c90 at 656/656 bits, then activates StateHero at 607/607.
+  This invalidates the hypothesis that run 250 had demonstrated a StateHero reset.
+- Private repro .local/codex-scratch/hud252-replay.py legacy|fixed (cwd emulator
+  directory), results .local/runs/hud252-{legacy,fixed}.txt. The emulator step count
+  is cumulative: reset e.steps before starting the second record allocation.
+- Rebuilt Codex's native tree with scripts/Build.ps1 -SkipDependencies; full build
+  and all 25 CTest targets passed. Live run 252 repeats run 250 with scheduling fixed.
+
+Run 252 live result: corrected packets create instances 11/12, and StateHero on
+hero spawns 0x1a36 and 0x20e4 (client instance 65532). Pistols remain visible;
+firing/reload work; all seven cleanup checks pass, UDP errors empty. No HUD.
+Dump252 PID 1400, hero comp47 0x22bbeda1b80. Native condition evaluation shows
+20e4 #159/runtime19 false: its subvalues are selected controller 80000304 and
+own hero 80000305. Presenters nodes 16/11/12 are inactive/widget null; 01cf
+presenter widgets exist but parent-handle globals 272e/d42a are unset. Thus the
+hero-owner hypothesis does not satisfy the real gate. Next compare controller
+ownership and message routing/parent handles; do not rerun the same hero setup.
+Private reproducible audit hud252-audit.py writes hud252-native-audit.txt; keep
+252 as the new ownership baseline and 250 for exact scheduling-failure replay.

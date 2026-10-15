@@ -15,11 +15,13 @@ The old 1.0 ISO is not a dependency. Work is consolidated onto `main`.
 | M10: automatic 6v6 matchmaking | Not implemented or verified. |
 | M11–M12: complete content/stable hosting | Pending preceding original-client milestones. |
 
-Latest (2026-10-15, run 213): corrected state-entry classification and inactive
-firing-state payloads preserve McCree's revolver across two firing cycles and
-reload in the normal recipe. Switching from McCree to Soldier changes hands and
-accepts firing commands but leaves his rifle invisible; this regression remains
-open. Hero Gallery lists all heroes
+Latest (2026-10-15, run 252): fixed a HUD experiment's missing subgraph-creation
+packet. The original client now creates the hero HUD and animation graphs while
+keeping Tracer's weapons, firing and reload working. The HUD remains absent:
+the animation graph compares its hero owner with the selected controller and
+rejects that mismatch, so its presenters never start. Ownership/routing is the
+next step. Repeated hero changes and McCree's revolver are fixed (run 218).
+Hero Gallery lists all heroes
 (run 198), while cosmetics and models remain absent (run 203). The HUD gate is
 still unresolved; client mode 6 is the normal in-game mode. See HANDOFF.md for the
 current private recipe and BGS_PROTOCOL.md for the state encoding findings.

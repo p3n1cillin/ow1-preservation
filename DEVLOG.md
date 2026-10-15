@@ -1988,3 +1988,14 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
 - Two server-side mistakes caused this: the replacement hero's script updates were
   numbered as if it were the old hero, so the game waited for updates that never came,
   and a hero-select flag was never cleared, which disabled the H key.
+
+## 2026-10-15 — HUD setup packet ordering
+
+The failed HUD experiment in run 250 skipped the packet that creates its extra
+script graphs. Fixed the private responder to create those graphs before activating
+their states. Native emulation of both stages now succeeds against that run's own
+saved state. Run 252 keeps Tracer's weapons, firing and reload working, but still
+has no HUD. The new saved state exposes an ownership mismatch: the animation
+graph expects its owner to equal the selected controller, while we placed it on
+the hero. That comparison is false and its presenters never start. Rebuilt
+successfully with all 25 tests passing.

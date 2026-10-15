@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after run 251; previous update by Codex after run 213). Whoever stops
+Last updated 2026-10-15 by Codex (after run 252). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,9 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: liveheroc90-250 (0x0c90-on-hero failure, next to diagnose), livehudtrig233 (0x0bcf with HUD node running),
+  dumps deleted, D: copies removed). Current keep set: liveheroc90-252 (HUD ownership
+  comparison baseline), liveheroc90-250 (captured scheduling-failure replay),
+  livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
   livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
   emulation), plus `dumps\instance-sending5.dmp`. Delete each new run's dump after
@@ -49,7 +51,40 @@ H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer →
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
 
-## Latest HUD status (Claude, runs 235-251) — read first
+## Latest HUD status — read first
+
+- **Run 250 scheduling failure reproduced and fixed (Codex, 252):** the close step
+  advanced HERO_SNAP seq before the first hero full snapshot. Consequently that
+  first snapshot had base 3 and both subgraph create flags false. It updated
+  nonexistent instances 11/12, so native decoding returned 0 after only 3 bits.
+  This failure happened before StateHero ran; it is not evidence that StateHero
+  resets component 47. Subgraph creation now uses the first full-send count, and
+  the late-state sequence advances only after that first full frame is emitted.
+  On dump 250 itself, corrected creation consumes 656/656 bits and activation
+  607/607; both succeed and instances 11 (0x01cf) / 12 (0x0c90) exist.
+  Private repro: `.local/codex-scratch/hud252-replay.py legacy|fixed`, cwd emulator
+  directory; `.local/runs/hud252-legacy.txt` and `hud252-fixed.txt`.
+  Rebuilt in Codex's build tree: full build and 25/25 CTest pass.
+- **Live 252:** pistols render, firing/reload work, no HUD. All cleanup checks pass;
+  UDP errors empty. Dump PID 1400, hero comp47 0x22bbeda1b80. Instances 11/12
+  now exist, StateHero node 0 runs, and 0x0c90 spawns client graphs 0x1a36 and
+  0x20e4 (instance 65532). No component-47 reset occurred.
+- **New blocker:** 0x20e4 switch #159 (runtime node 19, condition at def+0xe8)
+  compares STU_8985E00A = selected controller 0x80000304 with STU_B5A0CAF0 = own
+  hero 0x80000305, and evaluates false. Its UX presenters #166/#178/#183
+  (nodes 16/11/12) are all inactive with no widgets. The hero 0x01cf presenters
+  have widgets, but message parameters/parent handles 272e/d42a are unset.
+  Native audit: `.local/codex-scratch/hud252-audit.py` from project root writes
+  `.local/runs/hud252-native-audit.txt`.
+- **Next:** resolve the intended ownership of 0x20e4 / hero HUD against selected
+  controller identity. The hypothesis that 0x0c90 must run on the hero is now
+  contradicted by that native equality gate. On-controller run 249 reached sender
+  #187 but did not establish delivery to hero HUD; compare routing/parent handles,
+  and consider a controller-owned 0x01cf control. Do not repeat the hero-owned
+  setup unchanged. Target STU_1D719351 semantics remain unproved; the simple
+  config-value evaluator does not apply directly to that target object.
+
+Earlier Claude findings (runs 235-251):
 
 - **Responder bug that invalidated runs 240-246:** loop variables named `_part`
   shadowed the `_part` encoder function, so `statescript_full_payload` crashed
@@ -64,8 +99,9 @@ heroes (run 198).
     #5=97, #41=1, #49=66, #101=178, #149=179, #155=181, #159=62, #84=126.
   - 0x1291 is sent only by 0x20e4 #187 (client-only STU_38EE1100). Its target #193
     is STU_1D719351, which has no broadcast flag, so it is probably the own entity.
-  - 0x20e4 is client-spawned from 0x0c90. So 0x0c90 (and therefore 0x20e4) very
-    likely has to run on the HERO, next to 0x01cf.
+  - 0x20e4 is client-spawned from 0x0c90. The earlier hypothesis that it should
+    share the hero owner with 0x01cf fails the selected-controller equality in
+    run 252; see the new ownership finding above.
 - **Run 251** (run-247 recipe + new `--server-game-message 1:0240000000001291
   --server-game-message-delay 8`; driver `-ServerGameMessageDelay`):
   - On the dump, 0x01cf #101 is running and waiting, and #84 is running.
@@ -79,11 +115,9 @@ heroes (run 198).
   - Emulating the exact sent frame (with and without state 12:0 and the 0x03ac GUID
     global) on dump 239 aligns perfectly (432/441/490/499 bits). So the failure is
     not frame encoding as seen from dump 239's state.
-  - **Next:** emulate the same frame on dump 250 itself (the hero's real state at
-    that time; PID in liveheroc90-250.log; hero comp47 via `session/comp_addr.py
-    <dump> <pid> 80000305 47`).
-  - Also check whether StateHero (0x0c90 state 0) on a hero entity resets
-    component 47.
+  - Resolved by the captured-frame replay in run 252 above: create flags were
+    false before the subgraphs existed. Correcting scheduling preserves component
+    47 and creates all expected instances; ownership is the next blocker.
 - Run 249 (0x0c90 late on the controller) reached #187, but 0x1291 did not reach
   the hero. Its dump was deleted.
 - Still open: Blink (the server dead-reckoned teleport drifts into geometry and the
