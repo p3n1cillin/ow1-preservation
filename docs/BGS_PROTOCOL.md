@@ -1310,3 +1310,24 @@ emulates that server half; nothing below patches the client.
   (image +0x2f7f840) that is 0 in our sessions. The earlier "entity component 60" reading
   of the next check is correct (0xbc18d0 tests component bit 60), but the global gate
   comes first. The writer of that byte has not been found.
+
+### Per-hero weapon configuration from the graphs (2026-10-15, runs 181-182)
+
+- The hand-tuned Tracer weapon recipe follows from the weapon-script graph's state
+  types, so it can be derived for every hero. Weapon models are CosmeticEntity states;
+  primary fire is the first WeaponVolley. The reload is the Anim whose alias is
+  0c80000000000004 (speed var 0x0245) plus the StateStack syncing var 0x0021 (the
+  "reloading" flag). Ammo, maximum ammo, weapon index and animation speed are the sync
+  slots of vars 0x0035, 0x00c6, 0x001c and 0x0245. The weapon manager (graph 0x15) states
+  39/43 are the same for every hero. A private generator decodes all 189 graphs used by
+  the 33 heroes that have weapons and reproduces Tracer's recipe exactly (cosmetics 0/1,
+  volley 8, reload 9/18, slots 5/6/29/53).
+- Soldier: 76 (livesoldier181): the picked definition spawns in first person with the
+  Heavy Pulse Rifle; holding fire produces volleys with tracers, the ammo counter drains
+  and reloads. His reload Anim selects its alias through an expression; driving it left
+  the rifle hidden, so only reload Anims with the constant alias are used.
+- McCree (livemccree182): spawns with the Peacekeeper, but the cosmetic state ends after
+  the first volley. Emulation shows the full snapshot is aligned (282 of 282 bits) and
+  re-enters both states, so client graph flow ends it. The weapon cosmetic sits in a
+  BooleanSwitch subgraph (McCree state 0, Tracer state 2, Soldier a nested false branch)
+  that the server does not activate.

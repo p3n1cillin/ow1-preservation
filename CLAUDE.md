@@ -1625,3 +1625,12 @@ Supersedes the "Next: trace the native 34-byte datagram" line above.
   still false). Run 180: temporary OW1_REFERRAL_KIND=1 -> client stays in Training menu
   (reverted; tools/instance_referral.py unchanged). Run 179 = responder arg-split failure.
 - Prediction gate 0x64d990 needs global byte image+0x2f7f840 (0 here); writer unknown.
+- Per-hero weapons (runs 181-182): private .local/re/hero-weapon-config-180.py ->
+  .local/runs/hero-configs-180.json (graph counts/types for 189 graphs + per-hero cosmetic/
+  volley/reload/slots). Responder --hero-configs (driver -HeroConfigs) + -PickGraphs
+  .local/runs/hero-graphs-125.json; apply_hero_config() at 0x1361 overrides the Tracer
+  args. Preload each hero's children (-PreloadDefinition, total <=64 incl graphs).
+  Roster x at 2560 width (y 928): Ashe 890, Bastion 945, McCree 1000, Doomfist 1050,
+  Echo 1105, Genji 1160, Hanzo 1210, Junkrat 1265, Mei 1320, Pharah 1375, Reaper 1430,
+  Soldier 1485, Sombra 1540, Symmetra 1595, Torbjorn 1645, Tracer 1700, Widow 1755;
+  tanks 435..810 step ~55; supports 1830..2160. Soldier PID 6708, McCree PID 35608.

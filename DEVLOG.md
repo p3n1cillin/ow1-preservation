@@ -1947,3 +1947,14 @@ clients/launchers/observers are stopped. Do not infer gameplay from this result.
   Without collision data they can land inside geometry.
 - Three skinned training bots stand outside the spawn room on verified floor. Shooting
   kills them and they respawn; the hit test uses the server's position estimate.
+
+## 2026-10-15 — more heroes; HUD gate found
+
+- Weapon setups are now generated from each hero's own graphs instead of being
+  hand-written for Tracer. Soldier: 76 can be picked and fires his rifle with tracers;
+  McCree spawns with his revolver, but it disappears when firing (his weapon model's
+  parent switch is not driven yet).
+- The missing hero HUD comes down to a native "client mode" value. The in-game UI only
+  starts in modes 5 or 9; our Practice Range join leaves the client in mode 6. Several
+  intermediate experiments (driving the in-game UI graph directly, filling settings
+  strings, changing the referral kind) did not open it.
