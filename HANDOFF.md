@@ -132,6 +132,21 @@ unresolved. Historical teleport recipes are not the best baseline.
   a target in geometry ends at the fallback (52.4,30.2,14.1). This also
   explains the old 'spawn on top of the spawn room then fall' report. 322
   (mirror ends before the final teleport) still lands on the roof.
+- **Generation makes teleports snap (runs 323-326, `-TeleportGen`,
+  `-SpawnSeqSends`, SpawnSequence targets `here` / `here+dx,dy,dz` from the
+  feed):** with field 3 = new generation the x/z jump is instant (no sweep).
+  Interpolation ring +0xe040 (0x30-byte {pos, time, gen}; 0xc5bd30/0xc5b820)
+  only interpolates between equal generations. But ~0.3-1.2 s after a ground
+  landing the client launches the hero straight up to a fixed hover height
+  y ~30.7 at any x/z (open field 70,-1.7,10 included; 'here' at the spawn exit
+  too). Teleports while hovering drop correctly. While the same state is
+  re-sent continuously (150 sends) the hero sits ~3.6 m BELOW the target, then
+  pops up and launches once the stream stops. So our snapshot's non-position
+  fields (left at the default prior 0x2f82d30: stance/height +0x34/+0x38 feed
+  the computed +0x2c/+0x30 = -2.5, etc.) disagree with the client's predicted
+  state. Next: obtain a genuine predicted state for comparison (the decoded
+  +0x420 history holds only our spawn states; heap scans around comp59 and
+  the simulator holder found none) and send matching fields.
   Next: find the native hard-teleport path (0xc5b640 equal/greater gen copies
   the state into the predicted entry at comp28 inner +0x420 + idx*0x370;
   field 1 = state +4 bit gates 0x7ca130 velocity derivation) by emulating
