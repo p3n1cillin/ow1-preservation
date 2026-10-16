@@ -1577,3 +1577,14 @@ the entity's stored movement history:
 - Live (run 269): position items carrying the reply's server frame in field 2
   move training bots continuously. Each reply sent one framed item per
   patrolling bot.
+
+
+### Recall Stack values and encoder validation (2026-10-16, run292)
+
+StateStack reader0x1b96460 consumes two flags on an active entry. The private
+encoder now refuses missing data for known Stack types instead of emitting a
+frame that shifts later states. A fresh predicted Recall audit through writer
+0x1b963e0 yields1,0 on Stacks15/28/33/35. The prior experiment supplied0,0.
+Matching those values, including states36/37 and sender37's zero payload,
+aligns at643/643 bits and keeps stage3 active in a live capture. It still does
+not enter rewind0, so these corrections do not establish functioning Recall.

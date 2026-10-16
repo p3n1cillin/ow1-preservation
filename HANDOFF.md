@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Claude (after runs 281-289; faster load-in, Recall prediction analysis). Whoever stops
+Last updated 2026-10-16 by Codex (after run 292; Recall Stack payload guard and native mirror audit). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livemode18-283-e1 (0.25 s after a first E press; Recall prediction already rolled back, PID 22460, hero comp47 0x13a4b356640), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  dumps deleted, D: copies removed). Current keep set: livemode18-292-e2 (Recall mirror stage3 active, PID21500, hero comp47 0x1f031996640), livemode18-283-e1 (0.25 s after a first E press; Recall prediction already rolled back, PID 22460, hero comp47 0x13a4b356640), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
   comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
@@ -50,6 +50,49 @@ Blink/Recall (server-side teleports) → three training bots that die and respaw
 H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
+
+## Codex continuation, run 292 (2026-10-16) - read first
+
+- The best baseline remains `.local/runs/run-livemode18-best.ps1`. Run292 is
+  experimental Recall mirroring; it is not a working Recall recipe.
+- Added a private encoder guard in `_stdt_entry`: an active StateStack with
+  fewer than two supplied data bits raises a clear error before the malformed
+  frame is emitted. Regression helper `.local/codex-scratch/recall292-guard.py`
+  rejects missing payloads on all four Recall Stacks 15/28/33/35 and accepts
+  valid data and inactive one-bit entries. No arbitrary payload defaults added.
+- Native writer audit after a fresh emulated E press: those four Stacks carry
+  bits `1,0`, not the `0,0` used by experiment289. Predicted states36/37 were
+  also omitted there; sender37 needs its zero compact-u16 bit. Correcting these
+  gives a full native replay at 643/643 bits, preserving predicted active nodes.
+  Helpers `recall292-serialize.py`, `recall292-stable.py`, `recall292-replay.py`
+  and corresponding text reports are in `.local/codex-scratch` / `.local/runs`.
+  The raw writer outputs are node payloads, not a replacement for the complete
+  wire envelope (Ability still has its verified leading data fields).
+- Fixed private emulator `ssfull2.py` to supply STATEDATA through the responder's
+  normal STATE_DATA path, retaining payloads for inactive two-bit entries as
+  well as active ones; this also makes the Stack guard apply to native replays.
+- Live292: floor spawn, native Blink to the doorway, firing and manual reload
+  work. Two E presses are accepted (mirror frames5/6 and7/8), but neither
+  visibly rewinds. UDP stderr empty; all seven cleanup/integrity checks pass.
+  The camera turns toward the ceiling on automated mouse-click firing; that
+  is the known input artifact, not evidence of a movement/Recall teleport.
+- Mid-press reference `retail-private-livemode18-292-e2.dmp`: PID21500,
+  hero comp47 0x1f031996640, Recall instance 0x1ef2341edf0. Capture triggered
+  on the second mirror-on event, with a 0.2 s delay. Its stage3/node4 runs;
+  rewind0/node1 does not. Ability node24 flag+270 is0 and the deferred queue
+  is empty. Nodes12/13/23/27/59/69/72/73/74/60 are active. Thus corrected
+  Stack values keep the first stage present but do not hand off to rewind.
+- Next: trace the authored transition that ends state3 and begins state0, or
+  implement and verify the complete server timeline. Graph state3 has its
+  onEnd connected to rewind0. Its subgraph contains states9/10/11/23; state0's
+  subgraph includes2/12/27/1/26/5/7/14/18/34. Do not declare Recall fixed from
+  active stage3 or frame alignment alone. Rewind's reader0x8eeef0 consumes a
+  u16 and converts it into a duration-like field at node+0x970; its meaning
+  and a useful value still need verification, rather than assuming zero works.
+- Validation: Python compilation, guard regression, native643/643 replay,
+  four public `tests/instance_bits.py` tests, and the bounded live session.
+  No native sources changed this turn; the previous25/25 CTest result is not
+  presented as a fresh run. Full Practice Range goal remains active/incomplete.
 
 ## Load-in, spawn and Recall prediction (Claude, 2026-10-16, runs 281-289) — read first
 

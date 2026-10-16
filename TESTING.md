@@ -696,3 +696,24 @@ never calls the native header loader for18. The guard now explicitly accepts
 both Practice modes. Follow-up requires rebuild after cleanup and a mode18 run.
 See HANDOFF.md for private audit scripts, recipes and the message-order hypothesis.
 The full goal and remaining acceptance requirements are in docs/PRACTICE_RANGE_PLAN.md.
+
+
+## 2026-10-16 - Recall mirror audit and bounded run292
+
+The private encoder now rejects active StateStack entries without two data bits.
+Regression checks cover the four missing Recall Stack payloads that invalidated
+runs284-288; valid and inactive forms still encode. Native client writer output
+for Stacks15/28/33/35 is1,0, whereas experiment289 sent0,0. Adding omitted
+states36/37 and sender37's zero bit gives a643/643-bit native full replay.
+The private replay helper now uses the responder's normal STATE_DATA path,
+including inactive two-bit payloads.
+
+Run292 preserves floor spawn, native Blink, firing and manual reload. Two
+Recall mirror pulses are accepted without crash, but neither rewinds. A dump
+captured during the second pulse shows stage3 running and rewind0 inactive,
+with Ability flag+270=0 and an empty deferred queue. The next investigation
+is the authored stage3-to-stage0 handoff or the complete server timeline.
+UDP stderr is empty and all seven cleanup/integrity checks pass. Four public
+instance-bit tests and the guard/native replay checks pass. No fresh CTest or
+native-build result is claimed; native sources were unchanged.
+Private evidence and reference coordinates are listed in HANDOFF.md.
