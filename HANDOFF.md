@@ -1599,3 +1599,9 @@ Notes:
   then shooting each other.
 - Per-hero HUD patch applied to the responder/driver (backups .bak372); best recipe has
   `HeroHudConfigs='.local/runs/hero-hud-configs-372.json'` (live check pending).
+- **Per-hero HUD live for Soldier: 76 (run 374):** hero_hud entry applied (states
+  `2:3;5:17,31;6:7,16;7:15,32;10:11,23,42;11:0,9,40,67,69,70;12:15,66,139,138,67`,
+  subgraph `12:0x01cf:2:3`, comp75 0x02e000000000006e): portrait, "SOLDIER: 76", 200/200,
+  crosshair, ult meter (charges from hits), Sprint/Biotic Field/Helix icons, rifle and
+  ammo (`livemode18-374-full.png`); 3 bot kills. Ammo max is still the generic 40
+  (Soldier 25): per-hero magazine sizes still needed in the ammo option.
