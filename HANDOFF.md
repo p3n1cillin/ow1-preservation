@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  dumps deleted, D: copies removed). Current keep set: livemode18-279-e (E held, Recall), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
   comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
@@ -107,6 +107,24 @@ heroes (run 198).
     must be 0). Accepted, but no rewind; the pistols may twitch. Recall is
     still open. The best recipe has no Recall teleport (the old one threw the
     hero into the sky).
+  - Run 279: live dump with E held (`retail-private-livemode18-279-e.dmp`,
+    PID 8308, hero comp47 0x20f3f676640).
+    - Pressed list = [36, 110]. Ability node 24 is running; its inline press
+      record (+0x290: button 36, pressed) has been consumed (count +0x288 = 0).
+    - States 17 (node 27), 3 (node 4) and 0 (node 1) are NOT running.
+    - All Recall/Blink state defs have +0x78..+0x7b = [1,0,0,0], so the local
+      activation gate is not the blocker.
+  - Readiness check 0xca8d20 (`session/abil-ready-279.py`, emulated on that
+    dump with the press record restored):
+    - def+0x150 button is empty; it then uses def+0x158 = 36 with a hold time
+      from def+0x148, and press qualification via 0xc9e6f0.
+    - It sets the start flag only if the press qualifies ([rbp+0x67]) AND at
+      least one condition at 0xca9308 is set: [rbp+0x6f], r12b, r15b, r14b =
+      entity check 0xc1cc30, and sil/bl/al = 0x1b95e10 checks on
+      def+0x1c0/0x1c8/0x1d0/0x1d8 objects from 0x8f6b40.
+    - Live/emulated all are 0, so it only marks node+0x270 |= 4 ("ready").
+    - Next: decode those condition configs (graph 0x1a #40 bool fields and
+      m_3B7BED2E STU_A1AAB8C4) and whether a server sync var must be set.
   - It is driven by Ability state 16 (button 36 = E), which sits under
     Switch 22 (false branch) under Stack 29. Data forms: 29 = `0:1,0:1`,
     22 = `0:1`, 16 = `0:8,0:1,0:1` (reader 0xc84ac0); var 0x2562 = s34. They
