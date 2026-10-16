@@ -1509,3 +1509,9 @@ Notes:
   ConvertFrom-Json in @() (PS 5.1 makes the array one element; first attempt failed at
   probe startup with missing --cert/--key, clean). Next E2: both into one instance
   session (instance_referral port parameter, multi-client responder).
+- Run 369 (portrait attempt: hero PickSubgraph `12:0x0b6c:0:0`, GRAPH_COUNTS 0xb6c=(4,35),
+  0xb6c state types added to graph-state-types.json, HeroLateStates `12:7` +
+  StateData `b6c:7=0:1`, hero states `11:15,66,138,139`): client stable; the card now
+  shows a level badge "6 | TRACER" but the portrait hexagon is still empty. Dump 369
+  sent to the HUD agent. Responder: BlinkChargesVar now also gated by EXTRA_OK
+  (Tracer instance 2 = Blink graph; for Soldier instance 2 is 0x4b).
