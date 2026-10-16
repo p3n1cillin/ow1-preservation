@@ -92,6 +92,31 @@ unresolved. Historical teleport recipes are not the best baseline.
   are nominally shown but draw nothing; next suspect is their data binding
   (local player/hero context), not attachment. I+27f7fc0 references are not a
   visibility marker (the hidden hero select still has them).
+- Presenter vs widget wiring (294/257): `m_45017CEA` is the presenter's
+  published widget-handle variable, not its parent. Type-7 handle =
+  {state index, instance id}: controller 0x20e4 instance 4 has 0x2ad4 =
+  0x900040004 (state 9) and 0x2e27 = 0xa00040004 (state 10); hero globals hold
+  0x23000b0004 / 0x28000b0004 (0x01cf instance 11). Hero select's handle var is
+  0x07b2 (unset). Startup layers by serial: 1 = 0273, 2 = GameLayer 029b,
+  3 = HUD_Root 0502, 4 = MenuLayer 029c, 5 = 0503, 6 = DialogLayer 0514,
+  8 = System_Clock 0513. All have show state -1. Visible hero-select presenter
+  node vs HUD presenter nodes differ at +0xf0 (1 vs 0), +0x240 (1 vs 0x20/0x23),
+  +0x250/+0x258 (one-entry array vs empty); meanings not established.
+  0x01cf presenters 155/235 are gated by `NOT var 0x2af6`.
+- **Muzzle origin (Tracer shoots from the stomach):** graph 0x16 CosmeticEntity
+  states 0/1 (runtime nodes 1/2, vt 0x2630450) look up child pistol entities
+  by identifier 0x1b9b/0x1b9c on hardpoints 0x0a/0x0b and publish them in
+  synced vars s49 = 0x0031 / s50 = 0x0032. Volley #230 fires from hardpoint
+  0x06 of those entities. On 294 both nodes hold -1 at +0x1d0/+0x1d8 and
+  0x31/0x32 do not exist. Tracer's definition 0400...0001 lists
+  `m_childEntityData`: 0x0169 at hardpoint 0x11 and two 0x0017 pistols at 0x0b/0x0a
+  with identifiers 0x1b9c/0x1b9b. **No child entities are created** (the only
+  class-6 entities with components [1,3,4,82] are map objects far from the
+  hero). The visible pistols come from another path. The create record has
+  no parent field (0x78dab0: flag 1 type/skin, 2 movement snapshot, 4 scale,
+  8 transform). Next: find how child entities are instantiated or replicated
+  (runtime STUEntityDefinition descriptor image+0x3090590, size 0x50, array
+  field at +0x38 is the child list candidate), then sync s49/s50.
 - Mask-getter ids (`session/maskid-296.py`): 0xbcacb0 = comp 25, 0x5d4520 = 26,
   0xbd59a0 = 44, 0xbd5ef0 = 50, 0xbc9610 = 57. Module-2 sections (0xb40130,
   0xb24600, 0xb22900) work on component 50, which our controller and hero
