@@ -1293,3 +1293,12 @@ Notes:
   `.local/runs/run-livemode18-best.ps1` now includes FilterBits (players team 0,
   bots team 1), W518, QueueFirst 23310 and TeamColors f6/f7 (backup .bak337).
   HUD still not drawn; third agent investigating `.local/re/hud-render-336.md`.
+- **TELEPORT LAUNCH SOLVED (run 340): it was the spawn-room barrier ejecting a hero
+  with no team.** Run 339 (targets 10 m BELOW, no team) snapped to the target and was
+  pushed up to the first free surface (y ~1.0): depenetration. Run 340 = run 334's
+  teleports (gen, server frames, 4 sends, `here+3,1.0,0` / `here+0,2.0,-3` /
+  `here-3,0.5,0`) plus team bits (FilterBits players 0x10840001, bots 0x11040001,
+  W518, 23310 colours): all three land exactly at the target (3.02, 3.96, 2.43) and
+  fall ~1 m to the floor (1.76-2.0). Earlier "+10 m launches" (runs 326-335) and the
+  first-spawn y 12 were team-less heroes inside the spawn room's enemy barrier.
+  Generation teleports are now usable for Recall/respawn/Blink when the hero has a team.
