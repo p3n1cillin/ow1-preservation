@@ -1415,3 +1415,10 @@ Notes:
   (inst9/0x15 state 38) is gated on 0x0ebc, written only by StateStack 23 with is-top 1:
   StateData changed `15:23=0:1,0:1` -> `15:23=1:1,0:1`; still no visible crosshair in
   355 (checking the dump). General rule: StateStacks whose value matters need is-top 1.
+- **Ultimate charge from hits (run 356):** private responder `--ult-charge
+  'COST:START:PER_HIT'` (driver `-UltCharge`) injects hero globals 0x0152 (cost) /
+  0x0156 (charge) and raises the charge per server-registered bot hit (snapshot at
+  most every 0.25 s). With '1000:0:4' the meter climbs 0 -> 21 -> 36 -> 42 -> 63%
+  while shooting the bot (`livemode18-356-ult.png`). Cost/rate are approximations,
+  not the original charge rules; Q at 100% (server-side Pulse Bomb) is not
+  implemented. Best recipe now uses UltCharge '1000:0:4'.
