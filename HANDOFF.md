@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-15 by Claude (after runs 256-264, mode 0x18). Whoever stops
+Last updated 2026-10-16 by Claude (after runs 256-275; native Blink works). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  dumps deleted, D: copies removed). Current keep set: livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
   comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
@@ -50,6 +50,61 @@ Blink/Recall (server-side teleports) → three training bots that die and respaw
 H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
+
+## NATIVE BLINK WORKS (Claude, 2026-10-16, runs 272-275) — read first
+
+- **Best current recipe:** `.local/runs/run-livemode18-best.ps1`. It combines
+  run 271's bots without the fake patrol, the calibrated Tracer, mode 0x18,
+  native Blink and Recall states, and no server Blink/Recall teleports.
+- **Tracer Blink is client-predicted with collision**, like the original. Two
+  inputs were missing:
+  1. Graph 0x24 state 0 (LogicalButton) must be active, with 4 data bits:
+     `PickExtraStates '...;2:0'`, StateData `24:0=0:4`.
+  2. Its press flow (Wait state 20, then condition #27) requires
+     `var 0x000b > 0` (charges; Ability state 38 sync var, slot s11), var
+     0x2562 (slot s34), NOT global 0x003e, and config #318 (global 0x0021
+     priority). Fix: `PickExtraVars '2:s11=i3,s34=i1'`.
+  - Run 274 shows correct dashes, stopping at walls, landing on the floor.
+    The user confirmed Blink is good.
+  - Charges are not decremented or recharged yet; s11 stays 3, so Blink is
+    unlimited.
+- **How the client handles input:**
+  - Pressed logical buttons are listed per entity at comp47+0xd0+0x440
+    (count +0x448). Shift = 35, E = 36; dump 272 shows [35, 114] on BOTH the
+    hero and the controller.
+  - LogicalButton node: vt 0x2637e20; update 0x1b9d280; press handler
+    0x1b9f160; links via 0x1b73fa0 -> 0x1b74220.
+  - Local activation gate: instance vt+0xc0 = 0x99af30. It allows when
+    +0x318 bit 10 is clear and bit 19 is set, refuses if target def+0x7b,
+    and otherwise uses def+0x7a.
+- **The run-160 crash is explained:** LogicalButton data was missing. That
+  STOP at 0xf661e4 is the generic "missing/garbled state data" signature.
+- **Server-driven Blink states do NOT move the hero** (run 273: states
+  25/11/2/3/6/7 entered, no motion), so movement needs client prediction.
+  Data forms (emulator-verified): Anim 11 = `0:1,0:3,0:1`; states 2/3/7
+  (types 3bc72de1/75d1c308) = `0:1`; PhysicsExplosion 25 and BlinkEffect 6 =
+  none; ChaseVar 4/5 irregular.
+- **Recall (graph 0x1a) is not working yet:**
+  - It is driven by Ability state 16 (button 36 = E), which sits under
+    Switch 22 (false branch) under Stack 29. Data forms: 29 = `0:1,0:1`,
+    22 = `0:1`, 16 = `0:8,0:1,0:1` (reader 0xc84ac0); var 0x2562 = s34. They
+    are in the best recipe.
+  - The Ability is running, and emulating an E press passes the block check
+    and calls activation 0x1b714e0. Live, nothing rewinds.
+  - Activation sequence: Ability -> state 17 -> state 3 (54feb21c, no data)
+    -> state 0 (41b3fc2b, 16-bit reader 0x8eeef0, but combined emulation
+    over-reads 4 bits).
+  - Next: compare the Ability's predicted-activation path (slot 0x1d8,
+    0x8eb450) with Blink's LogicalButton path.
+- Bot patrol (`--bot-patrol`) is only a movement-replication test (a sine
+  wave with no collision). The user saw it clip through walls. Real bots need
+  authored paths/AI; patrol is removed from the best recipe.
+- Session helpers (`.local/claude-scratch/session/`): btnlist-272.py,
+  btn-eval-272.py, press-emu-273.py, instvt-273.py, abil-btn-275.py,
+  abil-press-275.py, graph-flow-272.py, graph-back-272.py. Dumps:
+  livemode18-272-shift (Shift held) and 273-blink are reference dumps.
+- Responder: (0,-8) state-data token = byte alignment (unused; the Ability
+  data turned out to be 8+1+1 bits).
 
 ## Mode 0x18 HUD runs 256-264 (Claude, 2026-10-15) — read first
 
