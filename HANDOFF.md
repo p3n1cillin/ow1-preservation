@@ -54,6 +54,42 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
+## Recall prediction mechanics (Claude, 2026-10-16, runs 299-304) - read first
+
+- **Live sampler:** `.local/claude-scratch/session/recall-addrs-300.py <dump> <pid>`
+  (resolve hero instance-1 node/queue/clock addresses from a dump of the
+  running client) + `livesample-300.py <pid> <secs> <out.jsonl> label=addr:size ..`
+  (ReadProcessMemory at ~30 kHz, logs changes). Logs `.local/runs/30x-sample.jsonl`.
+- **40-tick reconcile:** 0xa0b200 (called from 0xa093e0) takes the client tick
+  (0x979210 -> 0x7fc490 -> vt+0x10) minus 0x28; once the oldest predicted entry
+  is older, it sets instance bit 10 (inner vt+0xd8 0x97b060), restores
+  (0xa0f5d0) and replays (0xa0ab00). Live 301/302/304: E is predicted (states
+  17/3/9/15/23 on, queue fills) and exactly 0.64 s later all drop.
+- **CmFD is in client ticks:** the interpreter stores it at manager +0x900 and
+  uses the current tick when 0; the hero graph-create frame has no CmFD, so
+  +0x900 starts at the client tick. Our hero frames sent 4000+seq (future).
+  New `--hero-cmfd-ticks` (driver `-HeroCmfdTicks`): CmFD = max(prev+1, last
+  command seq + 8) per hero frame change. Live 302: spawn/pistols fine, CmFD
+  1669; Ability +0x270 now resets to 0 after the reconcile (before: stuck 3).
+- **Rewind state 0 must start locally:** its enter handler 0x8ed090 (vt+0x280)
+  returns immediately when edx == 2 (server restore); its normal path sets
+  +0x238 (end time = now + config*1000 ms) and the history index +0x270 that the
+  update 0x8ee160 requires (+0x270 == -1 skips movement). So server-entered
+  state 0 (runs 299/303: active 1.3 s with correct start time) never moves.
+- Live 303 (cmfd ticks + mirror + phase B): mirror and phase B apply; state 0/1
+  run server-entered; no movement; client exit 0x1 ~0.45 s after mirror-off.
+  Live 304 (cmfd ticks + mirror phase A only, 3 s): states still drop at
+  +0.64 s despite the server frame listing them active; mirror-off did not
+  crash. State 3's update is vt+0x60 (0x8e5a90): re-queues state 3/31/11
+  records; state 3's runtime def +0xf8 = var 0x018b cv (+0xf0 null; the slot
+  0x90 listener reads +0xf0, so it is not the end path). What really ends state 3
+  (likely the wind-up anim via DataFlowMapping 10) is not established.
+- New responder options (all opt-in, not in the best recipe): `--recall-var`
+  (instance UVGu var write mid-mirror), `--hero-pulse`, `--recall-phase2` token T.
+- **Load-in race fixed:** run 300 lost hero select because graph creates (33 s)
+  went out only 1 s after the controller create (32 s); best recipe now
+  31/32/34/36 and controller full frames wait for 60 graph-create sends.
+
 ## Session 297-298 (Claude, 2026-10-16) - read first
 
 - **Live testing blocked:** runs 297/298 hit the Windows lock screen (ow-ui
