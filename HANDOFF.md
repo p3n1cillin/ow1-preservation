@@ -1333,3 +1333,9 @@ Notes:
   destroyed and vanishes instantly (no death animation) and later shots hit the wall.
   No enemy health bar/outline visible (no HUD yet). Death presentation should use
   the bot's authored death state instead of an immediate destroy (todo).
+- Run 344 (`--bot-death-hold 2.5`, driver `-BotDeathHold`: replicate health 0, keep
+  the entity 2.5 s, then destroy): bot stays standing at 0 HP, no native death
+  presentation. Bot def 04000000000014d2: STUHealthComponent m_73AEA60D
+  [STU_9EA55F3D {05c0..0015, 0da0..000d}], graphs 0x33 (StatescriptStateHealthPool,
+  ModifyHealth), 0xbe2, 0xa5b, 0x2206 (dumps `.local/re/graph-*-344.txt`). Agent
+  decoding module-2 combat events -> `.local/re/module2-combat-344.md`.
