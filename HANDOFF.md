@@ -1465,3 +1465,8 @@ Notes:
   host pre-creation is useless. Recommended pair design: both clients in ONE shared
   AppContainer profile (shares the lock like a normal machine). E1 (second client to
   the menu) is the deciding test. Build + all 26 CTest targets passed.
+- **MUZZLE ORIGIN FIXED (run 361):** sending weapon-instance sync slots 49/50 (vars
+  0x0031/0x0032) as CosmeticEntity node handles `10:s49=h10.1,s50=h10.0` makes Tracer's
+  volley originate at both pulse-pistol muzzles (blue muzzle flashes at the barrels,
+  `livemode18-361-grid.png`); 3 bot kills, client stable. Promoted to the best recipe.
+  Other heroes: set each CosmeticEntity state's output var to {1, weapon inst, state, 0}.
