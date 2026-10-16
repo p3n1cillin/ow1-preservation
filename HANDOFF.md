@@ -1402,3 +1402,8 @@ Notes:
   N=5: 31 sent, bot killed/respawned twice, client alive; final dump: controller
   0x80000304 comp59 hit ring (+0x12d0; cap 32, idx 25, count 26) filled. No visible
   hit marker yet (crosshair presenter not active). Best recipe gets HitConfirmEvery=5.
+- Run 353 (`--bot-death-fields`: on kill, component 51 pool 0 = 0 HP plus fields
+  48-52 = u32 0, u32 0, killer = hero id, u8 1, u8 1; held 3 s before destroy): bot
+  stays standing, no death presentation, client fine. The ragdoll chain 0x1b18330 <-
+  0x1ae7790 <- 0x1b0e280 <- scene/model code has no network trigger found. Death
+  presentation remains open (likely server statescript states of the bot graphs).
