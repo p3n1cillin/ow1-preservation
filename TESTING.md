@@ -765,3 +765,46 @@ as state data instead. The focused entry/exit and metadata checks and Python
 compilation pass. No native source or public runtime changed; no fresh build or
 CTest result is claimed. The best recipe remains the run 293 baseline. Next:
 trace root display/attachment while preserving the working ownership branches.
+
+## 2026-10-16 - E0 named-mutex namespace self-test (no game)
+
+New CTest target `offline-launch-mutex-namespace` runs
+`ow1-offline-launch <launcher> --self-test-mutex`. It does not use any game
+files, and no network capability is granted. The launcher creates its normal
+temporary AppContainer profile plus a second one (`.m1`), and each passes the
+existing network-isolation child probe. It then re-runs itself in-container as
+`--mutex-probe <name> hold|release`. The child reproduces the final client's
+MutexLock sequence:
+
+1. `CreateMutexW` with the client's descriptor (Medium label);
+2. on failure, `CreateMutexW` with the default descriptor;
+3. on error 5, `OpenMutexW(SYNCHRONIZE)`;
+4. on error 2, retry, up to 5 attempts.
+
+The child accepts only reserved `Global\OW1-E0-*` names, never storage names.
+Three cases are measured: cross-package, same-package, and a launcher-pre-created
+mutex whose DACL names the owner, SYSTEM and both package SIDs, with a Low label.
+For each object, the test prints whether it already existed and which kernel
+directory class holds it. Session numbers and SIDs are not printed. The test
+requires the following:
+
+* both profiles are deleted;
+* every test object is gone after its handles close;
+* the exact launcher/folder ACLs are restored;
+* the same-package control actually shares its object;
+* a non-test name is refused.
+
+Observed on Windows 11 (10.0.26300):
+
+* Inside an AppContainer, `Global\` resolves to that package's own
+  `AppContainerNamedObjects` directory, not to `\BaseNamedObjects`.
+* The client's descriptor create fails with 1314, because a Low token cannot
+  apply a Medium label. The default-descriptor fallback then succeeds.
+* Two different packages each get a **separate** mutex. Neither sees the other's
+  object, and no error 5 occurs. Two processes in the same package share one
+  mutex.
+* The host cannot open a container's object by the same name (error 2). A
+  host-pre-created `Global\` mutex is invisible to both containers, so
+  pre-creation in the host namespace cannot provide a shared lock.
+
+All 26 CTest targets pass.

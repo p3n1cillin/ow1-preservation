@@ -1445,3 +1445,23 @@ Notes:
   definition; best recipe uses Tracer 0400000000000001 so hero changes (Soldier etc.)
   do not receive Tracer's instance numbers. Per-hero HUD presenter states still need
   deriving for the other heroes.
+- **Muzzle origin cause (agent, `.local/re/child-entities-354.md`, emulated on 348):**
+  the client creates ALL m_childEntityData children locally (0x17d3480 -> 0x1830a50)
+  when their definitions are preloaded (keep -PreloadDefinition 0400000000000017);
+  the server must NOT create them; comp136 is unrelated. Tracer's volley muzzles read
+  hardpoint 0dc0000000000006 from the entity named by weapon-instance vars 0x0031 /
+  0x0032, which hold CosmeticEntity NODE HANDLES {u16 1, u16 inst, u16 state, u16 0}
+  resolved through comp47+0x11b0 (0x9a0c90 -> 0x9a0db0). Unset -> viewmodel root /
+  hero origin = the bottom-centre tracers. Responder now has value kind 14 handles
+  (`_handleval`, PickVars `h<inst>.<state>`): Tracer `10:s49=h10.1,s50=h10.0`
+  (27 bits incl. kind nibble and StEC bit). Run 361 tests it (waits for the E0 build).
+- **E0 two-client mutex self-test (agent; `.local/re/two-client-e0-360.md`; public
+  `tests/offline_mutex.ps1`, CTest `offline-launch-mutex-namespace`, launcher
+  `--self-test-mutex` / `--mutex-probe`):** inside an AppContainer `Global\` resolves
+  to the package's own AppContainerNamedObjects directory. Different profiles get
+  SEPARATE mutexes (no error 5; client descriptor create fails 1314, default create
+  succeeds); same-profile processes share one; a host-precreated mutex is invisible
+  to containers. So the CASC mutex does NOT explain the old second-client exit 1 and
+  host pre-creation is useless. Recommended pair design: both clients in ONE shared
+  AppContainer profile (shares the lock like a normal machine). E1 (second client to
+  the menu) is the deciding test. Build + all 26 CTest targets passed.

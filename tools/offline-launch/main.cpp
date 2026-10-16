@@ -602,6 +602,80 @@ int network_probe() {
     std::cout << "app_container=" << is_container << " connect_result=" << result << " wsa_error=" << error << std::endl;
     return is_container && result == SOCKET_ERROR && error == WSAEACCES ? 0 : 4;
 }
+// E0 named-mutex namespace self-test. Only names with this prefix are accepted,
+// so the probe can never touch the client's real storage mutexes.
+constexpr wchar_t mutex_test_prefix[] = L"Global\\OW1-E0-";
+// The final client's MutexLock descriptor (Vista+ variant with Medium label).
+constexpr wchar_t client_mutex_sddl[] = L"D:(A;;GA;;;WD)(A;;GA;;;AN)S:(ML;;NW;;;ME)";
+
+// Classify the kernel directory holding a named object without printing
+// session numbers or package SIDs: "base" = \BaseNamedObjects (the host's
+// Global namespace), "appcontainer" = a per-package AppContainerNamedObjects
+// directory, "session" = a per-session BaseNamedObjects, else "other".
+std::string object_namespace(HANDLE handle) {
+    using Query = LONG(NTAPI*)(HANDLE, ULONG, PVOID, ULONG, PULONG);
+    const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryObject"));
+    if (!handle || !query) return "none";
+    std::vector<unsigned char> buffer(4096); ULONG size = 0;
+    if (query(handle, 1 /* ObjectNameInformation */, buffer.data(), static_cast<ULONG>(buffer.size()), &size) < 0) return "unknown";
+    const auto name = reinterpret_cast<UNICODE_STRING*>(buffer.data());
+    const std::wstring path(name->Buffer ? name->Buffer : L"", name->Length / sizeof(wchar_t));
+    if (path.find(L"\\AppContainerNamedObjects\\") != std::wstring::npos) return "appcontainer";
+    if (path.starts_with(L"\\BaseNamedObjects\\")) return "base";
+    if (path.starts_with(L"\\Sessions\\") && path.find(L"\\BaseNamedObjects\\") != std::wstring::npos) return "session";
+    return "other";
+}
+
+// In-container child: reproduce the client's MutexLock sequence on a test name:
+// CreateMutexW(client SD) -> CreateMutexW(default SD) -> on error 5 only,
+// OpenMutexW(SYNCHRONIZE); error 2 retries (5 attempts). Initial ownership
+// is FALSE. Prints one line; "hold" keeps the handle until the host ends it.
+int mutex_probe(const std::wstring& name, bool hold) {
+    if (!name.starts_with(mutex_test_prefix) || name.size() > 96
+        || name.find_first_not_of(L"Global\\OW1-E0abcdefghijklmnopqrstuvwxyz0123456789-") != std::wstring::npos)
+        return 5;
+    HANDLE token = nullptr; DWORD is_container = 0, size = 0;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+        GetTokenInformation(token, TokenIsAppContainer, &is_container, sizeof(is_container), &size);
+        CloseHandle(token);
+    }
+    auto status = [](HANDLE handle, DWORD error) {
+        return handle ? std::string("OK") : "ERR:" + std::to_string(error);
+    };
+    std::string client_sd = "SKIP", fallback = "SKIP", open = "SKIP", result;
+    HANDLE mutex = nullptr; DWORD error = 0; bool existed = false; unsigned attempt = 0;
+    for (; attempt < 5; ++attempt) {
+        PSECURITY_DESCRIPTOR descriptor = nullptr;
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(client_mutex_sddl, SDDL_REVISION_1, &descriptor, nullptr)) {
+            error = GetLastError(); client_sd = "SDDL_ERR:" + std::to_string(error); break;
+        }
+        SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
+        SetLastError(0);
+        mutex = CreateMutexW(&attributes, FALSE, name.c_str());
+        error = GetLastError(); LocalFree(descriptor);
+        client_sd = status(mutex, error);
+        if (mutex) { existed = error == ERROR_ALREADY_EXISTS; break; }
+        SetLastError(0);
+        mutex = CreateMutexW(nullptr, FALSE, name.c_str());
+        error = GetLastError();
+        fallback = status(mutex, error);
+        if (mutex) { existed = error == ERROR_ALREADY_EXISTS; break; }
+        if (error != ERROR_ACCESS_DENIED) break;   // client: "CreateMutex() failed"
+        mutex = OpenMutexW(SYNCHRONIZE, FALSE, name.c_str());
+        error = GetLastError();
+        open = status(mutex, error);
+        if (mutex || error != ERROR_FILE_NOT_FOUND) break;  // client retries only error 2
+    }
+    result = mutex ? "ACQUIRED" : "FAILED:" + std::to_string(error);
+    std::cout << "app_container=" << is_container << " client_sd_create=" << client_sd
+              << " default_create=" << fallback << " open_synchronize=" << open
+              << " attempts=" << (attempt < 5 ? attempt + 1 : 5) << " already_exists=" << existed
+              << " object=" << object_namespace(mutex) << " result=" << result << std::endl;
+    if (hold && mutex) Sleep(30000);  // Bounded; the host job ends this child earlier.
+    if (mutex) CloseHandle(mutex);
+    return 0;
+}
+
 int graphics_probe() {
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     IWbemLocator* locator = nullptr;
@@ -629,23 +703,32 @@ int graphics_probe() {
     return 0;
 }
 PROCESS_INFORMATION launch(PSID sid, const std::wstring& exe, const std::wstring& extra, bool debug = false,
-                           const std::wstring& working_directory = L"") {
+                           const std::wstring& working_directory = L"", HANDLE output = nullptr) {
+    // Optional self-test output: inherit exactly this one pipe handle as the
+    // child's stdout/stderr. Without it, nothing is inherited (unchanged).
+    const DWORD attribute_count = output ? 2 : 1;
     SIZE_T bytes = 0;
-    InitializeProcThreadAttributeList(nullptr, 1, 0, &bytes);
+    InitializeProcThreadAttributeList(nullptr, attribute_count, 0, &bytes);
     auto attributes = static_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(HeapAlloc(GetProcessHeap(), 0, bytes));
     checked(attributes != nullptr, "Allocate attributes");
-    checked(InitializeProcThreadAttributeList(attributes, 1, 0, &bytes), "Initialize attributes");
+    checked(InitializeProcThreadAttributeList(attributes, attribute_count, 0, &bytes), "Initialize attributes");
     SECURITY_CAPABILITIES capabilities{};
     capabilities.AppContainerSid = sid; // No Internet, LAN, or other capabilities.
     checked(UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
                                       &capabilities, sizeof(capabilities), nullptr, nullptr), "Set capabilities");
+    if (output) checked(UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                                                  &output, sizeof(output), nullptr, nullptr), "Set inherited output");
     STARTUPINFOEXW startup{};
     startup.StartupInfo.cb = sizeof(startup);
     startup.lpAttributeList = attributes;
+    if (output) {
+        startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startup.StartupInfo.hStdOutput = output; startup.StartupInfo.hStdError = output;
+    }
     PROCESS_INFORMATION process{};
     auto command = L"\"" + exe + L"\" " + extra;
     const auto directory = working_directory.empty() ? std::filesystem::path(exe).parent_path().wstring() : working_directory;
-    const bool success = CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE,
+    const bool success = CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, output ? TRUE : FALSE,
                                        EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED | (debug ? DEBUG_ONLY_THIS_PROCESS : 0), nullptr,
                                        directory.c_str(), &startup.StartupInfo, &process);
     const auto error = GetLastError();
@@ -653,6 +736,175 @@ PROCESS_INFORMATION launch(PSID sid, const std::wstring& exe, const std::wstring
     SetLastError(error); checked(success, "Create isolated process");
     return process;
 }
+// Host side of the E0 self-test. sid0 is the launcher's normal profile; a
+// second temporary profile is created and always deleted here. No game files,
+// network capabilities or real storage names are involved.
+int mutex_self_test(PSID sid0, const std::wstring& base_profile, const std::wstring& own_path) {
+    const auto profile1 = base_profile + L".m1";
+    PSID sid1 = nullptr;
+    HANDLE job = nullptr, precreated = nullptr;
+    struct Child { PROCESS_INFORMATION process{}; HANDLE output = nullptr; };
+    std::vector<Child> children;
+    children.reserve(4);
+    auto end_children = [&]() {
+        if (job) { TerminateJobObject(job, 0); }
+        for (auto& child : children) {
+            if (child.process.hProcess) { WaitForSingleObject(child.process.hProcess, 5000); CloseHandle(child.process.hProcess); }
+            if (child.process.hThread) CloseHandle(child.process.hThread);
+            if (child.output) CloseHandle(child.output);
+        }
+        children.clear();
+    };
+    bool profile1_deleted = false;
+    auto cleanup = [&]() {
+        end_children();
+        if (job) { CloseHandle(job); job = nullptr; }
+        if (precreated) { CloseHandle(precreated); precreated = nullptr; }
+        if (sid1) { FreeSid(sid1); sid1 = nullptr; profile1_deleted = SUCCEEDED(DeleteAppContainerProfile(profile1.c_str())); }
+    };
+    try {
+        const HRESULT hr = CreateAppContainerProfile(profile1.c_str(), L"OW1 mutex self-test", L"No network capabilities", nullptr, 0, &sid1);
+        if (FAILED(hr)) throw std::runtime_error("Create second profile: " + std::to_string(hr));
+        // Same launcher-file grant as the first profile; restored by the
+        // caller's existing exact ScopedAcl capture of this file.
+        allow(sid1, own_path, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE, NO_INHERITANCE);
+        {
+            auto probe = launch(sid1, own_path, L"--child-probe");
+            ResumeThread(probe.hThread);
+            DWORD code = 1;
+            if (WaitForSingleObject(probe.hProcess, 10000) == WAIT_OBJECT_0) GetExitCodeProcess(probe.hProcess, &code);
+            else TerminateProcess(probe.hProcess, 1);
+            CloseHandle(probe.hThread); CloseHandle(probe.hProcess);
+            if (code) throw std::runtime_error("Second profile network isolation probe failed: " + std::to_string(code));
+        }
+        std::cout << "E0 second profile network isolation verified." << std::endl;
+        job = CreateJobObjectW(nullptr, nullptr);
+        checked(job != nullptr, "Create mutex test job");
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        checked(SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits)), "Set mutex test job");
+
+        auto start = [&](PSID sid, const std::wstring& name, bool hold) -> Child& {
+            SECURITY_ATTRIBUTES inherit{sizeof(inherit), nullptr, TRUE};
+            HANDLE read = nullptr, write = nullptr;
+            checked(CreatePipe(&read, &write, &inherit, 0), "Create probe output pipe");
+            SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
+            Child child; child.output = read;
+            try {
+                child.process = launch(sid, own_path, L"--mutex-probe " + name + (hold ? L" hold" : L" release"), false, L"", write);
+            } catch (...) { CloseHandle(read); CloseHandle(write); throw; }
+            CloseHandle(write);
+            children.push_back(child);
+            checked(AssignProcessToJobObject(job, child.process.hProcess), "Assign mutex probe job");
+            checked(ResumeThread(child.process.hThread) != static_cast<DWORD>(-1), "Resume mutex probe");
+            return children.back();
+        };
+        auto read_line = [](Child& child) {
+            std::string line;
+            const auto begin = GetTickCount64();
+            while (GetTickCount64() - begin < 10000) {
+                DWORD available = 0;
+                if (!PeekNamedPipe(child.output, nullptr, 0, nullptr, &available, nullptr)) break; // writer closed
+                if (!available) { Sleep(10); continue; }
+                char c = 0; DWORD got = 0;
+                if (!ReadFile(child.output, &c, 1, &got, nullptr) || !got) break;
+                if (c == '\n') break;
+                if (c != '\r') line += c;
+                if (line.size() > 512) break;
+            }
+            if (line.find("result=") == std::string::npos) throw std::runtime_error("Mutex probe produced no result line");
+            return line;
+        };
+        // Unique test names: launcher PID plus a fresh random value.
+        uint32_t random = 0;
+        checked(BCryptGenRandom(nullptr, reinterpret_cast<PUCHAR>(&random), sizeof(random), BCRYPT_USE_SYSTEM_PREFERRED_RNG) >= 0, "Random test name");
+        std::wostringstream stem;
+        stem << mutex_test_prefix << GetCurrentProcessId() << L"-" << std::hex << std::setw(8) << std::setfill(L'0') << random;
+
+        auto run_case = [&](const char* label, const std::wstring& name, PSID first, PSID second) {
+            auto& holder = start(first, name, true);
+            const auto first_line = read_line(holder);
+            // Can the host (normal token, Global = \BaseNamedObjects) see the
+            // holder's object under the same Global\ name?
+            HANDLE host_view = OpenMutexW(SYNCHRONIZE, FALSE, name.c_str());
+            const auto host_error = GetLastError();
+            const std::string host_line = host_view ? "OK object=" + object_namespace(host_view) : "ERR:" + std::to_string(host_error);
+            if (host_view) CloseHandle(host_view);
+            auto& other = start(second, name, false);
+            const auto second_line = read_line(other);
+            checked(WaitForSingleObject(other.process.hProcess, 10000) == WAIT_OBJECT_0, "Second mutex probe exit");
+            end_children();
+            std::cout << "E0 case=" << label << " first: " << first_line << std::endl;
+            std::cout << "E0 case=" << label << " second: " << second_line << std::endl;
+            std::cout << "E0 case=" << label << " host_open_while_held: " << host_line << std::endl;
+            return std::make_pair(first_line, second_line);
+        };
+        const auto cross = run_case("no-precreate-cross-package", stem.str() + L"-a", sid0, sid1);
+        const auto same = run_case("no-precreate-same-package", stem.str() + L"-s", sid0, sid0);
+
+        // Launcher pre-creation: exact name, owner + SYSTEM + both package SIDs,
+        // Low label, no initial ownership. An existing object is refused.
+        const auto precreate_name = stem.str() + L"-p";
+        HANDLE token = nullptr;
+        checked(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token), "Open launcher token");
+        std::vector<unsigned char> user_buffer(256); DWORD user_size = 0;
+        const bool user_ok = GetTokenInformation(token, TokenUser, user_buffer.data(), static_cast<DWORD>(user_buffer.size()), &user_size);
+        CloseHandle(token);
+        checked(user_ok, "Read launcher user");
+        LPWSTR user_text = nullptr, sid0_text = nullptr, sid1_text = nullptr;
+        checked(ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER*>(user_buffer.data())->User.Sid, &user_text)
+            && ConvertSidToStringSidW(sid0, &sid0_text) && ConvertSidToStringSidW(sid1, &sid1_text), "Format SIDs");
+        const std::wstring sddl = std::wstring(L"O:") + user_text + L"D:P(A;;GA;;;" + user_text + L")(A;;GA;;;SY)(A;;GA;;;"
+            + sid0_text + L")(A;;GA;;;" + sid1_text + L")S:(ML;;NW;;;LW)";
+        LocalFree(user_text); LocalFree(sid0_text); LocalFree(sid1_text);
+        PSECURITY_DESCRIPTOR descriptor = nullptr;
+        checked(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr), "Pre-creation descriptor");
+        SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
+        SetLastError(0);
+        precreated = CreateMutexW(&attributes, FALSE, precreate_name.c_str());
+        const auto create_error = GetLastError();
+        LocalFree(descriptor);
+        checked(precreated != nullptr, "Pre-create test mutex");
+        if (create_error == ERROR_ALREADY_EXISTS) throw std::runtime_error("Pre-created test mutex already existed; refused");
+        std::cout << "E0 precreate=OK" << std::endl;
+        const auto pre = run_case("precreated-cross-package", precreate_name, sid0, sid1);
+        CloseHandle(precreated); precreated = nullptr;
+
+        // Every test object must be gone once all handles are closed.
+        bool absent = true;
+        for (const auto& suffix : {L"-a", L"-s", L"-p"}) {
+            const auto name = stem.str() + suffix;
+            HANDLE leftover = OpenMutexW(SYNCHRONIZE, FALSE, name.c_str());
+            const auto error = GetLastError();
+            if (leftover) { CloseHandle(leftover); absent = false; }
+            else if (error != ERROR_FILE_NOT_FOUND) absent = false;
+        }
+        cleanup();
+        auto acquired = [](const std::string& line) {
+            return line.find("app_container=1 ") == 0 && line.find(" result=ACQUIRED") != std::string::npos;
+        };
+        const bool contained = cross.first.starts_with("app_container=1 ") && cross.second.starts_with("app_container=1 ")
+            && same.first.starts_with("app_container=1 ") && same.second.starts_with("app_container=1 ");
+        std::cout << "E0 objects_absent=" << absent << " second_profile_deleted=" << profile1_deleted << std::endl;
+        auto shared = [](const std::string& line) { return line.find(" already_exists=1 ") != std::string::npos; };
+        // Detection control: a second process in the SAME package must see the
+        // first one's object, otherwise "not shared" results mean nothing.
+        const bool control = acquired(same.first) && acquired(same.second) && shared(same.second);
+        const bool passed = contained && control && acquired(pre.first) && acquired(pre.second) && absent && profile1_deleted;
+        std::cout << "E0 summary same_package_shared=" << shared(same.second)
+                  << " cross_package_shared=" << shared(cross.second)
+                  << " cross_package_both_acquired=" << (acquired(cross.first) && acquired(cross.second))
+                  << " precreated_seen_by_first=" << shared(pre.first)
+                  << " precreated_seen_by_second=" << shared(pre.second)
+                  << " precreated_both_acquired=" << (acquired(pre.first) && acquired(pre.second)) << std::endl;
+        std::cout << (passed ? "E0 mutex namespace self-test passed." : "E0 mutex namespace self-test FAILED.") << std::endl;
+        return passed ? 0 : 1;
+    } catch (...) {
+        cleanup();
+        throw;
+    }
+}
+
 DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
                 const std::atomic<bool>* completed = nullptr) {
     DWORD64 image_base = 0;
@@ -718,6 +970,8 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--child-probe") return network_probe();
     if (argc == 2 && std::wstring(argv[1]) == L"--graphics-probe") return graphics_probe();
+    if (argc == 4 && std::wstring(argv[1]) == L"--mutex-probe")
+        return mutex_probe(argv[2], std::wstring(argv[3]) == L"hold");
     if (argc >= 4 && std::wstring(argv[1]) == L"--loopback-bridge") return loopback_bridge::run_container(argc, argv);
     // --retail-private [--forward PORT[:HOSTPORT]]... [-- CLIENT_ARGS...]
     std::vector<loopback_bridge::Forward> forwards;
@@ -824,7 +1078,7 @@ int wmain(int argc, wchar_t** argv) {
         argc = 3;
     }
     if (argc < 2 || argc > 3) {
-        std::cerr << "ow1-offline-launch PATH [--self-test|--graphics-test|--debug|--snapshot|--retail-snapshot|--retail-offline|--wmi-workaround|--run-offline|--map-probe|--map-probe-no-speech|--map-probe-preload|--map-probe-voice-request|--map-probe-stages|--catalogue-schema-probe|--catalogue-import-probe]\n";
+        std::cerr << "ow1-offline-launch PATH [--self-test|--self-test-mutex|--graphics-test|--debug|--snapshot|--retail-snapshot|--retail-offline|--wmi-workaround|--run-offline|--map-probe|--map-probe-no-speech|--map-probe-preload|--map-probe-voice-request|--map-probe-stages|--catalogue-schema-probe|--catalogue-import-probe]\n";
         std::cerr << "Final research probes: --retail-map-probe, --retail-map-worker-probe, --retail-map-tick-probe,\n"
                      "  --retail-map-context-probe, --retail-map-context-tick-probe, --retail-map-context-tick-debug, --retail-map-loader-probe, --retail-map-resource-probe, --retail-map-loading-context-probe, --retail-map-metadata-probe\n";
         return 2;
@@ -860,7 +1114,7 @@ int wmain(int argc, wchar_t** argv) {
         const bool omit_speech = mode == L"--map-probe-no-speech" || preload;
         const bool probe_map = mode == L"--map-probe" || omit_speech;
         const bool wmi_workaround = mode == L"--wmi-workaround" || disc_interactive || probe_map;
-        if (mode != L"" && mode != L"--self-test" && mode != L"--graphics-test" && mode != L"--debug"
+        if (mode != L"" && mode != L"--self-test" && mode != L"--self-test-mutex" && mode != L"--graphics-test" && mode != L"--debug"
             && mode != L"--snapshot" && mode != L"--wmi-workaround" && !retail && !interactive && !probe_map) throw std::runtime_error("Unknown diagnostic option");
         if (retail && sha256(exe) != retail_profile::sha256)
             throw std::runtime_error("Retail launch only supports the fingerprinted final OW1 executable");
@@ -904,6 +1158,15 @@ int wmain(int argc, wchar_t** argv) {
             { loopback_bridge::HostForwarder bridge(sid, {{1, 1}}); bridge.start(); Sleep(100); }
             std::cout << "Host bridge idle-listener cleanup passed." << std::endl;
             FreeSid(sid); DeleteAppContainerProfile(profile.c_str()); return 0;
+        }
+        if (argc > 2 && std::wstring(argv[2]) == L"--self-test-mutex") {
+            // E0: named-mutex namespace across two AppContainer profiles. Uses
+            // only Global\OW1-E0-* test names; no game or storage is touched.
+            const auto result = mutex_self_test(sid, profile, own_path);
+            FreeSid(sid); sid = nullptr;
+            const bool deleted = SUCCEEDED(DeleteAppContainerProfile(profile.c_str()));
+            std::cout << "E0 first_profile_deleted=" << deleted << std::endl;
+            return result || !deleted ? 1 : 0;
         }
         if (argc > 2 && std::wstring(argv[2]) == L"--graphics-test") {
             auto graphics = launch(sid, own_path, L"--graphics-probe");
