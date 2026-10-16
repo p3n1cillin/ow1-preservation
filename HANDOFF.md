@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Claude (after runs 256-275; native Blink works). Whoever stops
+Last updated 2026-10-16 by Claude (after runs 281-289; faster load-in, Recall prediction analysis). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livemode18-279-e (E held, Recall), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  dumps deleted, D: copies removed). Current keep set: livemode18-283-e1 (0.25 s after a first E press; Recall prediction already rolled back, PID 22460, hero comp47 0x13a4b356640), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
   comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
@@ -51,7 +51,68 @@ H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer →
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
 
-## NATIVE BLINK WORKS (Claude, 2026-10-16, runs 272-275) — read first
+## Load-in, spawn and Recall prediction (Claude, 2026-10-16, runs 281-289) — read first
+
+- **Faster load-in (runs 282/283, now in `.local/runs/run-livemode18-best.ps1`):**
+  the user saw a long wait at a "random place" (default world camera after the
+  loading screen), a jump to another place (the controller), then hero select.
+  - Old timeline: diagnostic selection 30 s, controller selection 45 s, controller
+    create 50 s, graphs 60 s, hero select 63 s.
+  - New timeline: 30 / 31 / 33 / 35 / 37 s. The driver has a new
+    `-SelectDefinitionDelay` (was hard-coded to 45). Hero select now appears about
+    5 s after the loading screen.
+- **Spawn height:** `-PickSpawn 48.71,2.05,37.77`. The old default y = 6.31 dropped
+  Tracer about 4 m from near the spawn-room ceiling. The responder now starts the
+  spawn snapshots after the second hero create (`PICK['sent'] >= 2`, 12 snapshots)
+  instead of after all 40. About 1-2 s of intermediate first-person frames remain
+  (the hero first appears at its create-time default position). Not fixed yet.
+- **Recall (graph 0x1a) is client-predicted and gets rolled back:**
+  - Emulated E press (`session/abil-flow-281.py`): press handler 0xc847c0 queues
+    a deferred record (state 16 = 1). Gate 0xc85560 -> 0xca8d20 qualifies the
+    press (buffered press record +0x280, window from def+0x148). It then calls
+    0xc96d40 and 0xc99460, which sets node+0x270 |= 1 and fires the Ability's
+    output plug (0x1b73fa0). The links queue deferred begin records on the
+    instance (+0xc8 list; 0x1b92990 only if instance vt+0x138 says local).
+    0x1b921f0 processes them by time (dispatch 0x1b91690 by record type +0x22).
+  - Emulated result: states 3, 9, 10, 15, 17, 23, 28, 33, 35, 36, 37 turn on
+    (state 11/31 briefly). Vars change: 0x009a = 1.0f (s26), 0x0021 = true
+    (global), 0x02bb = true (s59). State 0 (41b3fc2b, the rewind) starts only
+    when state 3 (54feb21c, with sub-states 9/10/11/23) ends.
+  - Live (dumps 281-e, 283-e1): 0.25 s after the first E press, none of these
+    states run, the record queue is empty and the Ability stays flagged
+    node+0x270 = 3. Later presses then take the ca87e0 path and do nothing.
+    The server sent no hero frame bump on E. So the client itself rolls back
+    the prediction (reconcile against the last server statescript state). Same
+    mechanism as the old double blink (charges mismatch -> replay).
+  - Experimental `--recall-mirror 'MASK:INST:STATES:SECONDS:G/S=d/w,..;..:SC/KEY=VAL|..:DELAY'`
+    (driver `-RecallMirror`): one hero frame bump on E with the predicted
+    states, data and vars, and one bump back after SECONDS. New float value kind
+    `('float', x)`: kind 5 (u4 -> float) or kind 8 (raw f32).
+    - Runs 284-288: client exit 1 immediately. Cause (exact replay of the sent
+      payload, `full-payload-*.json`, on the run-288 pre-mirror dump):
+      the four Stacks 15/28/33/35 had no STATE_DATA in the responder, so the
+      frame misaligned and hit the fatal path 0xf661e4. **Every entered Stack
+      needs `0/1,0/1` data.** The responder does not check this; add a guard.
+    - Run 289 (data fixed): no crash, Ability flag resets, but still no rewind.
+      Server-entered states appear to be treated as server-driven, so state 3
+      never hands over to state 0 on the client.
+  - Next: make the server frame match the prediction exactly, so the client
+    does not roll back (find the reconcile/compare code, inner vt 0xd8/0xe0
+    0x97b060/0x97b100 set instance bit 10 during resimulation), or drive the
+    full timeline (3 -> 0 with its sub-states) from the server.
+  - Emulator additions: `ssfull2.py` env `PRESS=inst:node:button` (emulate a
+    fresh press + record processing first), `POSTTICK=inst:n` (tick the
+    instance afterwards), `PAYJSON=file` (replay an exact sent payload), float
+    and bool INSTVARS (`f`, `b`). `session/recall-full-283.sh` wraps it for
+    dump 283-e1. The responder writes `full-payload-*.json` for the two hero
+    full frames after a mirror press (DUMP_FULL).
+- Tools this session: `session/abil-flow-281.py` (press -> gate -> records ->
+  timed ticks; prints active states and var diffs), `recall-state-281.py`,
+  `hdr-scan-281.py` (client body module headers: only module 3 commands,
+  module 0 reliable; no upstream statescript on E), `instvar-281.py`,
+  `instvt138-281.py`, `recall-statemap-281.txt` (0x1a state -> node index).
+
+## NATIVE BLINK WORKS (Claude, 2026-10-16, runs 272-275)
 
 - **Best current recipe:** `.local/runs/run-livemode18-best.ps1`. It combines
   run 271's bots without the fake patrol, the calibrated Tracer, mode 0x18,
