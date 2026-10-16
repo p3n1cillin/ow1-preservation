@@ -1775,3 +1775,23 @@ UDP stderr is empty and all seven cleanup/integrity checks pass. Four public
 instance-bit tests and the guard/native replay checks pass. No fresh CTest or
 native-build result is claimed; native sources were unchanged.
 Private evidence and reference coordinates are listed in HANDOFF.md.
+
+## 2026-10-16 - HUD parent correction and bounded run293
+
+Corrected the private best recipe's hero HUD parent from graph 0x4b runtime
+node 7 to authored state 3 (PSIn). Native comparison replay consumes 519/519 header
+bits and 474/474 interpreter bits, and records the expected parent state.
+Live 293 confirms parent 6/state 3, floor spawn, native Blink, firing and manual
+reload, but the HUD remains absent. Controller widgets exist; hero listener 178
+finds its sender while Stack 179 and presenters 181/62 stay inactive.
+
+UDP stderr is empty and all seven cleanup/integrity checks pass. The 293 dump
+was deleted after read-only analysis; 264 remains the routing reference. Private
+helpers/reports are shared under .local/codex-scratch and .local/runs (hud293-*).
+Three offline instance ticks on 264 see empty update queues and no callbacks;
+this is a snapshot limitation, not evidence of a broken live scheduler.
+Dump-time f0=0 alone does not establish whether a listener previously fired.
+Next: trace sender parameter delivery and scheduling into listener 178 / Stack 179.
+Recall and the full Practice Range requirements remain unresolved. No native
+source changed or fresh CTest run was performed for this recipe-only change.
+Python compilation and all four public instance-bit tests pass.

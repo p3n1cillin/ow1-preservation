@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Codex (after run 292; Recall Stack payload guard and native mirror audit). Whoever stops
+Last updated 2026-10-16 by Codex (after run 293; corrected HUD parent and bounded live comparison). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -46,10 +46,46 @@ the short "where are we, how do I run it, what next".
 
 Load-in → original SELECT A HERO → pick → spawn in the spawn room in first person →
 move/look → fire (Tracer, Soldier: 76, McCree; tracers/impacts, ammo, reload) →
-Blink/Recall (server-side teleports) → three training bots that die and respawn →
+native Tracer Blink with collision and server-tracked charges → 13 static training bots →
 H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer → Soldier
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
+
+Recall, HUD, authored bot movement and complete combat/roster behavior remain
+unresolved. Historical teleport recipes are not the best baseline.
+
+## Codex continuation, run 293 (2026-10-16) - read first
+
+- Corrected the best private recipe's hero HUD parent to
+  `PickSubgraph='11:0x01cf:6:3'`. Graph 0x4b object 68 has state index 3 and
+  runtime node 7; PSIn carries the state index. Runner StateData still names
+  child 11. No other recipe behavior changed.
+- Offline helper `.local/codex-scratch/hud293-parent-replay.py` creates a
+  comparison child 12 under 6:3 on reference 292-e2. Native header consumes
+  519/519 bits; interpreter consumes 474/474. Old child 11 records parent
+  state 7; new child 12 records 3 at instance+0x2c. This is decoding/metadata
+  evidence, not proof of UI rendering.
+- Bounded live 293 reaches hero select and Tracer floor spawn. Native Blink
+  reaches the doorway; firing records one shot in frames 5/6 and manual reload
+  frame 7. HUD remains absent. UDP stderr empty; all seven cleanup checks true.
+- Read-only `.local/codex-scratch/hud293-audit.py` writes
+  `.local/runs/hud293-native-audit.txt`: hero HUD parent is 6, state 3;
+  controller 20e4 parent 3, state 42. Controller widgets 11/12/16 exist. Hero
+  listeners 97/178 are active and listener 178 finds sender 15; Stack 179 and
+  presenters 181/62 remain inactive with no widgets. Correcting parentage alone
+  therefore does not resolve the HUD. The 293 dump was deleted after analysis;
+  264 remains the message-routing reference.
+- Offline `hud293-tick264.py`: three instance ticks and direct update-list
+  calls produce no listener callbacks on reference 264; both update lists are
+  empty in that snapshot. This does not prove the live scheduler is broken.
+  `hud293-listener-begin264.py` is a negative diagnostic: calling native begin
+  and refreshing lookup does not activate the presenters. Do not interpret
+  dump-time f0=0 alone as proof a listener never fired; it is transient, and
+  registration itself increments the 1b1 generation counter.
+- Next: trace actual sender parameter delivery / event scheduling into hero
+  listener 178 and its Stack 179 output. Preserve parent 6:3. Recall's stage3 to
+  rewind0 handoff remains a separate open task described below. Full Practice
+  Range completion requirements remain in `docs/PRACTICE_RANGE_PLAN.md`.
 
 ## Codex continuation, run 292 (2026-10-16) - read first
 
