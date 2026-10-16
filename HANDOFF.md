@@ -125,6 +125,20 @@ heroes (run 198).
     - Live/emulated all are 0, so it only marks node+0x270 |= 4 ("ready").
     - Next: decode those condition configs (graph 0x1a #40 bool fields and
       m_3B7BED2E STU_A1AAB8C4) and whether a server sync var must be set.
+  - Gate 0xc85560 on the E-held dump (`session/abil-cd-280.py`): the cooldown
+    value is 0 (ready), 0x1ba4060 = 0, and the entity check 0xc1d860 returns 0.
+    - 0xc1d860 uses mask function 0xbcacb0 = COMPONENT 25. Components 25/26
+      are the team/filter components (see the comp-26 notes and the AECBBA41
+      filter-bit gate).
+    - So Recall's predicted start most likely depends on the hero's
+      team/filter state, the same unresolved problem as hostility and hit
+      feedback. Next: decode component 25's layout (its state at comp+0x18 is
+      not plain like comp 26's; `comp-vt-266.py` fails on it) and what
+      0xc1d860 tests.
+  - 0xc1cc30 (the r14b condition in 0xca8d20) is an anti-tamper
+    return-address check, not gameplay.
+  - 0x1b95e10 is the ability priority-stack check (instance mgr +0x98 ->
+    0x1ba3940; compares priority f32 +0x24).
   - It is driven by Ability state 16 (button 36 = E), which sits under
     Switch 22 (false branch) under Stack 29. Data forms: 29 = `0:1,0:1`,
     22 = `0:1`, 16 = `0:8,0:1,0:1` (reader 0xc84ac0); var 0x2562 = s34. They
