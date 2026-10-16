@@ -54,6 +54,44 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
+## Session 297-298 (Claude, 2026-10-16) - read first
+
+- **Live testing blocked:** runs 297/298 hit the Windows lock screen (ow-ui
+  "CopyFromScreen ... handle is invalid", u0 screenshot shows the lock screen).
+  No hero pick happened; both cleanups passed. Re-run when the desktop is unlocked.
+- **Recall two-phase server timeline (ready, untested live):** state 3
+  (54feb21c, container of 9/10/11/23) ends only via its var-change listener
+  (0x8e5f50 slot 0x90 -> 0xc880c0 finish) when instance var 0x018b is true.
+  0x018b is referenced only by state 3 (not synced, no writer in any decoded
+  graph), so the server must drive 3 -> 0. Emulating that finish
+  (`session/recall-phase2-296.py`, from Codex's serializer) starts rewind 0 plus
+  1/2/31. Native writers give data: Stacks 15/28/33/35 = `1,0`; 1/2/22/37 = one 0
+  bit; 17/31/36 = none. State 0 reads reflected data (vt+0x168 = 0xd44bf0, one
+  object at node+0x1c0) before its u16: encode `0/-8,0/8,0/16` (pad to byte,
+  u8 mask count 0, u16 elapsed). The emulator cannot model this byte-reader
+  writeback (always reports 193 -> 257), so state 0's form is unverified.
+  New responder option `--recall-phase2 'DELAY:ON:OFF:G/S=d/w,..'` (driver
+  `-RecallPhase2`); recipe `.local/runs/run-livemode18-297.ps1`. Phase-B frame
+  without state 0 decodes 644/644. Risk: client exit 1 if state 0's form is wrong.
+- **HUD gate var 0x2af6:** 0x01cf presenters #155 (runtime 181, layer 05a7) and
+  #235 are gated by `NOT var 0x2af6`. On 294, 0x2af6 = true in hero 0x01cf
+  instance 11 and controller 0x20e4 instance 4. Its only writer is client-only
+  Stack #311 (state 109, node 155; 0x20e4 #399), under GameMessageEntry #5
+  plug m_452862E6 (0x0717 received; #5's normal branches are active too).
+  0x2af6 is not synced in either graph. A server pulse that exits state 109
+  (new `--hero-pulse 'DELAY:inst:graph:state:data:HOLD'`, driver `-HeroPulse`)
+  exits node 155 in emulation (556/554 bits), but 0x2af6 stays true afterwards,
+  so the exit alone does not clear it. Semantics of Stack out-var / the presenter
+  condition (show vs hide) still to settle.
+- **Pistol/muzzle:** replicated component states found via vtable decode
+  0x5d6b20 (`session/compstate-297.py <dump> <pid> <entity> <types>`): comp 26
+  = u64 (filter bits, flags 2), 69 = u64, 90 = one field, 136 = {s32, entity,
+  entity, s32, s32} (hashes 373dbf32/2ec62fac/c7927090/a2141aef/e2894f84; on the
+  hero all zero, last -1). Components 1/3/4/82 have no replicated state. Comp
+  136 is the only candidate parent/attachment link so far (added by create-flag
+  0x80 builder). Create records have only placeable/definition kinds; no
+  pending child rows after the hero create.
+
 ## UI root 0x041a is the observer/tournament path, not the play HUD (Claude, 2026-10-16) - read first
 
 - Native evaluation on reference 295 (`.local/claude-scratch/session/uiroot-terms-296.py
