@@ -1339,3 +1339,12 @@ Notes:
   [STU_9EA55F3D {05c0..0015, 0da0..000d}], graphs 0x33 (StatescriptStateHealthPool,
   ModifyHealth), 0xbe2, 0xa5b, 0x2206 (dumps `.local/re/graph-*-344.txt`). Agent
   decoding module-2 combat events -> `.local/re/module2-combat-344.md`.
+- **Out-of-bounds respawn (run 345):** private responder `--respawn-below Y
+  --respawn-delay S` (driver `-RespawnBelow/-RespawnDelay`): when the fed hero y drops
+  below Y, generation-teleport to `--pick-spawn` after S s. Run 345 teleported the
+  hero to (74,-1.5,9) with Y=-1.0: out_of_bounds at 20:09:35.7, back at the spawn
+  (48.68,3.35,37.45 -> floor) at 20:09:37.9. A stale feed sample re-triggered once;
+  a 2 s grace period now follows each respawn. Best recipe uses Y=-15 (an
+  approximation; the original kill-volume rule/death sequence is not implemented).
+  Responder log rows now carry `ts` (for diagnosing early instance failures: the
+  failing client sends the same 21627/21600/21610 as good runs, then exits 1).
