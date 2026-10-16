@@ -98,6 +98,12 @@ unresolved. Historical teleport recipes are not the best baseline.
   58), (34.24,1.99,22.97); they are not health packs. Run 330 spawned the hero
   at (54.565,1.05,42.148): she fell under the map to y -18.8, so the placeable
   height is not a standing position; keep PickSpawn (48.71,2.05,37.77).
+- **Feed-based hit registration (run 331, best recipe now includes it):**
+  driver `-HeroPosFeed <json>` starts `.local/re/hero_pos_feed.py auto 80000305
+  <json> 60` itself (waits for the owned client, read-only, exits with it);
+  the responder's TRACK position then comes from the client instead of dead
+  reckoning. Live: aimed hold-fire killed bot 6 (53 hits) with the server using
+  the true position (49.25,2.0,23.08). Echo stays off.
 - **Statescript game-message bus (static, .local/re/server-game-message-path.md):**
   no network record carries a game-message GUID. Messages are posted by
   send-state nodes (vt 0x263ac80, begin -> 0xd4c3e0 -> registry 0xd9a770; the
