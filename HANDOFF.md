@@ -1326,3 +1326,10 @@ Notes:
   (`.local/runs/widget-colors-342.txt`). The cyan world chevron returns. **Screen
   still shows no HUD.** Best recipe now drops the retrigger. The agent continues on
   `.local/re/hud-render-342.md`.
+- **Run 343 (best recipe, bot 2 moved to (48.71,2.0,29.0) straight ahead of the
+  spawn view, team 1; `.local/re/ui-pick-shoot.ps1` fires without turning):** 8
+  bursts -> server hits 53/106/159 -> bot_killed x3, bot_respawned x2. Screenshots
+  show the bot, Tracer tracers and impact sparks on its body; on death the entity is
+  destroyed and vanishes instantly (no death animation) and later shots hit the wall.
+  No enemy health bar/outline visible (no HUD yet). Death presentation should use
+  the bot's authored death state instead of an immediate destroy (todo).
