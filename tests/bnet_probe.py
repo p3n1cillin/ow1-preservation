@@ -164,6 +164,19 @@ class ProbeTests(unittest.TestCase):
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,queue_reply=23332)
         with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(INSTANCE_SCHEMA,20600)},instance_referral=True)
         self.assertIsNone(InitialLobby(hashes,messages).answer(request))
+        # Pair mode: the second client is referred to its own container port 1129.
+        pair=local_referral(1129)[0x80]
+        self.assertEqual(pair[0x2c],1129)
+        self.assertEqual(bytes(v&255 for v in pair[0x6e]),b'127.0.0.1:1129'+bytes(50))
+        self.assertNotEqual((pair[0xae],pair[0xce]),(fresh[0xae],fresh[0xce]))
+        for bad in (1130,0,21129,True,'1129',None):
+            with self.assertRaises(ValueError):local_referral(bad)
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,instance_port=bad)
+        second=InitialLobby(hashes,messages,instance_referral=True,instance_port=1129);second.sent=True
+        mid,packet=second.answer(request)
+        record=decode(messages[INSTANCE_SCHEMA,20600],packet[2:])[0x80]
+        self.assertEqual((mid,record[0x2c]),(20600,1129))
+        self.assertEqual(bytes(v&255 for v in record[0x6e]),b'127.0.0.1:1129'+bytes(50))
 
     def test_resource_list_type_allowlist(self):
         from lobby_service import RESOURCE_LIST_HIGHS,STACK_ITEM_GUID_HIGH

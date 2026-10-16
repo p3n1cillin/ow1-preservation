@@ -1553,3 +1553,16 @@ Notes:
   0x0156=1000. Next: apply `patch_ultmirror-359.py`, then AbilityPress
   '34:9:0x20:0.6:0:8,0:1,1:1,0:32,0:1,0:1,0:8', UltUseButton 0x20, dumps/shots
   at 0.1-1.0 s after Q.
+- **E2 groundwork (agent, `.local/re/two-client-e2-364.md`; nothing launched):** public
+  `local_referral(port)` / `InitialLobby(instance_port=)` allow-list {1119,1129}; bnet-probe
+  refers the instance to the same port as its allow-listed own-key lobby referral (1129 only
+  with --port 21129); `tests/bnet_probe.py` 26 pass. New private multi-client responder
+  `.local/re/udp_pair_reply.py`: one session per client = an exec of the UNEDITED
+  udp_welcome_reply.py with socket/time/argparse shims (all per-client state separate),
+  dispatcher binds each host-bridge source port by that client's own +0xae key, index bases
+  c0 0x300 / c1 0x340 (heroes 0x80000305 / 0x80000345), opt-in `--proxy-heroes` creates the
+  other player's picked hero (flags 0x41 + skin, comp26/51) and streams its position.
+  Offline: 8 tests + concurrent replay of runs 368/369 (all reply headers identical; 369
+  bodies identical except the elapsed-ms field). Driver `.local/re/run-live-pair-game.ps1
+  -Name pair-e2-365 -UI [-ProxyHeroes]` (`-DryRun` composes only; reuses run-live-preload.ps1's
+  own argument blocks), UI `.local/re/ui-pair-game.ps1`. E2/E3 live behaviour unverified.

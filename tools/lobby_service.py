@@ -5,7 +5,7 @@ schema is verified; downstream meanings of several fields remain unknown.
 Unknown flags/counters stay zero. This is a diagnostic, not a game server.
 """
 from gateway_codec import decode, encode
-from instance_referral import INSTANCE_SCHEMA, local_referral
+from instance_referral import INSTANCE_PORTS, INSTANCE_SCHEMA, local_referral
 
 HELLO_SCHEMA = 0x3c7e3468
 WELCOME_SCHEMA = 0xf5ff548a
@@ -29,7 +29,7 @@ UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=()):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -49,6 +49,9 @@ class InitialLobby:
                 or (QUEUE_SCHEMA,24000) not in messages):
             raise ValueError('instance experiment requires its registered schemas and no queue-reply experiment')
         self.instance_referral=instance_referral
+        if type(instance_port) is not int or instance_port not in INSTANCE_PORTS:
+            raise ValueError('instance referral port must be an owned container port')
+        self.instance_port=instance_port
         self.hello_entry=hashes.index(HELLO_SCHEMA)+1
         self.welcome_entry=hashes.index(WELCOME_SCHEMA)+1
         if len(hashes)>255: raise ValueError('unsupported extended protocol entries')
@@ -175,7 +178,7 @@ class InitialLobby:
             if request[0x78] not in (2,3) or request[0x80] or request[0xa8]!=4:
                 return None
             if self.instance_referral:
-                body=encode(self.messages[INSTANCE_SCHEMA,20600],local_referral())
+                body=encode(self.messages[INSTANCE_SCHEMA,20600],local_referral(self.instance_port))
                 return 20600,bytes((self.hashes.index(INSTANCE_SCHEMA)+1,0))+body
             mid = self.queue_reply
             body = encode(self.messages[QUEUE_REPLY_SCHEMA, mid], {})

@@ -850,6 +850,9 @@ def main():
                          'full':(20504,20505,20502,20802,20700)}[args.lobby_initial_data]
             if any((InitialLobby.schema_of(mid),mid) not in login_messages for mid in initial_ids):
                 ap.error('initial data requires each selected notification schema')
+    # The instance referral (20600) names the same owned container port as the
+    # allow-listed lobby referral: 1129 only for the pair's dedicated 21129 probe.
+    instance_port = 1119
     if args.lobby_private_key or args.lobby_integrity_key:
         referral_port = own_key_referral_port(args.referral_host, args.port)
         if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or referral_port is None:
@@ -857,6 +860,7 @@ def main():
         from lobby_credential import load_key, load_integrity, build_credential
         credential = build_credential(load_key(args.lobby_private_key), load_integrity(args.lobby_integrity_key),
                                       port=referral_port)
+        instance_port = referral_port
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(args.cert, args.key)
@@ -900,7 +904,7 @@ def main():
                         lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
                                                      args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression+args.lobby_preload_stack_item,
-                                                     unlock_list) if login_messages is not None else None
+                                                     unlock_list,instance_port=instance_port) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
