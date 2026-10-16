@@ -1245,3 +1245,44 @@ Notes:
 - hero_pos_feed.py: OpenProcess now includes SYNCHRONIZE (old feeders never exited);
   writes `<out>.hist.jsonl` at 10 Hz. `.local/re/ui-pick-tracer.ps1 -Prefix <runs path>`
   automates menu -> Practice -> Tracer + CONTINUE + periodic screenshots.
+- Run 333 invalid: responder crashed at emit() serializing bytes (fixed: emit uses a
+  bytes->hex default). Run 333b: comp26 = 0x10840001 sent as op-2 updates to the
+  controller (EL 80) and hero (EL 95). Client survives, but the final dump shows
+  comp26 +0x90 = 0 and comp25+0x58 = 0 on both (team -1): the update is silently
+  ignored (field flag 0x2 likely excludes it from replicated updates). Team bits
+  need another path. Helper `.local/claude-scratch/session/team-bits-333.py
+  <dump> <pid> <ids>`.
+- **Teleport "launch" = placement ~10 m ABOVE the target, then settling on the first
+  surface below** (runs 334/335c, relative teleports with dy 1.0/2.0/0.5 and gen):
+  target y 3.0 -> 13.2 (spawn-room roof), 15.3 -> 30.6 (rock top), 31.0 -> 30.7.
+  The very first pick spawn shows it too: hero appears at y 12.0 and falls through
+  to the floor (1.75) in 1.3 s. Same with frame source server (334) and cmdlast
+  (335c, native reconcile path), so it is not the frame domain. Ring append
+  0xc5b640: local-predicted entities (+0xec68) send frames <= newest predicted to
+  reconcile 0xc5c3e0 (0xc5c330 finds newest stored state with seq <= frame and
+  0x64a530 overwrites it, then updates interpolation ring +0xe040); newer frames
+  append; older frames return 2; same frame with lower gen returns 3. Next: find
+  where the predicted sim re-places itself on a gen change (likely a safe-location
+  trace starting ~10 m up); 0xc5a140's 10.0 vector is unrelated grid code.
+  Runs 335/335b were early-instance failures (exit 1 after 5-6 datagrams).
+- **Team bits + team colours (agent, `.local/re/team-sources-332.md`, emulated):**
+  comp26's u64 field has flag 0x2 -> reader 0x3f0c20: one presence-mask byte then
+  only non-zero LE bytes (team 0 = `0d 01 84 10`). Raw 8-byte values misdecode
+  (runs 266/267 crash, 333b no-op). Responder now encodes comp26 with
+  flagged_u64() in `--component-update` and `--filter-bits`. Team-colour GUIDs come
+  from lobby 23310 (+0x138 list of 0x48-byte {GUID +0x10, team u8 +0x18}, teams 0/1)
+  -> 0x6ce7f0 -> queue slot 4 0x5f9bb0 -> layer 1; layer 1 is used only when the
+  world job byte +0x6e8 is set, written from welcome +0x518 (`--w518`). Private probe
+  wrapper: env OW1_TEAM_COLORS="g0,g1" fills 23310 sent via OW1_QUEUE_FIRST; driver
+  `-QueueFirst 23310 -TeamColors 0b300000000000f6,0b300000000000f7 -W518`.
+  Run 336 tests the full combination.
+- **Run 336 (team bits + team colours, PID 31988, dump retained as HUD reference
+  `retail-private-livemode18-336.dmp`):** 23310 with f6/f7 accepted (165 B) before
+  the referral; welcome +0x518 = 1; comp26 0x10840001 updates (flagged encoding)
+  at EL 80/95. Dump: controller and hero comp26 = comp25+0x58 = 0x10840001, team 0.
+  HUD_Hero_Common 059d and HUD_Tracer 00f3 are visible (vis 1) with OPAQUE colours
+  2eab/2eac/4499 = 27aae1ff (friendly blue), 2ead ffffffff, 4498 000000ff
+  (`.local/runs/widget-colors-336.txt`). Gameplay unaffected. **Screen still shows no
+  HUD**, so the transparent tint was one defect, not the only one. Next: why visible,
+  opaque top-level HUD widgets do not draw (attachment/render list, child element
+  bindings, global HUD-hidden state).
