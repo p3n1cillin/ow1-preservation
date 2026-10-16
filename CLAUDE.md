@@ -1,5 +1,24 @@
 # OW1 preservation continuation
 
+## Latest Codex checkpoint: party before Practice, 2026-10-16
+
+The owner's requested party-first flow was missing from Claude's E2/E3 tests
+(those entered separately). Runs 376-379 now establish the relevant native path:
+20701 suggestion -> leader Invite sends 22102 -> 20703 group-merge request ->
+follower Yes sends 22110 -> 20700 two-member roster -> one leader Training queue
+request -> per-client referrals -> both original clients spawn as Tracer with HUD.
+378 used a server-issued merge fixture; 379 routed the real leader Invite and
+follower acceptance. A server-seeded suggestion is still needed for discovery;
+Friends does not populate. Proxies still float without weapons/locomotion/PvP,
+and separate bot state / hero-repick regression remain. Do not claim full parties
+or authoritative multiplayer. See HANDOFF.md and docs/PARTY_PROTOCOL.md.
+
+Private opt-in party probe and run events remain in shared .local/re and
+.local/runs. Numeric descriptors only are public in protocol/party-104319.json.
+Codex rebuilt after native pair changes: all 27 CTest targets pass. All 27 public
+bnet-probe Python tests pass after the added identity-wire/catalogue regression;
+private party state/endpoint checks pass. Consult HANDOFF for final run audits.
+
 Continue the existing implementation; do not restart or replace working systems.
 **Handoff between Claude and Codex:** read `HANDOFF.md` first (current state, best run
 recipe, open problems) and update it before stopping. Keep ALL work in this project

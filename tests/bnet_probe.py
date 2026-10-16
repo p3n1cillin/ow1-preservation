@@ -26,6 +26,25 @@ class Fragmented:
 
 
 class ProbeTests(unittest.TestCase):
+    def test_party_message_identity_wire_and_catalogue(self):
+        from gateway_codec import load_messages, encode, decode
+        root = Path(__file__).resolve().parents[1]
+        messages = load_messages(root/'protocol/party-104319.json')
+        catalogue = json.loads((root/'protocol/gateway-104319.json').read_text())['protocols']
+        for (schema, mid), fields in messages.items():
+            self.assertTrue(any(p['schema_hash'] == schema and p['first_id'] <= mid < p['end_id']
+                                for p in catalogue))
+        identity = {0:123, 8:456}
+        # The original Invite and merge-accept actions each send exactly two u64s.
+        for mid in (22102,22110):
+            fields = messages[3003079262,mid]
+            wire = encode(fields, {0x78:identity})
+            self.assertEqual(wire, struct.pack('<QQ',123,456))
+            self.assertEqual(decode(fields, wire), {0x78:identity})
+            with self.assertRaises(ValueError): decode(fields, wire[:-1])
+        existing = load_messages(root/'protocol/lobby-login-104319.json')
+        self.assertEqual(messages[605150806,20700], existing[605150806,20700])
+
     def test_read_only_login_state_guards_and_secret_omission(self):
         import retail_login_state as state
         class SparseDump:

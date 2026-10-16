@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Codex (after runs 294/295; HUD message delivery verified, root display unresolved). Whoever stops
+Last updated 2026-10-16 by Codex (party-first continuation after Claude's run 375; latest checkpoint below). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -51,8 +51,74 @@ H in the spawn room reopens hero select, **repeatedly**: run 218 went Tracer →
 (rifle, fires) → McCree (revolver, two volleys, revolver kept). Hero Gallery lists all
 heroes (run 198).
 
-Recall, HUD, authored bot movement and complete combat/roster behavior remain
+Later Claude runs supersede this early summary: full Tracer HUD including portrait,
+Soldier first-pick HUD, Pulse Bomb throw, and two clients seeing each other are
+verified (372-374 and pair-e3-367; details at the end of this file). Hero re-pick
+regressed in 375. Authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
+
+## Latest continuation: party before Practice (Codex, 2026-10-16)
+
+The owner explicitly wants joining the other account's party BEFORE starting
+Practice. Claude's E2/E3 runs entered Practice separately on each client; they
+do not verify invitations, party joining, or leader-driven group entry.
+
+- Rebuilt Codex's native tree with `scripts/Build.ps1 -SkipDependencies` after
+  the launcher pair changes: full build and all 27 CTest targets pass.
+- `pair-party-376`: both original clients reach menus (Mercy#1002 / Tracer#1001).
+  Friends remains loading, Groups has no active channels, chat does not open in
+  the initial menu state. Both alive at bound, no instance referrals, all 12
+  cleanup/integrity audit fields true. This was a party-menu diagnostic.
+- `pair-party-377`: **20701 is a group suggestion, not an incoming invitation**.
+  Native banner says "Mercy suggests Tracer to the group?" with Invite / Don't
+  Invite. Clicking Invite sends **22102** (schema decimal 3003079262 from
+  the catalogue), +0x78 = target game account identity.
+  Both clients closed normally with Alt+F4 after this evidence (exit 0), all 12
+  cleanup audit fields true. No party joined and no instance referral.
+- Private `.local/re/party_probe.py`, opt-in via `OW1_PARTY_EXPERIMENT=<manifest>`
+  in `.local/re/probe_record_inputs.py`: run-scoped signalling for the two owned
+  accounts. Current experiment sends the suggestion to the LEADER, routes its
+  real 22102 to an incoming 20703 candidate for the other account, records all
+  native 221xx requests, and only joins after a real request selected by control.
+  Follower referral forwarding is prepared; NOT yet verified live at this checkpoint.
+  Ordinary recipes are unaffected when the environment variable is unset.
+- `.local/codex-scratch/party376-schemas.py` exports numeric party/social field
+  descriptors from retained dump 295 to `.local/runs/party376-schemas.json`.
+  No proprietary bytes exported. Offline initial-notification check passes:
+  first list 20504/20505/20502/20802/20700, second empty (no repeated login data).
+- **Party-first Practice verified in 378:** 20703 displays a group merge request;
+  clicking Yes sends **22110** naming Mercy's identity. After the two-member
+  20700 roster, Tracer says "You have joined a group!", Training is disabled on
+  the follower, and Mercy remains leader. Mercy alone starts Practice; the
+  wrapper forwards the accepted Training queue request to the follower's own
+  session. Both receive their own referral, pick Tracer, spawn with HUD/weapons,
+  and the follower sees the leader's proxy. Leader fire/stop logged. Both alive
+  at bound, no stderr, all 12 cleanup fields true. The 378 incoming request was
+  a server fixture (leader's suggestion expired behind Tutorial).
+- **Native Invite -> Accept -> party -> Practice repeated in 379:** after both
+  tutorials are dismissed, write `{"suggest":1}` to `pair-party-379-control.json`.
+  Mercy clicks the seeded suggestion's Invite: real 22102 targets Tracer; this
+  generates 20703 in Tracer's client. Tracer clicks Yes: real 22110 targets Mercy;
+  backend automatically sends 20700 to both. Mercy alone starts Practice, follower
+  automatically enters. Both pick Tracer and spawn with portrait/name/health,
+  crosshair, ult, ability and ammo HUD. Follower Blink moves to the doorway and
+  HUD charges drop from 3 to 2. Screenshots `pair-party-379-{tracer-group,
+  leader-range,follower-range}.png`. Both alive at the shared bound, exactly one
+  own-port instance referral each, both bound, no bind refusals, empty probe/UDP
+  stderr, all 12 cleanup/integrity audit fields true. No dumps requested/retained.
+- Private fixture is still opt-in and bounded; Friends/player discovery remains
+  missing, so a server-seeded suggestion supplies the selectable candidate.
+  20703 is a merge request, not a claim that all invitation variants work.
+  Bots still per session; proxies float, lack locomotion/weapon animation and
+  PvP damage. Run 375 hero-repick regression also remains. Next prioritize normal
+  local-player discovery / durable party lifecycle, then proxy movement state,
+  shared combat and the hero-change regression; do not revisit the old HUD root theory.
+- `.local/codex-scratch/test_party379.py`: offline checks pass for initial data
+  sent once, configured-target-only Invite, matching-leader-only acceptance,
+  exactly one party leader, and one follower referral on its own port. Public
+  `protocol/party-104319.json` contains five numeric descriptors only; all 27
+  `tests/bnet_probe.py` tests pass, including catalogue/identity-wire consistency.
+  Public behavior/scope documentation: `docs/PARTY_PROTOCOL.md`.
 
 ## Master goal + session 327-329 notes (Claude, 2026-10-16) - read first
 
