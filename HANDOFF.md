@@ -1536,3 +1536,8 @@ Notes:
   (red marker at the meter position); per-hero HUD presenter states/vars still to derive.
   Run 370 was invalid (probe crashed: E2 agent changed tools/lobby_service.py
   local_referral(port); private probe_record_inputs.py wrapper now passes *args).
+- Run 371 (ult step 1, Q dump `retail-private-livemode18-371-q.dmp` PID 34048): client
+  stable; the ult meter shows a large glowing Pulse Bomb icon; no throw/holster/
+  projectile visible. Dump with the ult agent. Separate agent deriving per-hero HUD
+  configs (`.local/runs/hero-hud-configs-372.json`, patch script, notes
+  `.local/re/hero-hud-372.md`).
