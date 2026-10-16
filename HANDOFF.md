@@ -1286,3 +1286,10 @@ Notes:
   HUD**, so the transparent tint was one defect, not the only one. Next: why visible,
   opaque top-level HUD widgets do not draw (attachment/render list, child element
   bindings, global HUD-hidden state).
+- **Run 337: comp26 in CREATES works with the flagged encoding** (`-FilterBits
+  '0:0x10840001;1:0x10840001;2..14:0x11040001'`): final dump controller/hero team 0,
+  bots 0x80000306/07/10 team 1; no crash (supersedes the 266/267 "cannot be sent in a
+  create" note, which was an encoding bug). Best recipe
+  `.local/runs/run-livemode18-best.ps1` now includes FilterBits (players team 0,
+  bots team 1), W518, QueueFirst 23310 and TeamColors f6/f7 (backup .bak337).
+  HUD still not drawn; third agent investigating `.local/re/hud-render-336.md`.
