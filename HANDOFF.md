@@ -54,6 +54,33 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
+## UI root 0x041a is the observer/tournament path, not the play HUD (Claude, 2026-10-16) - read first
+
+- Native evaluation on reference 295 (`.local/claude-scratch/session/uiroot-terms-296.py
+  <dump> <pid> <UI comp47> 65535 46,52,53`, env `MODE=1`): switch node 46 and
+  node 52 are false, node 53 true. **Set the instance owner mode first:** state
+  entry copies node def+0x74 into inner+0x4c0 (here 1), and inner vt+0x240
+  (0x979280) switches on it. With the dump's leftover mode 0 the selected
+  entity resolves to nothing. With mode 1 it resolves to controller 0x80000304.
+- Node 46 = AECBBA41(selected) OR global 0x09ba OR (F94506DB AND B4F19440) OR
+  CEFF290A OR E95A9C77; all five false. AECBBA41 (0xcec6c0) reads component 44,
+  then component 25 via 0xc1ecd0: comp25+0x58 bit 28 set AND team (0xb8af40,
+  bits 23-27 -> 0..4, else -1) == -1. The local-session builder 0x829430
+  sets 0x10040001 | (0x800000 << team). Our controller/hero comp25+0x58 = 0
+  (filter bits are never sent). Setters: 0xb8af90 (comp26 state+0x78 or
+  comp25+0x58) from 0xb21790/0x6c9f40, and 0xb8bdf0 (OR) from 0x7e37e0.
+- **Node 52 = B36E804B = config byte image+0x2e39138** (evaluator 0x91af30).
+  Registration sets 0; only the `tank_ShowMode` preset 0x1807e20 and the
+  `tank_TournamentMode` preset 0x1807f10 (config keys checked in 0x17e3d70 via
+  0x1839600) set it to 1. Node 46's false branch (#25) is empty. So the
+  0x041a -> 0x120b HUD_Root branch is for show/tournament observers. **Do not
+  chase 0x041a/0x120b for the player HUD.** The play HUD has to come from the
+  hero/controller presenters (0x01cf, 0x20e4) and the startup-registered
+  HUD_Root (UI manager +0x58, created and added in 0xafb740 -> 0x1dc9c10).
+- Filter bits still matter elsewhere: Recall's gate 0xc1d860 reads comp25+0x58
+  bit 10, and hostility/teams depend on them. Their network path (module 2 /
+  0xb22900 / 0xb21790) is still not decoded.
+
 ## Codex continuation, runs 294/295 (2026-10-16) - read first
 
 - **Correction to the earlier HUD diagnosis: message 1291 and its parameters
