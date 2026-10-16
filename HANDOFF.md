@@ -1541,3 +1541,15 @@ Notes:
   projectile visible. Dump with the ult agent. Separate agent deriving per-hero HUD
   configs (`.local/runs/hero-hud-configs-372.json`, patch script, notes
   `.local/re/hero-hud-372.md`).
+- **HERO PORTRAIT LIVE (run 372; agent section 8 of hud-render-348.md):** hero sync var
+  0x070f (01cf slot 15) IS the portrait texture (card property 070f bound to it);
+  sending `11:s15=g0c0000000000128e` (Tracer's portrait texture, = hero-select property
+  4447 / hero record m_8203BFE1 entry 0d80..40c9) shows Tracer's face beside the
+  health bar (`livemode18-372-full.png`), with name, health, crosshair, ult, abilities,
+  ammo. Earlier 6dff/0x3457/0x0b6c work only feeds the role icon. Best recipe updated.
+  Other heroes: send their record's m_8203BFE1 0d80..40c9 texture (key assumed same).
+- Ult (run 371 dump, agent section 8): Ability state 9 ran and consumed the Q press;
+  no projectile; likely rolled back because our frames keep idle Ability data and
+  0x0156=1000. Next: apply `patch_ultmirror-359.py`, then AbilityPress
+  '34:9:0x20:0.6:0:8,0:1,1:1,0:32,0:1,0:1,0:8', UltUseButton 0x20, dumps/shots
+  at 0.1-1.0 s after Q.
