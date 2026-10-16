@@ -80,6 +80,23 @@ unresolved. Historical teleport recipes are not the best baseline.
 - Filter bits still matter elsewhere: Recall's gate 0xc1d860 reads comp25+0x58
   bit 10, and hostility/teams depend on them. Their network path (module 2 /
   0xb22900 / 0xb21790) is still not decoded.
+- Widget census (`session/widgets-296.py <dump>`, vft I+2644a08; reports
+  `.local/runs/widgets-257.txt` / `widgets-294.txt`): all UI widgets use context
+  id 0x1800 (index 3, table global image+0x2ebaaf8). Top-level widgets (HUD_Root
+  0502, hero select 008c, hero HUD 059d/05a7/05d0) share one top-level array.
+  The HUD widgets in 294 have +0x90 = 0 (attached by deferred command
+  0x1c635d0 -> 0x1c648a0, vt 0x27c9e50). HUD_Root has no children
+  (+0xa0 count 0); the HUD widgets are top-level, not under HUD_Root.
+- Visible vs hidden hero-select widget (257 vs 294, `qdump.py`): +0x60/+0x64 is
+  -1/0 while shown and 0x21/1 while hidden. The 294 HUD widgets have -1, so they
+  are nominally shown but draw nothing; next suspect is their data binding
+  (local player/hero context), not attachment. I+27f7fc0 references are not a
+  visibility marker (the hidden hero select still has them).
+- Mask-getter ids (`session/maskid-296.py`): 0xbcacb0 = comp 25, 0x5d4520 = 26,
+  0xbd59a0 = 44, 0xbd5ef0 = 50, 0xbc9610 = 57. Module-2 sections (0xb40130,
+  0xb24600, 0xb22900) work on component 50, which our controller and hero
+  lack. 0xb21790 (comp 26, calls 0xb8af90) is called from 0xae43f0; it looks
+  like local game-mode spawn logic.
 
 ## Codex continuation, runs 294/295 (2026-10-16) - read first
 
