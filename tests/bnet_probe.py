@@ -175,6 +175,26 @@ class ProbeTests(unittest.TestCase):
             r=subprocess.run([sys.executable,str(probe),'--lobby-initial-data','full','--lobby-preload-stack-item',bad],capture_output=True,text=True)
             self.assertNotEqual(r.returncode,0)
 
+    def test_own_key_referral_allowlist(self):
+        self.assertEqual(probe.own_key_referral_port('127.0.0.1:1119',21119),1119)
+        self.assertEqual(probe.own_key_referral_port('127.0.0.1:1119',21129),1119)
+        self.assertEqual(probe.own_key_referral_port('127.0.0.1:1129',21129),1129)
+        for host,port in (('127.0.0.1:1129',21119),('127.0.0.1:1130',21129),('127.0.0.2:1119',21119),
+                          ('example.invalid:1119',21119),('',21119),('127.0.0.1:1129 ',21129)):
+            self.assertIsNone(probe.own_key_referral_port(host,port))
+        script=Path(__file__).resolve().parents[1]/'tools'/'bnet-probe.py'
+        base=[sys.executable,str(script),'--cert','missing.pem','--key','missing.key','--serve',
+              '--lobby-private-key','missing-own.pem','--lobby-integrity-key','missing.bin']
+        for extra in (['--referral-host','127.0.0.1:1129'],['--port','21119','--referral-host','127.0.0.1:1129'],
+                      ['--port','21129','--referral-host','127.0.0.1:1139']):
+            r=subprocess.run(base+extra,capture_output=True,text=True)
+            self.assertNotEqual(r.returncode,0)
+            self.assertIn('exact loopback referral',r.stderr)
+        # The allowed pair referral passes the guard and fails only on the absent key input.
+        r=subprocess.run(base+['--port','21129','--referral-host','127.0.0.1:1129'],capture_output=True,text=True)
+        self.assertNotEqual(r.returncode,0)
+        self.assertNotIn('exact loopback referral',r.stderr)
+
     def test_local_account_store(self):
         import tempfile
         from accounts import AccountStore

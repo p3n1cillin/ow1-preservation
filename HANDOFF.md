@@ -1485,3 +1485,17 @@ Notes:
   frame, with or without muzzle handles (364 control), with PickSubgraph gated to Tracer
   (365; responder EXTRA_OK) and without UltCharge (366). Cause not yet found; next: dump
   0.1 s after hero_cmfd and replay the frame in ssfull2.py.
+- **Pair mode for two concurrent clients (agent; `.local/re/two-client-pair-362.md`):**
+  launcher `--retail-private-pair` (public wrapper `scripts/Start-PrivatePair.ps1`,
+  CTest `offline-launch-pair-guards`, 27/27 pass): one shared AppContainer profile,
+  one ACL capture/restore, per-client job/bridge (container 1119 / 1129)/observers/
+  dump, `--run-for` shared bound, `--client-delay`, strict guards. bnet-probe accepts
+  own-key referral 127.0.0.1:1129 only with --port 21129 (credential carries the port).
+  Private driver `.local/re/run-live-pair.ps1 -Name pair-e1-363 -RunFor 300
+  -ClientDelay 60` (accounts Mercy#1002 / Tracer#1001); ow-ui.ps1 `-ProcessId`.
+  Whether the client honours a non-1119 --BNetServer port is unverified (E1 shows it).
+- Portrait (agent section 7): server-activated stacks never push their own value
+  (0x1b95ff0 modes 1/2 skip push/var write), so 0x3457 needs the authored path:
+  deliver game message 0x02400000000009cc to the hero via sender graph 0x0b6c state 7
+  (create 0x0b6c on the hero, then activate 12:7 with `b6c:7=0:1`); hero states
+  `11:15,66,138,139` without 67.

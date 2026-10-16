@@ -687,6 +687,20 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
         raw.close()
 
 
+# Own-key lobby referrals: the container port of the single (or first pair)
+# client on any probe port, as before, and the launcher pair mode's second
+# client container port only for its dedicated host port.
+OWN_KEY_REFERRALS = {'127.0.0.1:1119': (1119, None), '127.0.0.1:1129': (1129, 21129)}
+
+
+def own_key_referral_port(referral_host, probe_port):
+    """Container port named by an allowed own-key referral, else None."""
+    entry = OWN_KEY_REFERRALS.get(referral_host)
+    if entry is None or (entry[1] is not None and probe_port != entry[1]):
+        return None
+    return entry[0]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=21119)
@@ -837,10 +851,12 @@ def main():
             if any((InitialLobby.schema_of(mid),mid) not in login_messages for mid in initial_ids):
                 ap.error('initial data requires each selected notification schema')
     if args.lobby_private_key or args.lobby_integrity_key:
-        if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or args.referral_host != '127.0.0.1:1119':
+        referral_port = own_key_referral_port(args.referral_host, args.port)
+        if not args.serve or not args.lobby_private_key or not args.lobby_integrity_key or referral_port is None:
             ap.error('own lobby credential requires --serve, both key inputs and the exact loopback referral')
         from lobby_credential import load_key, load_integrity, build_credential
-        credential = build_credential(load_key(args.lobby_private_key), load_integrity(args.lobby_integrity_key))
+        credential = build_credential(load_key(args.lobby_private_key), load_integrity(args.lobby_integrity_key),
+                                      port=referral_port)
 
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(args.cert, args.key)

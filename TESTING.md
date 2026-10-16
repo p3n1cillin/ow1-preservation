@@ -808,3 +808,48 @@ Observed on Windows 11 (10.0.26300):
   pre-creation in the host namespace cannot provide a shared lock.
 
 All 26 CTest targets pass.
+
+## 2026-10-16 - Launcher pair mode for two concurrent clients (no game in tests)
+
+New launcher mode `--retail-private-pair` (public wrapper
+`scripts/Start-PrivatePair.ps1`) prepares experiment E1: two original clients
+at the main menu at the same time. Following the E0 result, both clients run
+in **one shared AppContainer profile** (one package SID), so they share named
+objects such as the storage writer lock, as two clients do on a normal
+machine. One launcher process owns both clients:
+
+* one ACL capture and grant, and one exact restore after both clients end;
+* one network-isolation probe; no capabilities are granted;
+* per client, an owned job, a container loopback bridge, TLS/CA/lobby-key
+  observer threads and an optional bounded dump
+  (`retail-private-pair-c0.dmp` / `-c1.dmp`, never overwritten);
+* stdout lines are tagged `[c0]` / `[c1]`, and the PIDs are logged as
+  `Offline client[cN] PID=`.
+
+The guards are stricter than in single mode:
+
+* `--run-for` is mandatory and lies in 1..300 seconds. It is one shared bound,
+  measured from the first client's start.
+* `--client-delay` (0..180 s) must leave at least 30 seconds for the second
+  client.
+* Container ports are fixed: client 0 uses 1119 and client 1 uses 1129. TCP
+  host ports must differ, and no host port may be 1119 or 1129. Optional UDP
+  forwards must be given for both clients or for neither, and each must use
+  its client's container port. Both may share one host UDP port.
+* Client arguments are fixed by the launcher:
+  `--BNetServer=127.0.0.1:<that client's container port>`.
+* The executable fingerprint is checked before anything else is created.
+  The launcher then refuses to start while another launcher or Overwatch
+  process exists.
+
+`tools/bnet-probe.py` now accepts the own-key referral `127.0.0.1:1129` only
+together with `--port 21129`. The own credential's address block then carries
+port 1129. The `127.0.0.1:1119` behaviour is unchanged.
+
+New CTest target `offline-launch-pair-guards` (`tests/offline_pair.ps1`) checks
+the accepted shapes, which stop at the fingerprint guard, and each rejection.
+It also checks that the ACLs are unchanged. `bnet-probe-framing` gains the
+referral allow-list test. All 27 CTest targets pass. No game was launched for
+this change, so it is not yet known whether the client honours a non-default
+`--BNetServer` port. E1 will show it: client 1's bridge on port 1129 either
+receives connections or it does not.

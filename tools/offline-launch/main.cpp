@@ -15,6 +15,7 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <psapi.h>
+#include <tlhelp32.h>
 #include <wbemidl.h>
 #include <bcrypt.h>
 #include <vector>
@@ -24,6 +25,8 @@
 #include <sstream>
 #include <atomic>
 #include <thread>
+#include <mutex>
+#include <algorithm>
 #include "disc_profile.h"
 #include "silent_catalogue.h"
 #include "retail_profile.h"
@@ -967,12 +970,440 @@ DWORD debug_run(PROCESS_INFORMATION& child, const std::filesystem::path& folder,
 #include "retail_lobby_key.h"
 #include "retail_tls_observer.h"
 
+// Shared validation for the explicit CA and own lobby-key inputs (single and
+// pair modes use identical checks and messages).
+std::string load_public_ca_pem(const std::filesystem::path& certificate) {
+    if (!std::filesystem::is_regular_file(certificate) || std::filesystem::file_size(certificate) > 16384)
+        throw std::runtime_error("CA probe requires a bounded public PEM certificate");
+    std::ifstream input(certificate, std::ios::binary);
+    std::string pem(std::istreambuf_iterator<char>(input), {});
+    const std::string begin = "-----BEGIN CERTIFICATE-----", end = "-----END CERTIFICATE-----";
+    const auto first = pem.find(begin), last = pem.find(end);
+    if (pem.size() > 16384 || first == std::string::npos || last == std::string::npos || last <= first
+        || pem.find(begin, first + begin.size()) != std::string::npos
+        || pem.find(end, last + end.size()) != std::string::npos
+        || pem.find("PRIVATE KEY") != std::string::npos || pem.find('\0') != std::string::npos)
+        throw std::runtime_error("CA probe accepts one public PEM certificate, without private keys");
+    return pem;
+}
+
+std::string load_lobby_modulus(const std::filesystem::path& path) {
+    if (!std::filesystem::is_regular_file(path) || std::filesystem::file_size(path) != 256)
+        throw std::runtime_error("Lobby public modulus requires exactly 256 little-endian bytes");
+    std::ifstream input(path, std::ios::binary);
+    std::string modulus(std::istreambuf_iterator<char>(input), {});
+    if (modulus.size() != 256 || !(static_cast<unsigned char>(modulus[0]) & 1)
+        || !(static_cast<unsigned char>(modulus[255]) & 0x80))
+        throw std::runtime_error("Lobby public modulus must be odd and exactly 2048 bits");
+    return modulus;
+}
+
+// ---- Pair mode -------------------------------------------------------------
+// Two original clients in ONE shared AppContainer profile (same package SID, so
+// the clients share named objects such as the CASC writer-lock mutex, as on a
+// normal machine; see the E0 self-test). One launcher owns both: one ACL
+// capture/grant/restore, one network-isolation probe, a per-client job, bridge,
+// observer threads and dump, and one shared duration bound. No capabilities.
+namespace pair_mode {
+
+constexpr uint16_t container_ports[2] = {1119, 1129};
+constexpr DWORD max_run_ms = 300000;
+constexpr DWORD max_delay_ms = 180000;
+constexpr DWORD min_second_client_ms = 30000;
+
+// Thread-tagged, line-atomic stdout: each thread buffers its own partial line
+// and emits complete lines prefixed with its tag ("[c0] ", "[c1] " or none).
+inline std::string& tag() { thread_local std::string value; return value; }
+class TaggedLines : public std::streambuf {
+public:
+    explicit TaggedLines(std::streambuf* target) : target_(target) {}
+protected:
+    int_type overflow(int_type ch) override {
+        if (traits_type::eq_int_type(ch, traits_type::eof())) return traits_type::not_eof(ch);
+        auto& line = pending();
+        line.push_back(traits_type::to_char_type(ch));
+        if (ch == '\n') emit(line);
+        return ch;
+    }
+    std::streamsize xsputn(const char* data, std::streamsize count) override {
+        for (std::streamsize n = 0; n < count; ++n) overflow(traits_type::to_int_type(data[n]));
+        return count;
+    }
+    int sync() override { std::lock_guard lock(mutex_); return target_->pubsync(); }
+private:
+    static std::string& pending() { thread_local std::string line; return line; }
+    void emit(std::string& line) {
+        std::lock_guard lock(mutex_);
+        const auto& prefix = tag();
+        if (!prefix.empty()) target_->sputn(prefix.data(), static_cast<std::streamsize>(prefix.size()));
+        target_->sputn(line.data(), static_cast<std::streamsize>(line.size()));
+        target_->pubsync();
+        line.clear();
+    }
+    std::streambuf* target_;
+    std::mutex mutex_;
+};
+struct TagScope {
+    std::string previous;
+    explicit TagScope(const std::string& value) : previous(tag()) { tag() = value; }
+    ~TagScope() { tag() = previous; }
+};
+
+struct ClientConfig { loopback_bridge::Forward tcp; bool has_udp = false; loopback_bridge::Forward udp; };
+struct Options {
+    std::vector<ClientConfig> clients;
+    DWORD run_ms = INFINITE, delay_ms = 0;
+    std::string trust_ca_pem, lobby_public_modulus;
+    bool observe_tls = false, trust_socket_ca = false, preload = false, delay_set = false, dump_set = false;
+    unsigned dump_mask = 3;  // bit 0 = c0, bit 1 = c1
+};
+
+DWORD parse_seconds(const std::wstring& text, unsigned low, unsigned high, const char* message) {
+    if (text.empty() || text.size() > 4 || text.find_first_not_of(L"0123456789") != std::wstring::npos)
+        throw std::runtime_error(message);
+    const auto value = std::stoul(text);
+    if (value < low || value > high) throw std::runtime_error(message);
+    return static_cast<DWORD>(value) * 1000;
+}
+
+// PATH --retail-private-pair --run-for S [--client-delay S] [--pair-dump both|c0|c1|none]
+//   [--trust-ca PEM] [--observe-tls] [--trust-socket-ca] [--trust-lobby-key MODULUS] [--preload-practice-header]
+//   --client-forward 1119:HOST0 [--client-udp-forward 1119:UDPHOST]
+//   --client-forward 1129:HOST1 [--client-udp-forward 1129:UDPHOST]
+// Client arguments are fixed: --BNetServer=127.0.0.1:<that client's container port>.
+Options parse(int argc, wchar_t** argv) {
+    Options o;
+    for (int n = 3; n < argc; ++n) {
+        const std::wstring option = argv[n];
+        const bool has_value = n + 1 < argc;
+        if (option == L"--run-for" && has_value) {
+            if (o.run_ms != INFINITE) throw std::runtime_error("Pair diagnostic duration must be specified once, in 1..300 seconds");
+            o.run_ms = parse_seconds(argv[++n], 1, 300, "Pair diagnostic duration must be specified once, in 1..300 seconds");
+        } else if (option == L"--client-delay" && has_value) {
+            if (o.delay_set) throw std::runtime_error("Specify the second-client delay once");
+            o.delay_ms = parse_seconds(argv[++n], 0, max_delay_ms / 1000, "Second-client delay must be 0..180 seconds");
+            o.delay_set = true;
+        } else if (option == L"--pair-dump" && has_value) {
+            if (o.dump_set) throw std::runtime_error("Specify the pair dump selection once");
+            const std::wstring value = argv[++n];
+            if (value == L"both") o.dump_mask = 3; else if (value == L"c0") o.dump_mask = 1;
+            else if (value == L"c1") o.dump_mask = 2; else if (value == L"none") o.dump_mask = 0;
+            else throw std::runtime_error("Pair dump selection must be both, c0, c1 or none");
+            o.dump_set = true;
+        } else if (option == L"--client-forward" && has_value) {
+            if (o.clients.size() >= 2) throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+            ClientConfig client; client.tcp = loopback_bridge::parse_forward(argv[++n]);
+            if (client.tcp.container_port != container_ports[o.clients.size()])
+                throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+            o.clients.push_back(client);
+        } else if (option == L"--client-udp-forward" && has_value) {
+            auto forward = loopback_bridge::parse_forward(argv[++n]);
+            forward.datagram = true;
+            if (o.clients.empty() || o.clients.back().has_udp || forward.container_port != o.clients.back().tcp.container_port)
+                throw std::runtime_error("Pair UDP forward must follow its client and use that client's container port, once");
+            o.clients.back().has_udp = true; o.clients.back().udp = forward;
+        } else if (option == L"--trust-ca" && has_value) {
+            if (!o.trust_ca_pem.empty()) throw std::runtime_error("Specify one public CA certificate");
+            o.trust_ca_pem = load_public_ca_pem(argv[++n]);
+        } else if (option == L"--trust-lobby-key" && has_value) {
+            if (!o.lobby_public_modulus.empty()) throw std::runtime_error("Specify own lobby public modulus once");
+            o.lobby_public_modulus = load_lobby_modulus(argv[++n]);
+        } else if (option == L"--observe-tls") {
+            if (o.observe_tls) throw std::runtime_error("Specify TLS observation once");
+            o.observe_tls = true;
+        } else if (option == L"--trust-socket-ca") {
+            if (o.trust_socket_ca) throw std::runtime_error("Specify native socket CA installation once");
+            o.trust_socket_ca = true;
+        } else if (option == L"--preload-practice-header") {
+            if (o.preload) throw std::runtime_error("Specify Practice preload control once");
+            o.preload = true;
+        } else {
+            throw std::runtime_error("Pair mode accepts only its listed options; client arguments are fixed");
+        }
+    }
+    if (o.run_ms == INFINITE || o.run_ms > max_run_ms)
+        throw std::runtime_error("Pair diagnostic requires --run-for in 1..300 seconds");
+    if (o.clients.size() != 2)
+        throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+    for (const auto& client : o.clients) {
+        for (const auto port : container_ports) {
+            if (client.tcp.host_port == port || (client.has_udp && client.udp.host_port == port))
+                throw std::runtime_error("Pair host ports must differ from the container ports 1119/1129");
+        }
+    }
+    if (o.clients[0].tcp.host_port == o.clients[1].tcp.host_port)
+        throw std::runtime_error("Pair TCP host ports must differ");
+    if (o.clients[0].has_udp != o.clients[1].has_udp)
+        throw std::runtime_error("Pair UDP forwards must be given for both clients or neither");
+    if (o.delay_ms + min_second_client_ms > o.run_ms)
+        throw std::runtime_error("Second-client delay must leave at least 30 seconds of the shared bound");
+    if (o.trust_socket_ca && (o.trust_ca_pem.empty() || !o.observe_tls))
+        throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
+    if (!o.lobby_public_modulus.empty() && !o.trust_socket_ca)
+        throw std::runtime_error("Lobby key installation requires bounded loopback --trust-socket-ca diagnostics");
+    if (o.preload && (!o.clients[0].has_udp || o.lobby_public_modulus.empty()))
+        throw std::runtime_error("Practice preload control requires the bounded own-key UDP loopback diagnostic");
+    return o;
+}
+
+// Any other launcher instance or Overwatch process (owned or not) refuses pair
+// mode: a concurrent launcher would capture an ACL holding our grant, and a
+// container listener on 1119/1129 would collide in the global port space.
+std::vector<DWORD> conflicting_processes(const std::wstring& own_name) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    checked(snapshot != INVALID_HANDLE_VALUE, "Process snapshot");
+    std::vector<DWORD> found;
+    PROCESSENTRY32W entry{}; entry.dwSize = sizeof(entry);
+    const auto self = GetCurrentProcessId();
+    for (bool ok = Process32FirstW(snapshot, &entry); ok; ok = Process32NextW(snapshot, &entry)) {
+        if (entry.th32ProcessID == self) continue;
+        if (!_wcsicmp(entry.szExeFile, L"Overwatch.exe") || !_wcsicmp(entry.szExeFile, L"ow1-offline-launch.exe")
+            || !_wcsicmp(entry.szExeFile, own_name.c_str()))
+            found.push_back(entry.th32ProcessID);
+    }
+    CloseHandle(snapshot);
+    return found;
+}
+
+uint64_t image_base(HANDLE process) {
+    PROCESS_BASIC_INFORMATION basic{};
+    using Query = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+    const auto query = reinterpret_cast<Query>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "NtQueryInformationProcess"));
+    checked(query && query(process, ProcessBasicInformation, &basic, sizeof(basic), nullptr) >= 0, "Pair image lookup");
+    return read_child<uint64_t>(process, reinterpret_cast<uint64_t>(basic.PebBaseAddress) + 0x10);
+}
+
+struct Client {
+    std::string tag;
+    ClientConfig config;
+    HANDLE job = nullptr;
+    PROCESS_INFORMATION process{};
+    std::unique_ptr<loopback_bridge::HostForwarder> forwarder;
+    std::unique_ptr<std::jthread> tls, preload;
+    bool started = false, alive_at_bound = false, exit_logged = false;
+    DWORD exit_code = STILL_ACTIVE;
+    void stop_threads() {
+        // Stop/join while the owned process handle is still valid.
+        for (auto* thread : {&tls, &preload}) {
+            if (*thread) { (*thread)->request_stop(); (*thread)->join(); thread->reset(); }
+        }
+    }
+    ~Client() {
+        stop_threads();
+        if (job) TerminateJobObject(job, 3);
+        if (process.hProcess) { WaitForSingleObject(process.hProcess, 5000); CloseHandle(process.hProcess); }
+        if (process.hThread) CloseHandle(process.hThread);
+        if (job) CloseHandle(job);
+        forwarder.reset();
+    }
+};
+
+int run(const std::wstring& path, Options& o) {
+    // Line-atomic tagged output for the rest of this process (never destroyed,
+    // so late bridge-thread lines cannot reach a dead buffer).
+    static auto* tagged = new TaggedLines(std::cout.rdbuf());
+    std::cout.rdbuf(tagged);
+    const auto exe = std::filesystem::absolute(path).wstring();
+    checked(std::filesystem::is_regular_file(exe), "Executable missing");
+    if (sha256(exe) != retail_profile::sha256)
+        throw std::runtime_error("Retail launch only supports the fingerprinted final OW1 executable");
+    wchar_t own_path[32768]{};
+    checked(GetModuleFileNameW(nullptr, own_path, 32768) != 0, "Launcher path");
+    if (!conflicting_processes(std::filesystem::path(own_path).filename().wstring()).empty())
+        throw std::runtime_error("Pair mode refuses to start while another launcher or Overwatch process exists");
+    const auto executable_folder = std::filesystem::path(exe).parent_path();
+    const auto installation = executable_folder.parent_path();
+    checked(executable_folder.filename() == L"_retail_"
+        && std::filesystem::is_regular_file(installation / L".build.info")
+        && std::filesystem::is_directory(installation / L"Data"), "Retail installation layout");
+    std::vector<std::filesystem::path> dumps;
+    for (unsigned index = 0; index < 2; ++index) {
+        dumps.push_back(executable_folder / (L"retail-private-pair-c" + std::to_wstring(index) + L".dmp"));
+        if ((o.dump_mask >> index & 1) && std::filesystem::exists(dumps.back()))
+            throw std::runtime_error("Pair dump file already exists; preserve it before launch");
+    }
+    std::cout << "Retail pair launch uses original files and shared parent CASC storage; no disk patch is applied." << std::endl;
+
+    ScopedAcls original_acls;
+    PSID sid = nullptr;
+    const auto profile = L"OW1.Preservation.Offline." + std::to_wstring(GetCurrentProcessId());
+    int result = 1;
+    try {
+        const HRESULT hr = CreateAppContainerProfile(profile.c_str(), L"OW1 offline test", L"No network capabilities", nullptr, 0, &sid);
+        if (FAILED(hr)) { sid = nullptr; throw std::runtime_error("Create profile: " + std::to_string(hr)); }
+        const auto client_folder = installation.wstring();
+        original_acls.entries.push_back(std::make_unique<ScopedAcl>(client_folder));
+        original_acls.entries.push_back(std::make_unique<ScopedAcl>(own_path));
+        original_acls.entries[0]->changed = true;
+        allow(sid, client_folder, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE | FILE_GENERIC_WRITE | DELETE,
+              SUB_CONTAINERS_AND_OBJECTS_INHERIT);
+        original_acls.entries[1]->changed = true;
+        allow(sid, own_path, FILE_GENERIC_READ | FILE_GENERIC_EXECUTE, NO_INHERITANCE);
+        {
+            auto probe = launch(sid, own_path, L"--child-probe");
+            ResumeThread(probe.hThread);
+            DWORD code = 1;
+            if (WaitForSingleObject(probe.hProcess, 10000) == WAIT_OBJECT_0) GetExitCodeProcess(probe.hProcess, &code);
+            else TerminateProcess(probe.hProcess, 1);
+            CloseHandle(probe.hThread); CloseHandle(probe.hProcess);
+            if (code) throw std::runtime_error("Network isolation probe failed: " + std::to_string(code));
+        }
+        std::cout << "Network isolation verified; no network capabilities granted." << std::endl;
+        std::cout << "Pair mode: both clients share this one AppContainer profile." << std::endl;
+
+        std::vector<std::unique_ptr<Client>> clients;
+        for (unsigned index = 0; index < 2; ++index) {
+            auto client = std::make_unique<Client>();
+            client->tag = "[c" + std::to_string(index) + "] ";
+            client->config = o.clients[index];
+            client->job = CreateJobObjectW(nullptr, nullptr);
+            checked(client->job != nullptr, "Create pair job");
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+            limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            checked(SetInformationJobObject(client->job, JobObjectExtendedLimitInformation, &limits, sizeof(limits)), "Set pair job cleanup");
+            std::vector<loopback_bridge::Forward> forwards{client->config.tcp};
+            if (client->config.has_udp) forwards.push_back(client->config.udp);
+            {
+                TagScope scope(client->tag);
+                client->forwarder = std::make_unique<loopback_bridge::HostForwarder>(sid, forwards);
+                client->forwarder->start();
+            }
+            std::wstring ports = L"--loopback-bridge " + std::to_wstring(GetCurrentProcessId());
+            for (const auto forward : forwards) ports += (forward.datagram ? L" udp:" : L" ") + std::to_wstring(forward.container_port);
+            auto bridge = launch(sid, own_path, ports);
+            if (!AssignProcessToJobObject(client->job, bridge.hProcess)) {
+                TerminateProcess(bridge.hProcess, 1); CloseHandle(bridge.hThread); CloseHandle(bridge.hProcess);
+                throw std::runtime_error("Assign pair bridge job failed");
+            }
+            ResumeThread(bridge.hThread);
+            const bool bridge_exited = WaitForSingleObject(bridge.hProcess, 1000) == WAIT_OBJECT_0;
+            CloseHandle(bridge.hThread); CloseHandle(bridge.hProcess);
+            checked(!bridge_exited, "Container loopback bridge exited during startup");
+            std::cout << client->tag << "Container loopback bridge running on port " << client->config.tcp.container_port
+                      << "; the client still has no network capability." << std::endl;
+            clients.push_back(std::move(client));
+        }
+
+        auto start_client = [&](Client& client) {
+            TagScope scope(client.tag);
+            const auto arguments = L"--BNetServer=127.0.0.1:" + std::to_wstring(client.config.tcp.container_port);
+            std::cout << "Private client arguments: --BNetServer=127.0.0.1:" << client.config.tcp.container_port << std::endl;
+            client.process = launch(sid, exe, arguments, false, client_folder);
+            if (!AssignProcessToJobObject(client.job, client.process.hProcess)) {
+                TerminateProcess(client.process.hProcess, 1); throw std::runtime_error("Assign pair client job failed");
+            }
+            ResumeThread(client.process.hThread);
+            client.started = true;
+            std::cout << "Offline client" << "[c" << (&client == clients[0].get() ? 0 : 1) << "] PID="
+                      << client.process.dwProcessId << std::endl;
+            retail_world_probe::skip_intro(client.process.hProcess, image_base(client.process.hProcess));
+            const HANDLE child = client.process.hProcess;
+            const auto primary_tid = client.process.dwThreadId;
+            const auto thread_tag = client.tag;
+            if (o.observe_tls || !o.trust_ca_pem.empty() || !GetEnvironmentVariableW(L"OW1_SKIP_TLS_PATCH", nullptr, 0)) {
+                client.tls = std::make_unique<std::jthread>([child, primary_tid, thread_tag, trust_ca_pem = o.trust_ca_pem,
+                        observe_tls = o.observe_tls, trust_socket_ca = o.trust_socket_ca, lobby_public_modulus = o.lobby_public_modulus](std::stop_token stop) {
+                    tag() = thread_tag;
+                    uint64_t image = 0;
+                    try { image = image_base(child); } catch (const std::exception&) {}
+                    if (!image) { std::cout << "bgs TLS patch: image base unavailable; client left unpatched." << std::endl; return; }
+                    try {
+                        if (!trust_ca_pem.empty()) retail_ca_probe::run(child, image, primary_tid, trust_ca_pem, stop);
+                        if (observe_tls) retail_tls_observer::run(child, image, stop, primary_tid, trust_socket_ca ? trust_ca_pem : std::string{}, lobby_public_modulus);
+                        else if (trust_ca_pem.empty()) retail_tls_patch::apply(child, image, stop);
+                    } catch (const std::exception& error) { std::cout << "Private TLS diagnostic: " << error.what() << std::endl; }
+                });
+            }
+            if (o.preload) {
+                client.preload = std::make_unique<std::jthread>([child, primary_tid, thread_tag](std::stop_token stop) {
+                    tag() = thread_tag;
+                    try { retail_private_preload::run(child, image_base(child), primary_tid, stop); }
+                    catch (const std::exception& error) { std::cout << "Practice preload control: " << error.what() << std::endl; }
+                });
+            }
+        };
+        auto poll_exits = [&]() {
+            for (auto& client : clients) {
+                if (!client->started || client->exit_logged) continue;
+                if (WaitForSingleObject(client->process.hProcess, 0) != WAIT_OBJECT_0) continue;
+                GetExitCodeProcess(client->process.hProcess, &client->exit_code);
+                client->exit_logged = true;
+                TagScope scope(client->tag);
+                std::cout << "Client exited: 0x" << std::hex << client->exit_code << std::dec << std::endl;
+            }
+        };
+
+        // One shared bound measured from the first client's start.
+        const auto started = GetTickCount64();
+        const auto deadline = started + o.run_ms;
+        std::cout << "Pair diagnostic is bounded to " << o.run_ms / 1000 << " seconds; second client starts after "
+                  << o.delay_ms / 1000 << " seconds. Gameplay remains unverified." << std::endl;
+        start_client(*clients[0]);
+        while (GetTickCount64() < started + o.delay_ms) { poll_exits(); Sleep(250); }
+        start_client(*clients[1]);
+        for (;;) {
+            poll_exits();
+            if (clients[0]->exit_logged && clients[1]->exit_logged) break;
+            const auto now = GetTickCount64();
+            if (now >= deadline) break;
+            Sleep(static_cast<DWORD>(std::min<uint64_t>(250, deadline - now)));
+        }
+        // Bound reached: dump (selected) then end every still-running client.
+        for (unsigned index = 0; index < 2; ++index) {
+            auto& client = *clients[index];
+            if (client.exit_logged) continue;
+            client.alive_at_bound = true;
+            if (!(o.dump_mask >> index & 1)) continue;
+            HANDLE dump = CreateFileW(dumps[index].c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+            bool saved = false;
+            if (dump != INVALID_HANDLE_VALUE) {
+                saved = MiniDumpWriteDump(client.process.hProcess, client.process.dwProcessId, dump,
+                    static_cast<MINIDUMP_TYPE>(MiniDumpWithThreadInfo | MiniDumpWithFullMemory), nullptr, nullptr, nullptr);
+                CloseHandle(dump);
+            }
+            TagScope scope(client.tag);
+            std::cout << "Bound dump retail-private-pair-c" << index << ".dmp saved=" << saved << std::endl;
+        }
+        for (auto& client : clients) {
+            if (!client->alive_at_bound) continue;
+            TagScope scope(client->tag);
+            std::cout << "Owned client still alive; ending bounded diagnostic run." << std::endl;
+            TerminateJobObject(client->job, 3);
+            WaitForSingleObject(client->process.hProcess, 5000);
+        }
+        std::cout << "Pair summary:";
+        for (unsigned index = 0; index < 2; ++index) {
+            const auto& client = *clients[index];
+            std::cout << " c" << index << "=";
+            if (client.alive_at_bound) std::cout << "alive-at-bound";
+            else { std::ostringstream code; code << std::hex << client.exit_code; std::cout << "exited:0x" << code.str(); }
+        }
+        std::cout << std::endl;
+        result = clients[0]->alive_at_bound && clients[1]->alive_at_bound ? 0 : 1;
+        clients.clear();  // threads joined, jobs ended, bridges stopped
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << std::endl;
+        result = 1;
+    }
+    if (sid) { FreeSid(sid); DeleteAppContainerProfile(profile.c_str()); }
+    return result;  // original_acls restores both captured descriptors here
+}
+
+} // namespace pair_mode
+
 int wmain(int argc, wchar_t** argv) {
     if (argc == 2 && std::wstring(argv[1]) == L"--child-probe") return network_probe();
     if (argc == 2 && std::wstring(argv[1]) == L"--graphics-probe") return graphics_probe();
     if (argc == 4 && std::wstring(argv[1]) == L"--mutex-probe")
         return mutex_probe(argv[2], std::wstring(argv[3]) == L"hold");
     if (argc >= 4 && std::wstring(argv[1]) == L"--loopback-bridge") return loopback_bridge::run_container(argc, argv);
+    if (argc > 2 && std::wstring(argv[2]) == L"--retail-private-pair") {
+        pair_mode::Options options;
+        try { options = pair_mode::parse(argc, argv); }
+        catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 2; }
+        try { return pair_mode::run(argv[1], options); }
+        catch (const std::exception& error) { std::cerr << error.what() << std::endl; return 1; }
+    }
     // --retail-private [--forward PORT[:HOSTPORT]]... [-- CLIENT_ARGS...]
     std::vector<loopback_bridge::Forward> forwards;
     std::vector<loopback_bridge::Forward> datagram_forwards;
@@ -994,14 +1425,7 @@ int wmain(int argc, wchar_t** argv) {
                 }
                 if (std::wstring(argv[n]) == L"--trust-lobby-key" && n + 1 < argc) {
                     if (!lobby_public_modulus.empty()) throw std::runtime_error("Specify own lobby public modulus once");
-                    const std::filesystem::path path = argv[++n];
-                    if (!std::filesystem::is_regular_file(path) || std::filesystem::file_size(path) != 256)
-                        throw std::runtime_error("Lobby public modulus requires exactly 256 little-endian bytes");
-                    std::ifstream input(path, std::ios::binary);
-                    lobby_public_modulus.assign(std::istreambuf_iterator<char>(input), {});
-                    if (lobby_public_modulus.size() != 256 || !(static_cast<unsigned char>(lobby_public_modulus[0]) & 1)
-                        || !(static_cast<unsigned char>(lobby_public_modulus[255]) & 0x80))
-                        throw std::runtime_error("Lobby public modulus must be odd and exactly 2048 bits");
+                    lobby_public_modulus = load_lobby_modulus(argv[++n]);
                     continue;
                 }
                 if (std::wstring(argv[n]) == L"--trust-socket-ca") {
@@ -1014,18 +1438,7 @@ int wmain(int argc, wchar_t** argv) {
                 }
                 if (std::wstring(argv[n]) == L"--trust-ca" && n + 1 < argc) {
                     if (!trust_ca_pem.empty()) throw std::runtime_error("Specify one public CA certificate");
-                    const std::filesystem::path certificate = argv[++n];
-                    if (!std::filesystem::is_regular_file(certificate) || std::filesystem::file_size(certificate) > 16384)
-                        throw std::runtime_error("CA probe requires a bounded public PEM certificate");
-                    std::ifstream input(certificate, std::ios::binary);
-                    trust_ca_pem.assign(std::istreambuf_iterator<char>(input), {});
-                    const std::string begin = "-----BEGIN CERTIFICATE-----", end = "-----END CERTIFICATE-----";
-                    const auto first = trust_ca_pem.find(begin), last = trust_ca_pem.find(end);
-                    if (trust_ca_pem.size() > 16384 || first == std::string::npos || last == std::string::npos || last <= first
-                        || trust_ca_pem.find(begin, first + begin.size()) != std::string::npos
-                        || trust_ca_pem.find(end, last + end.size()) != std::string::npos
-                        || trust_ca_pem.find("PRIVATE KEY") != std::string::npos || trust_ca_pem.find('\0') != std::string::npos)
-                        throw std::runtime_error("CA probe accepts one public PEM certificate, without private keys");
+                    trust_ca_pem = load_public_ca_pem(argv[++n]);
                     continue;
                 }
                 if (std::wstring(argv[n]) == L"--run-for" && n + 1 < argc) {
