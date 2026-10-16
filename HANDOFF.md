@@ -1302,3 +1302,27 @@ Notes:
   fall ~1 m to the floor (1.76-2.0). Earlier "+10 m launches" (runs 326-335) and the
   first-spawn y 12 were team-less heroes inside the spawn room's enemy barrier.
   Generation teleports are now usable for Recall/respawn/Blink when the hero has a team.
+- **RECALL WORKS (run 341, best recipe + team bits + server Recall:** `Recall=3.0
+  RecallCooldown=3.0 RecallRewind=0.9 RecallStepHz=0 TeleportGen TeleportSends=4
+  TeleportDy=0.3` + run-326 RecallMirror; recipe `.local/runs/run-livemode18-341.ps1`,
+  UI `.local/re/ui-pick-recall.ps1`). Feed trajectory: hero walks (48.69,1.96,37.41)
+  -> (49.30,2.03,19.99); E at 19:44:42.74; at 43.71 the hero is at (49.33,3.39,26.87)
+  = its feed position at 39.78 (3 s earlier) and settles to the floor; second recall
+  likewise (to 16.49). No launch now that the hero has a team. The native Recall
+  screen effect is not visible in the screenshots (mirror states only).
+- **HUD hidden by OUR 0x0717 (agent, `.local/re/hud-render-336.md`):** UI side hosts
+  HUD_Root 0502 under GameLayer 029b; HUD_Root hosts 05a7/05d0/00f3/0571; 05a7 hosts
+  059d (corrects "top-level" note). UI manager 0xafb990 shows HUD_Root from
+  0xa7f5e0 = UI global var 0x0734; graph 0x0cc9 node 6 (client-only, on game message
+  0x0240000000000717) stacks 0x0734=false at priority 20 over 028c's true. 0x20e4
+  #399 and hero 0x01cf set 0x2af6 on 0x0717 (hides 05a7/05d0). Dump 144 (pre-0x0717)
+  has HUD_Root visible. 0x0717 came from `RetriggerControllerState='2:3:4'`
+  (0x0cb6 state 3 = client-only send 0x0717). 0x0717 is the game's HIDE-HUD message.
+  Run 342 = best recipe without the retrigger.
+- **Run 342 (best recipe without RetriggerControllerState; PID 8416, dump
+  `retail-private-livemode18-342.dmp` retained as the newest HUD reference):** no
+  0x0717 sent. Dump: UI var 0x0734 = 1, HUD_Root gate 0xa7f5e0 = 1, HUD_Root 0502 vis
+  1, 05a7 vis 1, 05d0/059d/00f3 vis 1 with opaque team-0 colours
+  (`.local/runs/widget-colors-342.txt`). The cyan world chevron returns. **Screen
+  still shows no HUD.** Best recipe now drops the retrigger. The agent continues on
+  `.local/re/hud-render-342.md`.
