@@ -54,6 +54,50 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
+## Master goal + session 327-329 notes (Claude, 2026-10-16) - read first
+
+- The owner set a master goal (docs/MASTER_GOAL.md): complete OW1 with 6v6.
+  Priority 1 = hero HUD ownership/routing. Work autonomously; keep this file
+  current.
+- Run 327 (best + 294 hero-ownership switch + controller 0x0bcf instance 5
+  with state 1): 0x0bcf exists, only its stack node 2 runs; no HUD_Root
+  content and no warning icon (run 231 not reproduced). Only 0x0bcf/0x120b
+  contain STU_501733D7 among all 1586 graphs (full rescan). 0x9cf9b0 creates
+  a render target (replay/highlight viewer), not a general HUD_Root show.
+- 0x0cc9 Stack sets ShowHeroHud (UI var 0x34f5) false only while active.
+- HUD presenter bindings (private .local/runs/hud-binding-vars-327.txt):
+  presenter m_EC32138E = {screen 0a88.., binding list id->expression over
+  vars}; m_45216F79 = two UX ids. Hero 0x01cf instance 11 in 294: 0x2af6 = 1
+  (main presenters #155/#235 gated on NOT 0x2af6), 0x7c20/21/22 = 1,
+  0x2ad4/0x2e27 handles present, 0x73ed = hero.
+- Runs 328/329: server 21616 game message 0x0717 to hero/controller is
+  delivered without effect (0x2af6 stays 1; 0x0717 had already been received
+  per the earlier #5/m_452862E6 analysis). Creating 0x0cb6 on the hero (329,
+  emulation 471/471 aligned) makes the client drop the hero's 0x01cf/0x0cb6
+  instances and the pistols: do not put 0x0cb6 on the hero.
+- 0x0717 senders: 0x0cb6 (client, target mode 1), 0x0cbb (Practice tree,
+  server-side, target 0) and 10 others; server game messages need a network
+  carrier (background investigation; notes go to
+  .local/re/server-game-message-path.md).
+- Client send path: send node vt 0x263ac80 -> 0xa06fc0 -> 0xbe9cb0 (entity
+  comp47 vt+0x60) -> per-manager dispatcher 0x1b8d150 (16 callers).
+- Module roles (vtables): slot 0x30 = frame-prefix reader (m0 0xc6a480, m3
+  0x7c0630, m4 0x787e70, m5 0x7e37c0; m1/m2 none), slot 0x38 = per-entity
+  reader (m1 0xa13b90, m2 0xb3a490, m3 0x7c06a0, m4 0x787f20), m2 slots
+  0x60/0x68 = 0xb3b0d0/0xb3b1f0 (tick). Module-2 per-entity records
+  (0xb40130 -> 0xd81f80) look like combat events (entity ids, two vec3,
+  u16s, entity list); applied by the m2 tick via 0xb40d40 -> 0xb22900.
+- Movement decode: state position = qwords +0x70/+0x78 XOR a rolling key
+  (+0x80, stepped BEFORE each word by one of 8 constants chosen by key&7).
+  numpy scanner `.local/claude-scratch/session/scan-movestates-329.py <dump>
+  x y z tol` finds every encoded state (authoritative history, rewind/recorder
+  nodes, three states in controller comp59 at +0x70/+0x3f0/+0x770). No
+  state holds the hero's current predicted position.
+- Pistol child definition 0400000000000017: contact set, EE0FB992, model
+  0d00000000000413 (third-person pistol), own children 0x2d33/0x3024; child
+  0x0169 = one effect component. Class-0 entities in 294 are static map
+  objects; no child of the hero exists. Creation path still unknown.
+
 ## Statescript server ack / reset bit (Claude, 2026-10-16, runs 307-309) - read first
 
 - **Frame header 0x9b4160:** reserved bit, CmFD-present bit (+0x4c), then a
