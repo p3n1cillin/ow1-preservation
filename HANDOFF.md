@@ -66,8 +66,12 @@ heroes (run 198).
      priority). Fix: `PickExtraVars '2:s11=i3,s34=i1'`.
   - Run 274 shows correct dashes, stopping at walls, landing on the floor.
     The user confirmed Blink is good.
-  - Charges are not decremented or recharged yet; s11 stays 3, so Blink is
-    unlimited.
+  - Charges are server-tracked (run 277): `--blink-charges-var 2:11:3:3.0`
+    (driver `-BlinkChargesVar`): -1 per Shift press edge, +1 every 3 s, max 3.
+    The hero frame advances only when the count changes. A fixed s11 = 3 made
+    the client's prediction disagree with the server and roll back/replay
+    (the user saw double blinks). Live: 3 blinks, the 4th only after a
+    recharge, then none, then one again after waiting.
 - **How the client handles input:**
   - Pressed logical buttons are listed per entity at comp47+0xd0+0x440
     (count +0x448). Shift = 35, E = 36; dump 272 shows [35, 114] on BOTH the
@@ -85,6 +89,16 @@ heroes (run 198).
   (types 3bc72de1/75d1c308) = `0:1`; PhysicsExplosion 25 and BlinkEffect 6 =
   none; ChaseVar 4/5 irregular.
 - **Recall (graph 0x1a) is not working yet:**
+  - Run 276: server-activating states 17 and 3 on E (`ButtonStates
+    0x10:1:17,3:0.9`) enters them but does not rewind. The movement must be
+    client-predicted.
+  - The E press calls 0x1b714e0, which queues a state REQUEST (instance,
+    state 16, value 1) on instance+0xc8 for the server (type-1 object via
+    owner vt+0x98, queued by 0x1b92990), instead of activating locally.
+    Likely the server must answer with Ability data: flag A=1, f32 +0x80,
+    optional f32 +0x84, and a compact frame offset -> +0x78 activation
+    time (reader 0xc84ac0).
+  - Only caller of the Ability's vt+0x1d8 (0x8eb450) is 0x8eb424.
   - It is driven by Ability state 16 (button 36 = E), which sits under
     Switch 22 (false branch) under Stack 29. Data forms: 29 = `0:1,0:1`,
     22 = `0:1`, 16 = `0:8,0:1,0:1` (reader 0xc84ac0); var 0x2562 = s34. They
