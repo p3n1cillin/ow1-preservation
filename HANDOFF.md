@@ -93,6 +93,28 @@ unresolved. Historical teleport recipes are not the best baseline.
   x y z tol` finds every encoded state (authoritative history, rewind/recorder
   nodes, three states in controller comp59 at +0x70/+0x3f0/+0x770). No
   state holds the hero's current predicted position.
+- Server placeables 0x80000300..303 (comp1 +0x90): (28.02,6.31,3.73),
+  (50.44,2.06,23.02), (54.57,1.0,42.15) = the claimed team-0 spawn point (comp
+  58), (34.24,1.99,22.97); they are not health packs. Run 330 spawned the hero
+  at (54.565,1.05,42.148): she fell under the map to y -18.8, so the placeable
+  height is not a standing position; keep PickSpawn (48.71,2.05,37.77).
+- **Statescript game-message bus (static, .local/re/server-game-message-path.md):**
+  no network record carries a game-message GUID. Messages are posted by
+  send-state nodes (vt 0x263ac80, begin -> 0xd4c3e0 -> registry 0xd9a770; the
+  registry hangs off root 0x2f586e0 via 0xa00b10, 64 buckets keyed by entity^msg)
+  whenever such a state begins, including when the server activates it via
+  StDt. Listeners (GameMessageEntry, vt 0x263b408, begin 0xd4bd40, poll
+  0xd514b0) pick a mode at node+0x248; client-only listeners in instances with
+  vt+0x148 true listen in mode 2 and only match REMOTE posts (sender def+0x110
+  set in such an instance). So to deliver message X to entity E the server
+  activates a sender state whose authored config yields X/E. 0x1b8d150 is a
+  variable-write dispatcher, not a message path. Message section 0xa0cca0 has
+  no GUID field.
+- HUD listeners: 0x01cf waits for 0x0717 (#5), 0x1291 (#101), 0x1509/0x1504/
+  0x150a (#105/#109/#113) and others; 0x20e4 for 0x0c9c, 0x0717, 0x1509/04/0a.
+  Graph senders found: 0x1291 = 0x20e4 #187 (state 13, client-only), 0x0c9c =
+  0x0233 #1044 (client-only); no graph sends 0x1504/0x1509/0x150a (native
+  posters; message GUIDs are obfuscated in code).
 - Pistol child definition 0400000000000017: contact set, EE0FB992, model
   0d00000000000413 (third-person pistol), own children 0x2d33/0x3024; child
   0x0169 = one effect component. Class-0 entities in 294 are static map
