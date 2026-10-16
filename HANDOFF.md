@@ -58,14 +58,21 @@ heroes (run 198).
   loading screen), a jump to another place (the controller), then hero select.
   - Old timeline: diagnostic selection 30 s, controller selection 45 s, controller
     create 50 s, graphs 60 s, hero select 63 s.
-  - New timeline: 30 / 31 / 33 / 35 / 37 s. The driver has a new
-    `-SelectDefinitionDelay` (was hard-coded to 45). Hero select now appears about
-    5 s after the loading screen.
+  - New timeline (run 291, now the best recipe): 30 / 31 / 32 / 33 / 34 s. The
+    driver has a new `-SelectDefinitionDelay` (was hard-coded to 45). Hero select
+    now follows the loading screen after about one screenshot (~2.5 s) of the
+    controller view.
 - **Spawn height:** `-PickSpawn 48.71,2.05,37.77`. The old default y = 6.31 dropped
   Tracer about 4 m from near the spawn-room ceiling. The responder now starts the
   spawn snapshots after the second hero create (`PICK['sent'] >= 2`, 12 snapshots)
-  instead of after all 40. About 1-2 s of intermediate first-person frames remain
-  (the hero first appears at its create-time default position). Not fixed yet.
+  instead of after all 40. `-SpawnAt 1,48.71,2.05,37.77,180` puts the same point
+  in the hero's create transform, so its first frame is already in the spawn
+  room (before: a dark corner elsewhere). Run 291 dump: the settled position
+  (comp1 +0x440) is (48.70, 1.96, 37.45), so y = 2.05 is on the floor. About 1 s
+  of camera motion (pitch/yaw sweep under the ceiling pipes) still follows the
+  pick. It looks like a camera transition rather than a fall, but the user has
+  not confirmed it yet. Run 290 was the known early instance failure (9
+  datagrams, exit 1).
 - **Recall (graph 0x1a) is client-predicted and gets rolled back:**
   - Emulated E press (`session/abil-flow-281.py`): press handler 0xc847c0 queues
     a deferred record (state 16 = 1). Gate 0xc85560 -> 0xca8d20 qualifies the
