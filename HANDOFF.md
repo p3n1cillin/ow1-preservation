@@ -98,7 +98,15 @@ heroes (run 198).
     Likely the server must answer with Ability data: flag A=1, f32 +0x80,
     optional f32 +0x84, and a compact frame offset -> +0x78 activation
     time (reader 0xc84ac0).
-  - Only caller of the Ability's vt+0x1d8 (0x8eb450) is 0x8eb424.
+  - Only caller of the Ability's vt+0x1d8 (0x8eb450) is 0x8eb424, in slot
+    0x1b8 (0x8eb3e0). It runs when node+0x2e0 > 0 after gate 0xc85560
+    (instance vt+0x140, +0x318 bit 19, 0xcb00f0, 0x1ba3490/0x1ba4060, 0xc1d860).
+  - Run 278: new `--ability-press GRAPH:STATE:MASK:SECONDS:DATA` (driver
+    `-AbilityPress`) swaps in "activated" Ability data on E:
+    `1a:16=0:8,0:1,1:1,0:32,0:1,0:1,0:8` (emulator 461/461; the presence bit
+    must be 0). Accepted, but no rewind; the pistols may twitch. Recall is
+    still open. The best recipe has no Recall teleport (the old one threw the
+    hero into the sky).
   - It is driven by Ability state 16 (button 36 = E), which sits under
     Switch 22 (false branch) under Stack 29. Data forms: 29 = `0:1,0:1`,
     22 = `0:1`, 16 = `0:8,0:1,0:1` (reader 0xc84ac0); var 0x2562 = s34. They
