@@ -1378,3 +1378,27 @@ Notes:
   (current value binding not fed; hero health pools are statescript graph 0x33
   instance 4 / STUStatescriptStateHealthPool) and no crosshair (inst9/0x15 client
   switches 28/26). The run-348 additions belong in the best recipe.
+- Run 349 (ult charge 0x0156=f99999, Q/V presses): client sends Q 0x20 / V 0x800 but
+  predicts nothing; meter unchanged. Run 350 (`ButtonStates '0x20:3:9:1.5'` = server
+  activates 0x34 Ability state 9 on Q): client exits 1 immediately. Do NOT force
+  Ability states (same failure class as the BlinkEffect attempt in run 160).
+- **Combat agent (`.local/re/module2-combat-344.md`):** module 2 = projectile
+  replication (section A volley/projectile-spawn records, emulator bit-exact 169/172
+  bits; section B projectile physics); keep `1,0,0`. Combat feedback = reliable
+  channel 2 family 25000 (dispatcher 0x7d1dc0; schema
+  `.local/re/instance-combat-families-344.json`): 25001 hit confirm {target s32,
+  amount s32, flags u8, frame offset s32} -> controller comp59 hit ring +0x12d0,
+  counters, world notification 7; 25000 combat log (0x450-byte event on hero health
+  component list +0x4c0; arrays +0xa8 >=3 and +0xd8 >=2 items). No native death
+  record; health 0 alone never starts death (ragdoll code 0x1b18330 <- 0x1ae8203 is
+  the next lead). **Health component bug fixed:** mask must be [1] (pool 0, 20 bytes);
+  the old 9-bit mask over-read 9 pools (320/248 bits). Run 351 checks the HUD health.
+- Run 351 (health mask fixed): health card still reads 0/200 (8 white segments full)
+  -> the card's current value is not component 51 pool 0; HUD agent tracing
+  (`.local/re/hud-render-348.md`).
+- **Hit confirms work natively (run 352):** private responder `--hit-confirm-every N`
+  (driver `-HitConfirmEvery`) queues a reliable channel-2 record 25001
+  (`pack('<iiBi', target, amount, 0, 0)`) every N server-registered bot hits. With
+  N=5: 31 sent, bot killed/respawned twice, client alive; final dump: controller
+  0x80000304 comp59 hit ring (+0x12d0; cap 32, idx 25, count 26) filled. No visible
+  hit marker yet (crosshair presenter not active). Best recipe gets HitConfirmEvery=5.
