@@ -71,6 +71,8 @@ unresolved. Historical teleport recipes are not the best baseline.
   New `--hero-cmfd-ticks` (driver `-HeroCmfdTicks`): CmFD = max(prev+1, last
   command seq + 8) per hero frame change. Live 302: spawn/pistols fine, CmFD
   1669; Ability +0x270 now resets to 0 after the reconcile (before: stuck 3).
+  Live 305 regression with it: Blink, firing (tracer+impact) and reload all
+  work, so it is now in the best recipe (`HeroCmfdTicks=$true`).
 - **Rewind state 0 must start locally:** its enter handler 0x8ed090 (vt+0x280)
   returns immediately when edx == 2 (server restore); its normal path sets
   +0x238 (end time = now + config*1000 ms) and the history index +0x270 that the
