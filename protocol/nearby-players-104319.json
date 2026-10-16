@@ -1,0 +1,95 @@
+{
+  "build": 104319,
+  "messages": [
+    {
+      "schema_hash": 446200228,
+      "message_id": 20815,
+      "fields": [
+        {
+          "kind": 14,
+          "offset": 120,
+          "width": 104,
+          "count": -1,
+          "fields": [
+            {
+              "kind": 14,
+              "offset": 0,
+              "width": 16,
+              "count": 0,
+              "fields": [
+                {
+                  "kind": 8,
+                  "offset": 0,
+                  "width": 8,
+                  "count": 0
+                },
+                {
+                  "kind": 8,
+                  "offset": 8,
+                  "width": 8,
+                  "count": 0
+                }
+              ]
+            },
+            {
+              "kind": 14,
+              "offset": 16,
+              "width": 16,
+              "count": 0,
+              "fields": [
+                {
+                  "kind": 8,
+                  "offset": 0,
+                  "width": 8,
+                  "count": 0
+                },
+                {
+                  "kind": 8,
+                  "offset": 8,
+                  "width": 8,
+                  "count": 0
+                }
+              ]
+            },
+            {
+              "kind": 8,
+              "offset": 32,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 8,
+              "offset": 40,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 8,
+              "offset": 48,
+              "width": 8,
+              "count": 0
+            },
+            {
+              "kind": 7,
+              "offset": 56,
+              "width": 4,
+              "count": 0
+            },
+            {
+              "kind": 7,
+              "offset": 60,
+              "width": 4,
+              "count": 0
+            },
+            {
+              "kind": 12,
+              "offset": 64,
+              "width": 40,
+              "count": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

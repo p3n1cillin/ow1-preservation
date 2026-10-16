@@ -1,6 +1,33 @@
 # OW1 preservation continuation
 
-## Latest Codex checkpoint: party before Practice, 2026-10-16
+## Latest Codex checkpoint: nearby discovery and party before Practice, 2026-10-16
+
+**Nearby Players continuation, runs 380-382:** 20815 (schema 446200228) carries
+an array of player records at +0x78 and creates the native Nearby Players tab.
+In 381, Mercy right-clicked Tracer there / Invite to Group -> real 22102;
+Tracer Yes -> real 22110; both received the two-member roster; Mercy alone
+started Practice; both entered and spawned as Tracer with full HUD/weapons.
+Follower Blink consumed one charge. Both alive at bound, exactly one own-port
+referral each, no refused bindings or stderr, all 12 cleanup/integrity fields true.
+No seeded 20701 suggestion was used. Friends remains loading, Recent Players
+empty; this is a configured nearby-account list, not an online presence service.
+The opt-in private social probe installs after the party probe using the same
+manifest; `<prefix>-social-control.json` contains `{"mid":20815,"version":1}`.
+Run 380 never launched clients (descriptor-count startup error); 381 uses a
+41-message runtime subset, preserving the public codec bound. The public new
+descriptor file exports only the verified 20815 numeric layout. See HANDOFF and
+docs/PARTY_PROTOCOL.md for reproduction and latest repeat/validation results.
+
+382 repeated from fresh clients with 20815 sent at login, no `suggest` control:
+native Nearby Players Invite / Yes / roster / leader queue / both Tracer spawns
+with HUD. Follower Blink 3 -> 2; leader volley + volley-end logged. Both alive
+at shared bound, one own-port referral each, both bound, no refusals or stderr,
+all 12 cleanup fields true. All 28 public bnet-probe tests and all five private
+social/party checks pass. No native changes; no new dumps. Normal recipes are
+unchanged when the two experiment environment variables are unset.
+
+The following 376-379 discovery limitation is historical; Nearby Players now
+supplies a native selectable Invite route without a group suggestion:
 
 The owner's requested party-first flow was missing from Claude's E2/E3 tests
 (those entered separately). Runs 376-379 now establish the relevant native path:

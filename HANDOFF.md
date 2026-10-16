@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Codex (party-first continuation after Claude's run 375; latest checkpoint below). Whoever stops
+Last updated 2026-10-16 by Codex (Nearby Players discovery after party-first runs; latest checkpoint below). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -57,7 +57,57 @@ verified (372-374 and pair-e3-367; details at the end of this file). Hero re-pic
 regressed in 375. Authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
-## Latest continuation: party before Practice (Codex, 2026-10-16)
+## Latest continuation: Nearby Players discovery (Codex, 2026-10-16)
+
+- **Run `pair-social-381` removes the seeded group suggestion.** Message
+  **20815**, schema 446200228, +0x78 array of embedded player records, creates
+  the native Nearby Players tab. Mercy sees Tracer there, right-click / Invite
+  to Group sends real 22102, Tracer's Yes sends real 22110, then both get the
+  two-member roster. Mercy alone starts Training / Practice; both enter, pick
+  Tracer, and spawn with full HUD/weapons. Follower Blink consumes 3 -> 2 charges.
+  Both alive at shared bound, one own-port referral each (1119 / 1129), both
+  responder sessions bound, no bind refusals or stderr, all 12 cleanup fields true.
+  Proof: `.local/runs/pair-social-381-{nearby,group,leader-range,follower-range}.png`.
+- **`pair-social-382` repeats from fresh clients with 20815 supplied at login.**
+  Nearby Players is already populated when Mercy opens Social. Native Invite /
+  Yes / roster / leader-only queue again brings both to first-person Tracer
+  with HUD. Follower Blink moves to the doorway (3 -> 2); leader volley and
+  volley-end events logged. Both alive at shared bound, one own-port referral
+  each, both bound, no bind refusals, empty probe/UDP stderr, all 12 cleanup
+  fields true. Proof: `pair-social-382-{nearby-invite,leader-range,
+  follower-range,follower-blink}.png`. No new dumps or native changes.
+- Private `.local/re/social_probe.py`, opt-in `OW1_SOCIAL_EXPERIMENT` pointing
+  to the SAME manifest as `OW1_PARTY_EXPERIMENT`, installs after the party probe.
+  Write `{"mid":20815,"version":1}` to `<manifest-prefix>-social-control.json`.
+  Each client gets the other configured account once. No `suggest` control is
+  needed: use Social / Nearby Players / right-click account / Invite to Group,
+  Yes in the follower, then only the leader selects Practice. The party probe's
+  22102 routing no longer requires `party_suggested`.
+- `pair-social-380` failed before launching clients: the full RE descriptor set
+  exceeded the codec's 64-message bound. Fixed by selecting 41 messages into
+  `.local/runs/social380-runtime-schemas.json`, preserving the public bound.
+  The later 381 run used this subset successfully. Full 126-message extraction
+  remains `.local/runs/social380-schemas.json`; do not load it as one codec file.
+- Public `protocol/nearby-players-104319.json` contains only the verified 20815
+  numeric layout. Other candidates 20809 / 20810 / 20816 were NOT sent in 381;
+  do not assign them friend/recent semantics. Friends still spins; Recent
+  Players was empty. Requests observed around menus: 22207 and 58400; no
+  evidence yet that the empty 22210-22213 requests load those lists.
+- Shared private RE helpers: `.local/codex-scratch/social380-{schemas,meta,xrefs}.py`.
+  Numeric descriptors / metadata only; retained dump 295 and local emu image
+  are unchanged. No new dumps. `.local/codex-scratch/test_social382.py` extends
+  the party regression with nearby identity and no-suggestion checks; all five
+  checks pass. All 28 public `tests/bnet_probe.py` tests pass, including the new
+  nearby identity, empty-list, truncation, catalogue and existing-player-layout
+  checks. `git diff --check` passes. Native build/27 CTest results from the prior
+  checkpoint remain the latest native validation; no native sources changed.
+- **Next:** automatic presence/removal and party leave/re-invite lifecycle,
+  then peer movement/pose/weapon replication and shared bot/combat state.
+  The nearby list is a configured two-account fixture, not live presence.
+  Peer still floats in a fixed pose; hero re-pick regression from 375 remains.
+  Do not claim full multiplayer or completion of the master goal.
+
+## Prior continuation: party before Practice (Codex, 2026-10-16)
 
 The owner explicitly wants joining the other account's party BEFORE starting
 Practice. Claude's E2/E3 runs entered Practice separately on each client; they

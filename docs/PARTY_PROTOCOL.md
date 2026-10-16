@@ -18,6 +18,14 @@ Server party messages use schema decimal 605150806; client requests use
 the regression check requires both copies to agree. Unknown fields remain zero.
 The two clients keep their own game account identities throughout the merge.
 
+`protocol/nearby-players-104319.json` adds the verified **20815** notification
+(schema 446200228). Its +0x78 array contains player records: game identity at
++0x00, account identity at +0x10, and BattleTag at +0x40. Other fields stay zero.
+In run 381 this created the native **Nearby Players** tab with one selectable
+account. Right-clicking that account and choosing **Invite to Group** sent the
+same 22102 target identity as the earlier suggestion experiment. This establishes
+nearby-player discovery; it does not establish Friends or Recent Players support.
+
 ## Live evidence and scope
 
 `pair-party-377` established the suggestion / Invite request distinction.
@@ -41,9 +49,23 @@ only after that account's real 22110 acceptance. One leader launch again
 brought both clients to hero select and first-person Tracer gameplay with HUD.
 Follower Blink moved to the doorway and its HUD charge count fell from 3 to 2.
 
-This is a bounded diagnostic implementation. Player discovery still requires a
-server-seeded suggestion; Friends does not yet populate. The backend's instance
-worlds retain separate bot state, and the visible peer proxy floats in a fixed
+`pair-social-381` removed the seeded group suggestion: 20815 exposed Tracer in
+Mercy's Nearby Players list, native Invite sent 22102, and Tracer's Yes sent
+22110. Both received the two-member roster. Mercy alone started Practice; both
+clients received one referral to their own endpoint and spawned as Tracer with
+weapons and HUD. Follower Blink consumed one charge (3 to 2). Both remained
+alive at the shared bound, with no bind refusals or stderr; all twelve cleanup
+and integrity fields passed. The nearby list was supplied by the configured
+two-account diagnostic backend; automatic presence tracking is not implemented.
+
+`pair-social-382` repeated the complete route from fresh clients with 20815
+sent at login. Both again spawned with HUD, follower Blink consumed a charge,
+and leader fire/stop events were recorded. Both remained alive at the bound;
+each received one referral to its own endpoint, with no bind refusals or stderr
+and all twelve cleanup/integrity checks passing.
+
+This is a bounded diagnostic implementation. Friends does not yet populate.
+The backend's instance worlds retain separate bot state, and the visible peer proxy floats in a fixed
 pose without weapon animation or PvP damage. This does not establish complete
 parties, matchmaking, authoritative multiplayer, or a finished Practice Range.
 
@@ -57,6 +79,12 @@ Clear both tutorial overlays before writing `{"suggest":1}` to the manifest's
 `-control.json` companion. Click Invite on the leader and Yes on the follower,
 then start Practice only from the leader. A changed suggestion number can
 reissue an expired suggestion. Normal recipes leave the environment variable unset.
+
+For Nearby Players, also set `OW1_SOCIAL_EXPERIMENT` to the same manifest and
+write `{"mid":20815,"version":1}` to its `-social-control.json` companion.
+The private `.local/re/social_probe.py` sends the other configured account to
+each client once. Open Social / Nearby Players, right-click the other account,
+and use Invite to Group. No `suggest` control is needed for this path.
 
 Per-account `-events-<id>.jsonl` files record native Invite, native acceptance,
 roster delivery, leader queue request and follower forwarding. Datagram logs,

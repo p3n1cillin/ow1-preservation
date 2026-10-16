@@ -26,6 +26,27 @@ class Fragmented:
 
 
 class ProbeTests(unittest.TestCase):
+    def test_nearby_players_notification_preserves_identity(self):
+        from gateway_codec import load_messages, encode, decode
+        from lobby_service import PROFILE_SCHEMA, WELCOME_SCHEMA, GAME_ACCOUNT_HIGH
+        root = Path(__file__).resolve().parents[1]
+        messages = load_messages(root/'protocol/nearby-players-104319.json')
+        self.assertEqual(set(messages), {(PROFILE_SCHEMA,20815)})
+        catalogue = json.loads((root/'protocol/gateway-104319.json').read_text())['protocols']
+        self.assertTrue(any(p['schema_hash'] == PROFILE_SCHEMA and p['first_id'] <= 20815 < p['end_id']
+                            for p in catalogue))
+        fields = messages[PROFILE_SCHEMA,20815]
+        existing = load_messages(root/'protocol/lobby-login-104319.json')
+        self.assertEqual(fields[0]['fields'], existing[WELCOME_SCHEMA,20502][0]['fields'])
+        player = {0:{0:1001,8:GAME_ACCOUNT_HIGH}, 0x10:{0:1001,8:1<<56}, 0x40:b'Tracer#1001'}
+        wire = encode(fields, {0x78:[player]})
+        decoded = decode(fields, wire)
+        self.assertEqual(len(decoded[0x78]), 1)
+        for offset, value in player.items():
+            self.assertEqual(decoded[0x78][0][offset], value)
+        self.assertEqual(decode(fields, encode(fields, {0x78:[]})), {0x78:[]})
+        with self.assertRaises(ValueError): decode(fields, wire[:-1])
+
     def test_party_message_identity_wire_and_catalogue(self):
         from gateway_codec import load_messages, encode, decode
         root = Path(__file__).resolve().parents[1]
