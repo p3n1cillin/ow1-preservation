@@ -54,6 +54,59 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
+## Statescript server ack / reset bit (Claude, 2026-10-16, runs 307-309) - read first
+
+- **Frame header 0x9b4160:** reserved bit, CmFD-present bit (+0x4c), then a
+  **reset bit (+0x4d)**. Our responder always sent 0. 0xa0e3c0: if +0x4d (or a
+  delta frame while history exists) it undoes predictions (0xa0f5d0), applies the
+  frame, then 0xa0a780 drops the whole history list (mgr+0x90) and replays only
+  local inputs (mgr+0xc8, 0x48-byte items, tick +8) newer than CmFD (+0x900).
+  Without it, 0xa0b200 rolls back every prediction 40 ticks after the oldest
+  history entry (it replays only from now-40), which is why Recall states
+  always dropped at +0.64 s (307 confirms: tick rewound to the E tick at drop).
+- New responder `--hero-reset never|always|after-close` (driver `-HeroReset`):
+  hero full frames set the reset bit. **Live 308** (after-close, margin 0, mirror
+  2.0 s): E predicted, mirror frame acks it (CmFD = E tick), history cleared and
+  states 3/9/15/17/23 stay active the full 2 s until mirror-off. Prediction
+  survives; Recall now needs the 3 -> 0 transition.
+- Instance var `1/18b=b1` at +0.25 s (308) does not end state 3 (not the trigger).
+- Emulation (283-e1, PROBEADDRS=8ed090): a server frame entering state 0 calls
+  enter with **edx=1** (normal path, not the edx==2 early return).
+- **Rewind (state 0, 41b3fc2b) dependency chain, runs 309-313:**
+  - Enter 0x8ed090: end time +0x238 = start + duration(def+0xf0 = var 0x00d7,
+    SetVar #31 = 0.9 s) then overwritten by the state-data s64 (our T token is the
+    END time: use `T+900`); start +0x978; recorder node via 0xca2660 = def+0x108
+    state-ref var 0x72a3 (written by recorder STU_CF950CB5 = **state 4, node 5**);
+    history index +0x270 = 0xc90880(recorder, look-back def+0xe8 = var 0x1bd5 =
+    3, SetVar #23); success sets node bit 9 (0x1b72e30 dl=1, per-tick update).
+  - 309: no state 4 -> +0x270 = -1. 310b (`PickExtraStates 1:...,4`, no data
+    bits, emulation-aligned 554/554): +0x270 = 0, update registered, no move.
+    311b/312: `T+1250`/`T+900` and mirror vars `1/s21=i3|1/s23=f0.9`
+    (674/674 aligned): still no move; client exits on mirror-off (as 299).
+  - Update 0x8ee160 (vt 0x2620e18 slot 0x80): progress = (+0x248 clock -
+    start)/(end-start); eased curve 0x8fb1d0 (range -0.285..1.285); then
+    0xc909e0 needs two recorder samples around the cursor (+0x260) -> null.
+  - **Recorder never samples:** ring at node+0x1c0 (0x480-byte entries,
+    cap +0x1c8 = 101, write +0x1d0, count +0x1d4) has 1 entry. Record fn
+    0xc94a00 (vt slot 0x70, called each tick by 0x1b925f0 from instance tick
+    0x1b927c0 via list inst+0x238) samples only when the hero comp28 movement
+    time (0xbe71d0 -> 0xc5be90: comp28 inner ring +0x400 cap/+0x410 idx/
+    +0x414 count, 16-byte {f64 time, u32 seq}) >= next time +0x1d8 (+0.1 s).
+  - **comp28 ring holds only the 12 spawn-snapshot states** (t 53.44..53.79,
+    seq 3340..3362 step 2) in dump 313-r: it is appended by authoritative
+    movement (0xc5b640 from module-3 apply 0x64a970, 0x803420 via 0x7fdf10,
+    0x805970 = slot 0x48 of interface vt 0x260fdb0 at +0x14f0 of the
+    controller's component 59 (comp vt 0x260fd10), and module-2 0xb25480).
+    Local prediction alone does not extend it, so Recall needs either streamed
+    server movement states for the controlled hero or the comp59 path that
+    feeds 0x805970. Next: trace who calls interface slot 0x48 (0x805970).
+- Tools: `session/rewind-update-313.py` (gate probes + timed updates),
+  `recorder-313.py`, `recorder-tick-313.py` (instance tick trace),
+  `tick-lists-313.py`, `movering-313.py`, `nodevt-313.py`,
+  `recall-sample-show.py`; emu.py has an optional `e.tracelog` list.
+  Responder: `--hero-reset`, `T+N` token. Dump kept: livemode18-313-r
+  (PID 16660, mid-rewind).
+
 ## Recall prediction mechanics (Claude, 2026-10-16, runs 299-304) - read first
 
 - **Live sampler:** `.local/claude-scratch/session/recall-addrs-300.py <dump> <pid>`
