@@ -1407,3 +1407,11 @@ Notes:
   stays standing, no death presentation, client fine. The ragdoll chain 0x1b18330 <-
   0x1ae7790 <- 0x1b0e280 <- scene/model code has no network trigger found. Death
   presentation remains open (likely server statescript states of the bot graphs).
+- **Health number and ultimate meter fixed (run 355; agent `.local/re/hud-render-348.md`):**
+  the card's CurrentHP is a statescript expression over hero globals 0x01de, 0x8398
+  (must stay false), 0x06c9 current, 0x06c4 max; the ultimate meter = charge 0x0156 /
+  cost 0x0152 (unset = "ready at 0%"). PickExtraVars `g:06c4=f200,06c9=f200,0152=f1000,
+  0156=f350` -> card shows 200/200, meter 35% (Q not ready). Crosshair presenter
+  (inst9/0x15 state 38) is gated on 0x0ebc, written only by StateStack 23 with is-top 1:
+  StateData changed `15:23=0:1,0:1` -> `15:23=1:1,0:1`; still no visible crosshair in
+  355 (checking the dump). General rule: StateStacks whose value matters need is-top 1.
