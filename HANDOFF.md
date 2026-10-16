@@ -78,8 +78,16 @@ unresolved. Historical teleport recipes are not the best baseline.
   delay/16 ms)*16; recipe `.local/runs/run-livemode18-299.ps1` uses
   `1a/0=T/64,0/16`.
   New responder option `--recall-phase2 'DELAY:ON:OFF:G/S=d/w,..'` (driver
-  `-RecallPhase2`). Next live test: run-livemode18-299.ps1 (press E, watch for
-  a rewind; dump around 0.6 s).
+  `-RecallPhase2`). **Live 299 result:** phase A (cmd seq 2270), phase B at
+  +0.4 s (start time T = 36720) both accepted (81 client datagrams after
+  phase B), but **no rewind/movement** during ~1.3 s of server-entered state 0.
+  The client exited 0x1 on the mirror-off frame (0 datagrams after it); the
+  same off frame decodes 600/600 offline, so the exit is semantic (exiting the
+  server-entered rewind), not alignment. Conclusion: like Blink, server-driven
+  ability states do not move the hero; Recall needs the client's own
+  prediction to survive. Do not ship the mirror; the best recipe has none.
+  Open question remains why the live client drops its predicted Recall
+  states within 0.25 s with no server frame (283-e1).
 - **HUD gate var 0x2af6:** 0x01cf presenters #155 (runtime 181, layer 05a7) and
   #235 are gated by `NOT var 0x2af6`. On 294, 0x2af6 = true in hero 0x01cf
   instance 11 and controller 0x20e4 instance 4. Its only writer is client-only
