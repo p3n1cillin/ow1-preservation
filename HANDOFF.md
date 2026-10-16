@@ -66,13 +66,20 @@ unresolved. Historical teleport recipes are not the best baseline.
   graph), so the server must drive 3 -> 0. Emulating that finish
   (`session/recall-phase2-296.py`, from Codex's serializer) starts rewind 0 plus
   1/2/31. Native writers give data: Stacks 15/28/33/35 = `1,0`; 1/2/22/37 = one 0
-  bit; 17/31/36 = none. State 0 reads reflected data (vt+0x168 = 0xd44bf0, one
-  object at node+0x1c0) before its u16: encode `0/-8,0/8,0/16` (pad to byte,
-  u8 mask count 0, u16 elapsed). The emulator cannot model this byte-reader
-  writeback (always reports 193 -> 257), so state 0's form is unverified.
+  bit; 17/31/36 = none. **State 0 data = 80 bits:** its reflected object
+  (vt+0x168 = 0xd44bf0 -> node+0x1c0, descriptor image+0x3168080, one s64 field
+  +0x78, hash 0007bf47) is read as 8 raw bytes from the current bit position
+  (0x1b71930 writeback keeps the sub-byte offset; the 193 -> 257 jump is real),
+  then the class's u16 (node+0x970). Phase-B frame with `0:64,0:16` decodes
+  725/725 and starts nodes 1/2/3. The s64 is the client statescript clock when
+  state 0 began (emulated: owner+0x1e0). That clock is the hero's command tick:
+  dump 283-e1 owner+0x1d0 = 2398 vs E at command seq 2341 ~0.9 s earlier;
+  ms = tick*16 (+15). Responder token `T` in phase-2 data = (E command seq +
+  delay/16 ms)*16; recipe `.local/runs/run-livemode18-299.ps1` uses
+  `1a/0=T/64,0/16`.
   New responder option `--recall-phase2 'DELAY:ON:OFF:G/S=d/w,..'` (driver
-  `-RecallPhase2`); recipe `.local/runs/run-livemode18-297.ps1`. Phase-B frame
-  without state 0 decodes 644/644. Risk: client exit 1 if state 0's form is wrong.
+  `-RecallPhase2`). Next live test: run-livemode18-299.ps1 (press E, watch for
+  a rewind; dump around 0.6 s).
 - **HUD gate var 0x2af6:** 0x01cf presenters #155 (runtime 181, layer 05a7) and
   #235 are gated by `NOT var 0x2af6`. On 294, 0x2af6 = true in hero 0x01cf
   instance 11 and controller 0x20e4 instance 4. Its only writer is client-only
@@ -83,6 +90,10 @@ unresolved. Historical teleport recipes are not the best baseline.
   exits node 155 in emulation (556/554 bits), but 0x2af6 stays true afterwards,
   so the exit alone does not clear it. Semantics of Stack out-var / the presenter
   condition (show vs hide) still to settle.
+- Map tag markers (empty tag components, positions from 294): 15 x [1,110],
+  18 x [1,111], 10 x [1,38]; the [1,38] set lies at y ~6.5 on a loop
+  (42,-0.5)...(46,-28)...(62,-37)...(95,-12)...(79,10.5), possibly a patrol
+  track. Unconfirmed.
 - **Pistol/muzzle:** replicated component states found via vtable decode
   0x5d6b20 (`session/compstate-297.py <dump> <pid> <entity> <types>`): comp 26
   = u64 (filter bits, flags 2), 69 = u64, 90 = one field, 136 = {s32, entity,
