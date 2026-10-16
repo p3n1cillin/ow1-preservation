@@ -1589,3 +1589,13 @@ Notes:
   subgraph under 0x4b state 3, presenter chains); patch
   `.local/claude-scratch/session/patch_hero_hud-372.py` (+ driver) adds
   `--hero-hud-configs`. Tracer verified by native decoder; others encoder-only.
+- **E3: the two players SEE EACH OTHER (pair-e3-367, `-ProxyHeroes`):** both bound,
+  both picked Tracer; each client got the other's hero as a proxy (same entity id as in
+  its owner's world, skin 0a5000000000170f, team bits, health), moved by module-3
+  snapshots from the owner's tracked position. Screenshots (`pair-e3-367-both.png`):
+  c0 sees c1's Tracer, c1 sees c0's Tracer. Defects: proxies float above the floor in a
+  fixed pose (no locomotion animation, no yaw), no weapon visuals, no PvP hits, bots per
+  session. Next: proxy height/animation (movement-state fields: velocity/grounded/yaw),
+  then shooting each other.
+- Per-hero HUD patch applied to the responder/driver (backups .bak372); best recipe has
+  `HeroHudConfigs='.local/runs/hero-hud-configs-372.json'` (live check pending).
