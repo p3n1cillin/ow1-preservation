@@ -1422,3 +1422,21 @@ Notes:
   while shooting the bot (`livemode18-356-ult.png`). Cost/rate are approximations,
   not the original charge rules; Q at 100% (server-side Pulse Bomb) is not
   implemented. Best recipe now uses UltCharge '1000:0:4'.
+- **Two concurrent clients (design `.local/re/two-client-design-353.md`, static):**
+  no single-instance check in the client (583 resolved IAT slots traced). Likely
+  blocker: TACT/CASC shared-memory named mutex `Global\<storage path>` (name at
+  offset 8 of each `shmem` file; 0x3347f0 CreateMutexW x2 then OpenMutexW) - a
+  second client in a different AppContainer profile gets error 5 and exits 1
+  (matches the DEVLOG 2026-10-13 second-launch 0x1). Proposed: launcher pre-creates
+  both exact-named mutexes granting owner/SYSTEM/both client SIDs (Low label) for
+  the run; pair mode with per-client profiles, bridges (1119/1129), jobs, one ACL
+  capture/restore; second bnet probe on 21129; multi-player responder refactor.
+  First step E0: launcher self-test of mutex behaviour across two profiles (no game).
+  Never run two launcher processes concurrently (ACL save/restore interference).
+- **Run 357 (UltCharge '1000:1000:4' = meter full, Q):** the client now PREDICTS the
+  ultimate: pistols holstered (empty hands), hero HUD replaced (health/ammo/ability
+  widgets gone) and a red prohibited marker at the meter position (`livemode18-357-k-Q.png`).
+  Setting the cost 0x0152 was the missing condition (349 had it unset). The prediction
+  is never confirmed by the server. End-of-run dump: instance 3 (0x34) has no running
+  nodes (prediction long over). Run 358 dumps 0.3 s after Q to read the predicted
+  states for a server mirror (as done for Recall).
