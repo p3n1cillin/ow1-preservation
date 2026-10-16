@@ -1515,3 +1515,24 @@ Notes:
   shows a level badge "6 | TRACER" but the portrait hexagon is still empty. Dump 369
   sent to the HUD agent. Responder: BlinkChargesVar now also gated by EXTRA_OK
   (Tracer instance 2 = Blink graph; for Soldier instance 2 is 0x4b).
+- **Tracer ultimate plan (agent, `.local/re/ult-mirror-359.md`, emulated on 358-q):**
+  the 0x34 Ability (state 9, node 31) sits in the FALSE branch of BooleanSwitch 11
+  (global 0x1880), reached from server Entry #1 -> SetVars 0x18e0/0x1cdd/0x00d7 ->
+  Stack 12 -> switch 11; our server never entered 12/11/9, so 358 had no prediction
+  (357's stuck holster unexplained, no dump). Ability state data = 10 bits
+  (`0:8,0:1,1:1,0:32,0:1,0:1,0:8` per emulator) - run 350 crashed for lack of it.
+  States: 0 WeaponVolley throws projectile 0400000000000045 (graph 0x0c1b, explosion
+  on message 0x02400000000005d4), 1 Anim, 2 Wait .15, 3 CosmeticEntity bomb-in-hand
+  04000000000000ea, 5 Wait .2 + 14 Stack (0x034a), end action #128 clears 0x0021.
+  Step 1 recipe: PickExtraStates `3:9,10,11,12,13`; StateData `34:12=1:1,0:1;34:11=0:1;
+  34:9=0:8,0:1,0:1;34:0=0:1,0:1,0:8,0:1,0:1,0:6;34:14=1:1,0:1`; PickExtraVars
+  `3:s32=i15,s29=f30,s23=f0.5`; UltCharge full. Steps 2/3 (AbilityPress mirror;
+  `patch_ultmirror-359.py` adds --ult-use-button/--mirror-needs-ult and fixes state 0
+  never being sendable inactive) are prepared, not applied. Bomb stick/explosion = design.
+- **Soldier first pick fixed (run 370b):** the crash was Tracer's BlinkChargesVar
+  ('2:11:3:3.0') written into Soldier's instance 2 (graph 0x4b); now gated by
+  EXTRA_OK. Soldier: pulse rifle, 8 volleys, 3 bot kills, tracer leaves the rifle muzzle
+  (generated cosmetic handle s50=h11.11 works). No hero HUD for non-Tracer heroes yet
+  (red marker at the meter position); per-hero HUD presenter states/vars still to derive.
+  Run 370 was invalid (probe crashed: E2 agent changed tools/lobby_service.py
+  local_referral(port); private probe_record_inputs.py wrapper now passes *args).
