@@ -100,6 +100,42 @@ unresolved. Historical teleport recipes are not the best baseline.
     Local prediction alone does not extend it, so Recall needs either streamed
     server movement states for the controlled hero or the comp59 path that
     feeds 0x805970. Next: trace who calls interface slot 0x48 (0x805970).
+- **Movement snapshot sequence:** module-3 reader 0x7ca130 uses state +8
+  (snapshot field 2) as the ring seq; 0 -> current server tick [rdi+0x108];
+  ring time = 0xbb7100(seq) = seq x 16 ms; apply 0x64a970 -> 0xc5b640 skips
+  states whose seq <= the newest ring seq. Client prediction 0x8013d0 also calls
+  the simulator 0xdaa6c0 but never appends to the ring.
+- **User decision (2026-10-16): the local private server may read the client's
+  own predicted position.** `.local/re/hero_pos_feed.py <pid> <entity> <json>`
+  (ReadProcessMemory, live Ctx world scan, hero comp1 +0x440 f32 xyz, 60 Hz,
+  re-resolves if entity +0xb0 changes). Responder `--hero-pos-feed` (driver
+  `-HeroPosFeed`): server TRACK position/history from the feed instead of dead
+  reckoning. `--hero-pos-echo` (run 314) echoes it as position-only snapshots:
+  the hero sinks/drifts (other snapshot fields reset), ends inside geometry at
+  y~30. Do not use echo.
+- **Server Recall rewind (runs 315-317):** `--recall 3 --recall-rewind 0.9
+  --recall-step-hz 30` (driver `-Recall -RecallRewind -RecallStepHz`): on E the
+  responder plays the last 3 s of fed positions in reverse as teleport
+  snapshots, plus the mirror states for visuals. 315 crashed (emit bug, fixed).
+  316: path rewinds correctly (z 22.75 -> 37.4 in ~0.9 s) but points at floor
+  height sink below the floor and the end lands at y 13.3; 317 lifts every
+  point by TeleportDy 0.3: points then rise and the end still lands at 13.3.
+  318 adds snapshot field 3 (0xc61b60, state +0xc: changed, raw-bit 0, u32 =
+  monotonic teleport generation `TELE_GEN`, emulator-verified 207/207 bits):
+  no change. 319 (6 Hz steps), 320 (single final teleport): still 13.3.
+- **Snapshot teleports are swept, not hard (run 321 calibration,
+  `-SpawnSequence` at fixed times, feed-logged):** the client moves the hero
+  from its predicted position to the snapshot position over ~0.3-1 s with
+  collision, rising over obstacles. Open ground -> lands near target;
+  outdoors -> spawn room (48.7,2.3,37.44) peaked 12.4 then fell to the floor
+  (ok); inside the room -> (48.71,2.05,37.77) climbs onto the roof at y 13.3;
+  a target in geometry ends at the fallback (52.4,30.2,14.1). This also
+  explains the old 'spawn on top of the spawn room then fall' report. 322
+  (mirror ends before the final teleport) still lands on the roof.
+  Next: find the native hard-teleport path (0xc5b640 equal/greater gen copies
+  the state into the predicted entry at comp28 inner +0x420 + idx*0x370;
+  field 1 = state +4 bit gates 0x7ca130 velocity derivation) by emulating
+  0x7ca130 + prediction on a dump instead of more live runs.
 - Tools: `session/rewind-update-313.py` (gate probes + timed updates),
   `recorder-313.py`, `recorder-tick-313.py` (instance tick trace),
   `tick-lists-313.py`, `movering-313.py`, `nodevt-313.py`,
