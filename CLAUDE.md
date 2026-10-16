@@ -1795,3 +1795,31 @@ Next: trace sender parameter delivery and scheduling into listener 178 / Stack 1
 Recall and the full Practice Range requirements remain unresolved. No native
 source changed or fresh CTest run was performed for this recipe-only change.
 Python compilation and all four public instance-bit tests pass.
+
+## 2026-10-16 - HUD ownership controls, runs 294 and 295
+
+Corrected the earlier message-delivery diagnosis: native evaluation and variable
+lookup on reference 264 show both widget-handle parameters present. Raw two-byte
+STU labels must be read little-endian: labels 272e/d42a/ed73 name numeric IDs
+0x2e27/0x2ad4/0x73ed. Earlier numeric lookups used different keys.
+
+While controller message 1291's sender exists, the authored hero listener selects
+controller ownership (Stack 180); removing it selects hero ownership (Stack 179)
+and starts the hero presenters. Native sender-exit replay consumes 170/170 bits.
+Live 294 confirms actual hero widgets are created, yet no HUD appears. The UI root
+condition remains false. Message delivery and widget creation are therefore
+verified steps, not the remaining visibility diagnosis.
+
+Live 295 adds the authored Practice wrapper 288a under controller 13c1 state 43.
+Its creation replay consumes 218/218 bits and the live client starts four child
+graphs. Tracer first person remains; HUD stays absent, including after a native
+menu open/close and Alt+Z keypress pair. Both runs have empty UDP stderr and all
+seven cleanup/integrity checks pass. Their dumps are retained as distinct
+references; shared helpers/reports and coordinates are listed in HANDOFF.md.
+
+Private ssfull2.py now loads the mode18 graph state types and accepts an optional
+SS_HERO_CONFIG metadata file. Missing types had made a supposed sender exit read
+as state data instead. The focused entry/exit and metadata checks and Python
+compilation pass. No native source or public runtime changed; no fresh build or
+CTest result is claimed. The best recipe remains the run 293 baseline. Next:
+trace root display/attachment while preserving the working ownership branches.

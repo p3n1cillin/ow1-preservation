@@ -1,6 +1,6 @@
 # Agent handoff (Claude ↔ Codex)
 
-Last updated 2026-10-16 by Codex (after run 293; corrected HUD parent and bounded live comparison). Whoever stops
+Last updated 2026-10-16 by Codex (after runs 294/295; HUD message delivery verified, root display unresolved). Whoever stops
 working updates this file. `CLAUDE.md` holds the full research log; this file is
 the short "where are we, how do I run it, what next".
 
@@ -24,7 +24,7 @@ the short "where are we, how do I run it, what next".
 - Dumps stay beside the original client:
   `C:\Users\lukem\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-<run>.dmp`
   Each is ~4 GB. **Keep only reference dumps** (user request, 2026-10-15; 151 old
-  dumps deleted, D: copies removed). Current keep set: livemode18-292-e2 (Recall mirror stage3 active, PID21500, hero comp47 0x1f031996640), livemode18-283-e1 (0.25 s after a first E press; Recall prediction already rolled back, PID 22460, hero comp47 0x13a4b356640), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
+  dumps deleted, D: copies removed). Current keep set: livemode18-295 (authored Practice wrapper and four client children, PID2488, hero comp47 0x276c4c06640, controller comp47 0x276c4c07860), livemode18-294 (hero fallback HUD widgets created, PID30008, hero comp47 0x15f57aa6640, controller comp47 0x15f57aa7860), livemode18-292-e2 (Recall mirror stage3 active, PID21500, hero comp47 0x1f031996640), livemode18-283-e1 (0.25 s after a first E press; Recall prediction already rolled back, PID 22460, hero comp47 0x13a4b356640), livemode18-272-shift (Shift held, button lists), livemode18-275 (native Blink + Recall states), livemode18-264 (mode-18 HUD routing), livemode18-257 (mode-18 pre-pick emulation base), livehudowner254 (ownership/message audit), liveheroc90-252 (HUD ownership
   comparison baseline),
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
@@ -54,7 +54,59 @@ heroes (run 198).
 Recall, HUD, authored bot movement and complete combat/roster behavior remain
 unresolved. Historical teleport recipes are not the best baseline.
 
-## Codex continuation, run 293 (2026-10-16) - read first
+## Codex continuation, runs 294/295 (2026-10-16) - read first
+
+- **Correction to the earlier HUD diagnosis: message 1291 and its parameters
+  do reach the hero.** On reference 264 the native evaluator reads valid type 7
+  widget handles for both parameters. Existing raw STU labels are byte strings:
+  `272e` = numeric variable 0x2e27, `d42a` =0x2ad4, `ed73` =0x73ed. Looking up
+  numeric 0x272e/0xd42a/0xed73 queried different variables. Correct numeric IDs
+  work with `ssvars.py`; this is not evidence of a separate hidden UI store.
+- Authored listener 178 (0x1cf object 101) selects between two owner branches.
+  While sender 15 (0x20e4 state 13) exists, Stack 180 sets owner 0x73ed to the
+  selected controller; hero Stack 179/presenters 181/62 are inactive by design.
+  When the sender disappears, Stack 179 selects the hero and its presenters run.
+  Thus inactive hero presenters alone do not establish failed delivery.
+- Offline `.local/codex-scratch/hud294-sender-off264.py` sends a normal full
+  controller frame ending state 13. Native decoding consumes 170/170 bits, calls
+  the sender exit, then the hero listener switches branches and begins 181/62.
+  `hud294-params264.py`, `hud294-stack264.py`, `hud294-outputs264.py` and reports
+  under `.local/runs/hud294-*` preserve the read-only/causal comparisons.
+- Live 294 adds `RetriggerExtraStates='4:-13'` to the best recipe, plus the known
+  sender data. Sender 13 ends; hero 179/181/62 become active and real widgets
+  exist at 181/62. Controller widgets also remain. **HUD is still invisible.**
+  UI root graph 0x041a node 46 condition is false and no 0x120b child is present in
+  the UI component. This moves the next investigation to root display and
+  attachment, not missing 1291 delivery. All seven cleanup checks pass; UDP
+  stderr is empty. Keep 294 as the fallback-widget reference.
+- Private emulator `ssfull2.py` now loads mode18-255 metadata as well as 180.
+  Previously its default omitted 13c1/20e4 state types: a supposed sender exit
+  could instead decode as data and leave the sender running, even with equal
+  total bit counts. `SS_HERO_CONFIG=hero-configs-mode18-295.json` can add a
+  further recipe's metadata. `hud294-encoder-check.py` verifies the one-bit
+  exit and active+compact-u16 entry; `hud295-encoder-check.py` verifies override
+  loading. Check state types and actual exit/enter events as well as alignment.
+- Live 295 tests the authored Practice wrapper: controller 13c1 state 43 runs
+  graph 288a, created as instance 5 under 3:43, runner data names 5. Private recipe
+  `run-livemode18-295.ps1` / config `hero-configs-mode18-295.json`. Native
+  creation replay 218/218; live wrapper client nodes start graphs 2951/2931/
+  2939/28fe. Hero selection and Tracer first person remain. HUD stays absent,
+  including after opening/closing Escape menu and an Alt+Z keypress pair.
+  Root 041a condition remains false. All seven cleanup checks pass, UDP stderr
+  empty. Keep 295 as the authored-wrapper reference. No best-recipe promotion.
+- `hud294-live-audit.py` / `hud295-live-audit.py` and matching text reports
+  resolve the UI component through root router vt+0x10 without a dump scan.
+  Reference 294 UI comp47=0x15e681e7620, root041a instance0x15e491dc550;
+  reference 295 UI comp47=0x2758e017620, root041a instance0x2764fc8cd70.
+- Next: inspect actual HUD root loading/display and widget attachment using
+  these working ownership branches. Preserve the baseline 6:3 parent and do
+  not repeat parameter-delivery experiments as an unresolved gate. Read the
+  older HUD notes carefully: message 06dd/variable 2206 controls distortion,
+  **not HUD visibility**; online client mode 6 is correct. Recall stage 3->0 and
+  the full Practice Range completion requirements remain unresolved. No native
+  source changes or fresh CTest result this turn.
+
+## Codex continuation, run 293 (2026-10-16)
 
 - Corrected the best private recipe's hero HUD parent to
   `PickSubgraph='11:0x01cf:6:3'`. Graph 0x4b object 68 has state index 3 and

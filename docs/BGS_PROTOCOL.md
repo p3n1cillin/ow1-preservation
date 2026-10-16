@@ -1588,3 +1588,25 @@ frame that shifts later states. A fresh predicted Recall audit through writer
 Matching those values, including states36/37 and sender37's zero payload,
 aligns at643/643 bits and keeps stage3 active in a live capture. It still does
 not enter rewind0, so these corrections do not establish functioning Recall.
+
+
+### HUD ownership and variable-ID correction (2026-10-16)
+
+Native evaluation on the saved mode18 reference confirms that controller message
+0x1291 supplies both widget handles to the hero listener. Some older negative
+lookups interpreted raw STU identifier bytes as numeric hexadecimal labels.
+Use the little-endian numeric IDs with the variable-store reader:
+
+| Raw STU identifier label | Numeric variable ID | Observed role |
+|---|---|---|
+| `272e` | `0x2e27` | First widget-handle parameter |
+| `d42a` | `0x2ad4` | Second widget-handle parameter |
+| `ed73` | `0x73ed` | Stacked HUD entity owner |
+
+The listener's authored branches select controller ownership while the sender
+exists and hero ownership when it disappears. Ending controller graph 0x20e4
+state 13 through a native-decoded frame switches to the hero branch. Live 294
+creates hero presenter widgets in that branch but still displays no HUD.
+Inactive hero presenters in the sender-present branch are therefore expected,
+not evidence that message delivery failed. Root display and attachment remain
+unresolved; widget creation is not proof of visible, functioning HUD contents.
