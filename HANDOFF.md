@@ -1574,3 +1574,18 @@ Notes:
   client predicts the chain; the server confirms the Ability for 0.6 s. Promoted to the
   best recipe (meter charges from hits; backup .bak373). Bomb stick/explosion damage on
   bots is server design only (projectile 0400000000000045, graph 0x0c1b, message 0x05d4).
+- **E2 PASSED (pair-e2-366): two original clients in ONE instance session at once.**
+  `.local/re/run-live-pair-game.ps1 -Name pair-e2-366 -UI -PairDump none` with the new
+  multi-client responder `.local/re/udp_pair_reply.py` (per-client sessions: own
+  referral keys, source port binding, sequences, statescript frames; ids 0x300/0x340):
+  c0 (Mercy, 1119) and c1 (Tracer#1001, 1129) both bound, hero select, picked Tracer,
+  full HUD (portrait/name/health/crosshair/ult/abilities/ammo) in both
+  (`pair-e2-366-both.png`). First attempt pair-e2-365: c0's menu clicks came before its
+  menu existed (two simultaneous logins); `ui-pair-game.ps1` now retries menu clicks
+  until the client's `bound` event (up to 3). No proxies yet (players do not see each
+  other); E3 = `-ProxyHeroes`.
+- Per-hero HUD (agent, `.local/re/hero-hud-372.md`): `.local/runs/hero-hud-configs-372.json`
+  for all 32 playable heroes (portrait textures, comp75 hero GUIDs, HUD 0x01cf
+  subgraph under 0x4b state 3, presenter chains); patch
+  `.local/claude-scratch/session/patch_hero_hud-372.py` (+ driver) adds
+  `--hero-hud-configs`. Tracer verified by native decoder; others encoder-only.
