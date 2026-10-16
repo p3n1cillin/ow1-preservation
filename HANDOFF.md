@@ -1605,3 +1605,15 @@ Notes:
   crosshair, ult meter (charges from hits), Sprint/Biotic Field/Helix icons, rifle and
   ammo (`livemode18-374-full.png`); 3 bot kills. Ammo max is still the generic 40
   (Soldier 25): per-hero magazine sizes still needed in the ammo option.
+- **REGRESSION (run 375): in-game hero change Tracer -> Soldier with per-hero HUD fails**:
+  hero_hud for Soldier applied on re-pick (hero_repick logged), but Soldier spawns with
+  no weapon, no HUD, red marker (`livemode18-375-grid.png`). First-pick Soldier works
+  (374). Suspect: re-pick resets (HERO_SNAP seq/sub-graph instance numbering) vs the
+  new HUD subgraph (12:0x01cf) or merged Tracer instance states. Next session: fix the
+  re-pick path, then resume: proxy height/pose/yaw (E2 agent was stopped mid-task;
+  its note `.local/re/two-client-e2-364.md`), per-hero ammo/reload params (agent
+  stopped; target file `.local/runs/hero-weapon-params-375.json`), Pulse Bomb
+  explosion, bot death presentation, early instance failure.
+- Session end 2026-10-16: usage limit reached; agents stopped. Best recipe
+  `.local/runs/run-livemode18-best.ps1` (Tracer HUD incl. portrait/crosshair/name,
+  muzzle, Pulse Bomb, Recall via run-341 options, per-hero HUD configs).
