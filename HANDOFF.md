@@ -1206,3 +1206,42 @@ Notes:
 - Raw GUID bits 48-59 are the 12-bit reversal of (type − 1). Examples: 0x0400 = 3
   (entity definition), 0x0580 = 0x1B (graph), 0x02e0 = 0x75 (hero), 0x0250 = 0xA5
   (unlock), 0x0a50 = 0xA6 (skin theme).
+
+## HUD transparency cause + teleport frame-domain test (Claude, 2026-10-16, run 332)
+
+- **HUD widgets are created and visible but fully transparent.** Background agent
+  (static + dump 294/257 emulation; `.local/re/hud-presenter-visibility.md`):
+  visibility = widget property key 0xffffffffffffffff (map at widget+0x40) is 1 for
+  HUD_Hero_Common 059d and HUD_Tracer 00f3. Their STUConfigVarColor properties
+  2eab/2eac/2ead/4498/4499 hold RGBA ff ff ff 00 (alpha 0). Chain on hero 0x01cf
+  (client-only stacks): #76 var 0x4769 = team(self) (comp25+0x58 bits 23..27,
+  getter 0xb8af40) = -1; #80 global 0x45c2 = session team-colour GUID T+0x2c8[team]
+  (0x641b70) = null; #84 global 0x0406 = colour record lookup (0x923170 against
+  0x0460000000000105) -> no match -> 0x00ffffff. Emulation with 0x45c2 patched to
+  0x0b3000000000001a yields opaque colours. Two missing inputs: (1) team filter bits
+  on hero/controller (0x10040001 | 0x800000<<team, as local builder 0x829430);
+  (2) session team-colour table (context slot 0x4e, getter 0x641d50, vft 0x2611ad8)
+  empty. Online layer 1 is filled by queue component (vft 0x2610c68) methods 3/4
+  0x5fa9a0/0x5f9bb0 from lists of 0x48-byte {GUID +0x10, team +0x18}; 0xb87060
+  (team, guid) is another writer (callers 0xa2cc48/0xa2cc87). Corrections: presenter
+  +0x240 = registration index; +0x248/+0x250 child list; +0xf0 transient flag;
+  widget +0x60/+0x64 property-map free list. Second agent traces the online sources
+  (`.local/re/team-sources-332.md` when done).
+- New private responder option `--component-update 'IDX:EL:TYPE:U64[:SENDS]'`
+  (driver `-ComponentUpdate`): module-4 op-2 one-field u64 component update.
+  Run 333 tests comp26 = 0x10840001 (team 0) as an UPDATE (creates with comp26
+  crashed in 266/267).
+- **Teleport launch is not the frame domain.** `--snapshot-frame-source cmd|cmdlast`
+  (driver `-SnapshotFrameSource`) puts the newest command (+1) into movement field 2.
+  Run 332 (relative floor teleports `here+4,0,0`, gen, 4 sends): x/z snap, then y
+  rises 3.5 -> 13.3 within 0.3 s, same as with server frames. Snapshot apply
+  0x7ca130: template frame must match history ([rax+0x58]); new frame must exceed
+  newest ring seq (0x7947e0 +8) else skipped; time = frame*16 ms (0xbb7100) or
+  server tick when 0; velocity = dpos/dt only when gen (+0xc) unchanged, else the
+  zero constant 0x3241710. So the launch is not injected velocity; likely
+  depenetration/ground state from fields we leave at default. Create flag bit 1
+  (0x78dab0 -> 0xc5f680 with prior 0x2f82d30) carries an initial movement state in
+  the create descriptor (+0x1b0); untested.
+- hero_pos_feed.py: OpenProcess now includes SYNCHRONIZE (old feeders never exited);
+  writes `<out>.hist.jsonl` at 10 Hz. `.local/re/ui-pick-tracer.ps1 -Prefix <runs path>`
+  automates menu -> Practice -> Tracer + CONTINUE + periodic screenshots.
