@@ -1470,3 +1470,18 @@ Notes:
   volley originate at both pulse-pistol muzzles (blue muzzle flashes at the barrels,
   `livemode18-361-grid.png`); 3 bot kills, client stable. Promoted to the best recipe.
   Other heroes: set each CosmeticEntity state's output var to {1, weapon inst, state, 0}.
+- **CROSSHAIR + HERO NAME LIVE (run 367; agent sections 5-6 of `hud-render-348.md`):**
+  hero global `g:0ebc=b1` shows Tracer's reticle (the stack is-top bit alone does not set
+  it); controller component 75 field 0 = picked hero GUID (`-ComponentUpdate
+  '0:80:75:0x02e0000000000003'`, flagged u64 like comp26; responder now flags 26 and 75)
+  makes the card show "TRACER". Portrait hexagon still empty: also needs hero 0x01cf
+  instance var 0x3457, pushed by client stack state 67 (sent `11:...,138,67` and
+  `1cf:67=1:1,0:1`; not yet effective). Promoted to the best recipe (backup .bak367).
+- Muzzle handles generalized: generator `hero-weapon-config-180.py` now emits
+  `cosmetic_handles` {slot: CosmeticEntity state} per hero (Tracer {49:1, 50:0}
+  matches); merged into `.local/runs/hero-configs-mode18-362.json`; apply_hero_config adds
+  `s<slot>=h<weapon inst>.<state>`. Best recipe uses mode18-362 (hand-set Tracer vars removed).
+- **Soldier FIRST pick exits the client (runs 363-366)** ~0.7 s after the first hero full
+  frame, with or without muzzle handles (364 control), with PickSubgraph gated to Tracer
+  (365; responder EXTRA_OK) and without UltCharge (366). Cause not yet found; next: dump
+  0.1 s after hero_cmfd and replay the frame in ssfull2.py.
