@@ -1440,3 +1440,8 @@ Notes:
   is never confirmed by the server. End-of-run dump: instance 3 (0x34) has no running
   nodes (prediction long over). Run 358 dumps 0.3 s after Q to read the predicted
   states for a server mirror (as done for Recall).
+- Responder `--extra-for-def GUID` (driver `-ExtraForDef`): PickExtraStates/PickExtraVars
+  (hero-instance-numbered HUD states, Blink/Recall vars) now apply only to that picked
+  definition; best recipe uses Tracer 0400000000000001 so hero changes (Soldier etc.)
+  do not receive Tracer's instance numbers. Per-hero HUD presenter states still need
+  deriving for the other heroes.
