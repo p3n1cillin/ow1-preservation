@@ -1348,3 +1348,33 @@ Notes:
   approximation; the original kill-volume rule/death sequence is not implemented).
   Responder log rows now carry `ts` (for diagnosing early instance failures: the
   failing client sends the same 21627/21600/21610 as good runs, then exits 1).
+- **THE HUD DRAWS (agent, `.local/re/hud-render-342.md`):** the cyan chevrons ~80 px
+  under the crosshair are HUD_Tracer's BlinkCharges control (not a world marker):
+  present in every non-0x0717 run (pixel count 1950 vs 0). UI-node chain
+  059d->05a7->HUD_Root->GameLayer->root all IsVisible 1. Remaining hero HUD content
+  presenters are under server-driven BooleanSwitch false branches we never send:
+  ammo inst10/0x16 switch 2(true)+29(false) -> presenter 31 (slot 68d4); Blink icon
+  inst1/0x1a switch 21 -> 32 (5fdb); Recall icon inst2/0x24 switch 21 -> 32; ultimate
+  inst3/0x34 switch 10 -> 13 (6869); health card inst11/0x01cf 15->66->139 -> client
+  switch 79 (sync slot 15 = var 0x070f > 0) -> 37 (2d11); crosshair inst9/0x15
+  11->23->42 -> client 28/26 -> 38 (reticle screen 02bc). Recipe bug: apply_hero_config
+  replaced pick_states (recipe's 10:30,31 dropped); hero pick-state parsing now MERGES
+  per-instance lists. Run 348 adds `PickExtraStates
+  '6:3;2:0,21,32;1:29,22,16,21,32;10:2,29,31;3:10,13;11:15,66,139;9:11,23,42'`,
+  StateData `16:2=1:1;16:29=0:1;1a:21=0:1;24:21=0:1;34:10=0:1;1cf:15=0:1;15:11=0:1;
+  15:23=0:1,0:1`, PickExtraVars `11:s15=f200`.
+- Key -> command bit (run 346, responder `buttons` events): Q 0x20, V 0x800, F 0x4,
+  Ctrl 0x80, Space 0x40, Shift 0x8, E 0x10, R 0x400, fire 0x1 (C none). Tracer
+  ultimate = graph 0x34 node #38 STUStatescriptStateAbility, logical button 0x25,
+  condition (0x0156 op35 0x0152) && 0x1db5; 0x0152 copied by graph 0x4b; 0x34 resets
+  0x0156 (float). Logical buttons: 0x23 Shift (0x24 Blink), 0x24 E (0x1a Recall),
+  0x25 Q, 0x1f (graph 0x43, likely melee). Run 347 (0x0156=f99999) never pressed Q
+  (key-list bug, fixed: `ui-pick-keys.ps1 -Keys 'Q,V'`).
+- **ORIGINAL HERO HUD LIVE (run 348, recipe `.local/runs/run-livemode18-348.ps1`):**
+  health card (bottom left), ultimate meter with Q prompt (centre, shown ready),
+  Blink (LSHIFT, 3 charges) and Recall (E) icons, ammo 40/40 with the pulse-pistol
+  icon. Live checks (`livemode18-348-hudstrip.png`): firing drains 40 -> 21, Shift
+  Blink spends a charge 3 -> 2, R reload restores 40. Remaining: health reads 0/200
+  (current value binding not fed; hero health pools are statescript graph 0x33
+  instance 4 / STUStatescriptStateHealthPool) and no crosshair (inst9/0x15 client
+  switches 28/26). The run-348 additions belong in the best recipe.
