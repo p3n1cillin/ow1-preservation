@@ -1566,3 +1566,11 @@ Notes:
   bodies identical except the elapsed-ms field). Driver `.local/re/run-live-pair-game.ps1
   -Name pair-e2-365 -UI [-ProxyHeroes]` (`-DryRun` composes only; reuses run-live-preload.ps1's
   own argument blocks), UI `.local/re/ui-pair-game.ps1`. E2/E3 live behaviour unverified.
+- **TRACER ULTIMATE (PULSE BOMB) WORKS (run 373):** applied `patch_ultmirror-359.py`
+  (--ult-use-button, --mirror-needs-ult, OFF0 so state 0 can be sent inactive); recipe =
+  371 + `AbilityPress=@('34:9:0x20:0.6:0:8,0:1,1:1,0:32,0:1,0:1,0:8')`,
+  `UltUseButton='0x20'`. Q at full meter: meter -> 0, pistols holster, throw animation,
+  pistols return, the bomb flies out (blue orb) (`livemode18-373-grid.png`). The
+  client predicts the chain; the server confirms the Ability for 0.6 s. Promoted to the
+  best recipe (meter charges from hits; backup .bak373). Bomb stick/explosion damage on
+  bots is server design only (projectile 0400000000000045, graph 0x0c1b, message 0x05d4).
