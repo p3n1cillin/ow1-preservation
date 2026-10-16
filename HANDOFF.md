@@ -1499,3 +1499,13 @@ Notes:
   deliver game message 0x02400000000009cc to the hero via sender graph 0x0b6c state 7
   (create 0x0b6c on the hero, then activate 12:7 with `b6c:7=0:1`); hero states
   `11:15,66,138,139` without 67.
+- **E1 PASSED (run pair-e1-363): two original clients at the main menu simultaneously**,
+  Mercy#1002 (c0, container 1119 -> probe 21119) and Tracer#1001 (c1, container 1129
+  -> probe 21129, referral 127.0.0.1:1129), one shared AppContainer profile, both
+  alive at the 300 s bound (`Pair summary: c0=alive-at-bound c1=alive-at-bound`).
+  The client honours the --BNetServer port. Screenshot `pair-e1-363-both.png`. Cleanup:
+  probes/launcher/clients gone, listeners gone, profile deleted, both ACLs exact,
+  original hash + Valid signature. Driver fix: `run-live-pair.ps1` must not wrap
+  ConvertFrom-Json in @() (PS 5.1 makes the array one element; first attempt failed at
+  probe startup with missing --cert/--key, clean). Next E2: both into one instance
+  session (instance_referral port parameter, multi-client responder).
