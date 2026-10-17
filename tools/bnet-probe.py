@@ -487,7 +487,7 @@ def read_lobby_frame(conn):
 
 def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credential_delay=0, packet_capture=None,
                 peer_group=0, gateway_hashes=None, capture_count=1, gateway_reply='ack', lobby_service=None,
-                initial_delay=0):
+                initial_delay=0, capture_ids=(), first_ids=None):
     """Lobby (game-service gateway) handshake at the referral hostv4, as the
     client's handler (rva 0x00e38fe0, state at pipe+0x80) expects it. Messages
     are raw little-endian bytes, one per TCP send, with no framing:
@@ -563,13 +563,31 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
             decrypted = DecryptedConnection(raw, inbound)
             from gateway_protocol import offer_response, catalogue_offer, negotiation_reply, frame as gateway_frame, parse_offer, heartbeat_response
             offered = False
+            packet_capture_base = packet_capture
             initial_due = float('inf')
             bootstrap_channel = None
             captured = 0
+            id_captures = {}
             # Serve the demonstrated hash negotiation, then observe the next
             # application interface. Never invent game/session replies.
-            for _ in range(1024):
+            # Bounded, but long enough for multi-hour interactive sessions
+            # (heartbeats every 5 s plus periodic client reports).
+            for _ in range(200000):
                 payload = read_lobby_frame(decrypted)
+                if capture_ids and packet_capture_base and gateway_hashes and first_ids and len(payload) > 1 \
+                        and 1 <= payload[0] <= len(gateway_hashes) and len(payload) <= 4096:
+                    mid = first_ids.get(gateway_hashes[payload[0]-1], -10**6) + payload[1]
+                    k = id_captures.get(mid, 0)
+                    if mid in capture_ids and k < 16:
+                        from pathlib import Path
+                        target = Path(packet_capture_base).with_stem(f'{Path(packet_capture_base).stem}-{mid}-{k}')
+                        try:
+                            with open(target, 'xb') as output:
+                                output.write(payload)
+                            emit(f"message {mid} captured locally ({len(payload)} B)")
+                        except FileExistsError:
+                            emit('message capture already exists; preserving it')
+                        id_captures[mid] = k + 1
                 if packet_capture is not None:
                     if len(payload) > 4096:
                         emit('gateway packet capture skipped (over 4096-byte bound)')
@@ -726,6 +744,8 @@ def main():
     ap.add_argument("--lobby-credential-delay", type=int, choices=range(0,31), default=12,
                     help="bounded scheduling delay for the owned client key installer (0..30 seconds)")
     ap.add_argument("--lobby-packet-capture", help="optional bounded first gateway packet capture outside Git")
+    ap.add_argument("--lobby-capture-message", action="append", default=[], type=int,
+                    help="opt-in: also capture client messages with this id (<=8 ids, <=16 each) next to --lobby-packet-capture")
     ap.add_argument("--gateway-capture-count", type=int, choices=range(1,5), default=1,
                     help="try capturing the first 1..4 packets; candidates over 4096 bytes are skipped")
     ap.add_argument("--lobby-peer-group", type=int, choices=(0,13), default=0,
@@ -771,6 +791,7 @@ def main():
         ap.error('--account-id must be 1..2^32-1')
     credential = None
     gateway_hashes = None
+    capture_first_ids = None
     login_messages = None
     if args.lobby_initial_data and not args.lobby_login_schema:
         ap.error('initial data requires the initial lobby login reply and numeric schemas')
@@ -802,6 +823,10 @@ def main():
             or len(set(args.lobby_map_header))!=len(args.lobby_map_header)
             or any(g>>48!=0x0790 or not g&0xffffffffffff for g in args.lobby_map_header)):
         ap.error('map header list needs 20505 initial data and unique raw-0x0790 map header GUIDs (max 64)')
+    if args.lobby_capture_message and (not args.lobby_packet_capture or not args.gateway_catalogue
+            or len(args.lobby_capture_message) > 8 or len(set(args.lobby_capture_message)) != len(args.lobby_capture_message)
+            or any(not 0 < m < 65536 for m in args.lobby_capture_message)):
+        ap.error('message capture needs --lobby-packet-capture, the gateway catalogue and <=8 unique ids')
     if args.lobby_queue_reply is not None and (not args.lobby_login_schema or not args.lobby_queue_schema):
         ap.error('queue-reply experiments require initial login and queue schemas')
     if args.lobby_queue_schema and args.lobby_queue_reply is None:
@@ -816,6 +841,10 @@ def main():
             ap.error('peer group 13 requires own credential inputs and a native interface catalogue')
         from gateway_protocol import load_catalogue
         gateway_hashes = load_catalogue(args.gateway_catalogue, 13)
+        if args.lobby_capture_message:
+            import json as _json
+            with open(args.gateway_catalogue, encoding='utf-8') as _c:
+                capture_first_ids = {p['schema_hash']: p['first_id'] for p in _json.load(_c)['protocols'] if p['group'] == 13}
     unlock_list = []
     if args.lobby_login_schema:
         if args.lobby_peer_group != 13 or args.gateway_reply != 'ack':
@@ -928,7 +957,8 @@ def main():
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,
-                                  args.gateway_reply, lobby_service, args.lobby_initial_delay), daemon=True).start()
+                                  args.gateway_reply, lobby_service, args.lobby_initial_delay,
+                                  frozenset(args.lobby_capture_message), capture_first_ids), daemon=True).start()
                     else:
                         threading.Thread(target=observe_raw, args=(raw, addr, accepted, log), daemon=True).start()
                     continue

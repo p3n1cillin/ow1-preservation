@@ -2040,3 +2040,20 @@ Notes:
   Highlights, role toggles. New opt-in public `--lobby-vs-ai-schema protocol/vs-ai-queue-104319.json
   --lobby-vs-ai-referral` (needs instance referral; driver `-VsAi`) answers 44100 with the local 20600
   referral (test added). Agent tracing the Arcade push + full queue reply sequence (arcade-queue-440.md).
+- **Practice vs. AI end to end (vsai-441):** `-VsAi` + Anubis recipe + 3 AI heroes: the original
+  Training -> Practice vs. AI -> EASY sends 44100; the probe answers 23310 + 20600; original loading
+  screen "VERSUS AI / EASY / TEMPLE OF ANUBIS", hero select "DEFEND / VERSUS AI EASY" with the full
+  roster, Soldier: 76 spawns with HUD/rifle facing AI Hanzo/Soldier/Reaper. Firing is blocked until
+  Escape dismisses the pre-match hero-select overlay (no "assemble your team" countdown yet); then the
+  player killed the AI Soldier (4.1 m). Captured 44100 (vs AI Easy): first u64 = 0x0630000000000070
+  (queue/game-type record), u32s 0xf38640 / 0xf47266. Public probe: lobby loop bound 1024 -> 200000
+  packets (long sessions), opt-in `--lobby-capture-message ID` (driver `-CaptureMessages`).
+- **Research (user request):** OW1 vs AI: humans vs AI 6v6, Easy/Medium/Hard, bot roster (2018)
+  Roadhog, Zarya, Ana, Lucio, Zenyatta, McCree, Reaper, Soldier: 76, Mei (no Tracer/Hanzo); standard
+  maps with objectives. Driver `-AiTeam roadhog,zarya,.. -AiSpawns` builds the bots + preloads.
+  Other projects: MIT-licensed Boi-027/overwatch-1.74-lobby-server (same build; lobby, queue cards,
+  matchmaking, 30-s assemble countdown, loot boxes; no weapons/HUD) cloned read-only to
+  Y:\repos\WIP\OW1-research\boi027-ow174 (reuse requires MIT attribution; do not copy its client-
+  derived data/). Plasmawatch (beta 0.8), OW1 Emulator Workshop mode (OW2 workshop). Agents running:
+  OW1 reference (ow1-reference-2019.md), Assault/Anubis flow (assault-anubis-flow.md), navigation
+  (navigation-data.md), MIT lobby map (boi027-lobby-map.md), Arcade/queue (arcade-queue-440.md).
