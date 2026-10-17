@@ -1801,3 +1801,18 @@ Notes:
   rendered, bot killed by 350 server damage). Dumps for the section A link design:
   retail-private-livemode18-{394-u040,395-u100,396-A,400-bomb}.dmp.
 - Soldier weapon params live (run 393): HUD 30/30, auto reload, 3 kills.
+- **Dump 401 (agent, `.local/re/two-client-e2-364.md` section 9):** proxy now has the own hero's
+  component set; movement state carries yaw/velocity and comp4 follows, but comp1 (world transform)
+  is frozen at the create pose and the mover/comp86 never run for it (zeros, like bots). The own
+  hero is a controller's comp44 actor; the proxy is nobody's. New `--proxy-controller` (driver
+  `-ProxyController`) creates the other player's controller (its id, def 0e, flags 0x30, comp44 =
+  proxy hero, comp74 team 0) before the hero; bit-identical to the live controller encoder.
+  Next live: `run-live-pair-game.ps1 -Name pair-e3-403 -UI -ProxyHeroes -ProxyWeapons -ProxyController`.
+- **Remote player (pair-e3-401/403):** create flag 0x80 + velocity (401) gives the proxy
+  the same component set as the own hero (incl. 69/86/122/136) and its movement state
+  follows the owner (yaw, velocity), but its comp1 world transform stays at the create
+  pose and its mover (comp31/86) never runs -> static pose, no turn, pistols near the
+  feet (agent). 403 adds `-ProxyController` (other player's controller 040000000000000e
+  with comp44 actor = proxy hero, flags 0x30): created, client stable, visuals unchanged.
+  Walk dumps: retail-private-pair-e3-{401,403}-c1-walk.dmp. Next: trace what drives a
+  non-local hero's world transform (compare with bots, which move correctly).
