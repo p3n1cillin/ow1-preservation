@@ -1816,3 +1816,14 @@ Notes:
   with comp44 actor = proxy hero, flags 0x30): created, client stable, visuals unchanged.
   Walk dumps: retail-private-pair-e3-{401,403}-c1-walk.dmp. Next: trace what drives a
   non-local hero's world transform (compare with bots, which move correctly).
+- **Dump 403 (agent, two-client-e2-364.md section 10):** proxy controller exists and comp44
+  resolves, but proxy comp1 (hero model transform) stays at its create pose and is not linked in
+  the transform graph (own hero comp1 +0x2b8/+0x4c0../+0x850 set, proxy null); comp4/comp24 follow
+  the movement (this is how bots render: their comp1 is stale). The native writer for a non-local
+  hero's comp1 was not found. New per-viewer experiments: `--proxy-remote-bit-viewers`,
+  `--proxy-transform-viewers` (driver `-ProxyRemoteBitViewers 0 -ProxyTransformViewers 1`).
+- pair-e3-405 (`-ProxyTransformViewers 1` create transform for c1's proxy,
+  `-ProxyRemoteBitViewers 0` snapshot slot-1 remote bit for c0's proxy): stable; c1's
+  view unchanged (static pose); c0's view inconclusive (proxy displaced after the owner
+  strafed). Dumps retail-private-pair-e3-405-{c0,c1}.dmp with the pair agent; next is
+  the native scene/animation registration that links a hero's comp1 (+0x2b8/+0x4c0/+0x850).
