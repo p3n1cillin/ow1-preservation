@@ -1755,3 +1755,28 @@ Notes:
   weapon/HUD). Re-pick now also pops cmfd_seq/cmfd_tick; 387 logs a fresh hero_cmfd
   (2311) and Tracer -> H -> Soldier spawns with rifle, portrait, "SOLDIER: 76", health,
   crosshair, ult, abilities, ammo (`livemode18-387-grid.png`).
+- **Proxy facing + weapons (agent, offline, `.local/re/two-client-e2-364.md` section 7):**
+  udp_pair_reply.py now replicates the owner's command yaw as movement field 13 (s16 euler yaw,
+  emulator-verified: +y rotation, forward=(sin,0,cos); default on, `--proxy-yaw-offset`,
+  `--proxy-pitch` opt-in) and, with `--proxy-weapons` (driver `-ProxyWeapons`), creates weapon
+  manager 0x15 + weapon script 0x16 on the proxy (instances 1/2) with states 39,43 / cosmetic and
+  mirrors the owner's volley/reload states; all frames aligned on dump pair-e3-385-c1-proxy
+  (`.local/re/ssproxy-390.py`). Live rendering effects unverified. Backups *.bak390.
+- **Pulse Bomb run 392** (patches patch_pulsebomb-359 + patch_mirrorreset-359 applied;
+  recipe `.local/runs/run-livemode18-392.ps1`: AbilityPress removed; RecallMirror for Q
+  with reset frame (`MirrorReset`), RecallPhase2, MirrorNeedsUlt, UltUseButton,
+  `PulseBomb='350:2:4:0.2:1.0:15:30:5'`, UltResend, `0021=b0`): events in order
+  pulse_bomb (point 48.71,1.93,32.46, fuse 1.33 s) -> recall_mirror_on -> ult_used ->
+  mirror_reset_frame (CmFD 1821) -> recall_phase2 -> recall_mirror_off ->
+  pulse_bomb_detonated (bot 2 at 2.53 m: 70 dmg). Throw animation plays, the meter
+  now STAYS at 0% (reset stops the 0.64 s rollback; 388/389/390 restored 1000). No bomb
+  or explosion visible yet (client-predicted projectile absent; server projectile path
+  = definition 0x45 entity + module-2 sections A/B still to do). Run 389's 'orb' was the
+  HUD ult-ready burst, not an explosion.
+- Proxy weapons/yaw (pair-e3-391, `-ProxyWeapons`): statescript create (0x15/0x16) and
+  full frames sent, client stable, but no pistols on the remote Tracer and facing did not
+  visibly change; the 'running stride' is probably just the static default pose.
+  c1 dump `retail-private-pair-e3-391-c1-weap.dmp` with the pair agent.
+- Per-hero weapon params patch applied (`--hero-weapon-params`,
+  `.local/runs/hero-weapon-params-375.json`; Soldier 30 rounds / 1.5 s reload; Tracer
+  unchanged 40/1.0); best recipe uses it (not yet live-checked for non-Tracer heroes).
