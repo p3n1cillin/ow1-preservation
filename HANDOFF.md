@@ -1842,3 +1842,11 @@ Notes:
 - Bomb link (408/409): section A record links the 0x45 entity (comp50 +0x40 key, +0x76=1,
   pending list consumed) but aimed +z (backwards into Tracer); patch_bomblink2-359 uses
   the command aim. Double throw at ~1.2 s may be the 1.2 s UltResend.
+- **PULSE BOMB EXPLODES ON SCREEN (run 411):** patch_bomblink2 (section A record aimed
+  with the command yaw/pitch) + run-408 recipe without UltResend
+  (`.local/runs/run-livemode18-411.ps1`): the linked server 0x45 entity flies forward and
+  the client's projectile system plays the blue explosion at ~0.79 s and smoke at ~1.0 s
+  at bot 2 (`livemode18-411-burst.png`); server detonation (350 dmg) kills the bot at
+  1.24 s. Open: visual detonation precedes the server damage by ~0.45 s (align fuse with
+  the client's impact/fuse), and the throw animation still plays twice without
+  UltResend (second volley from the phase-2 timeline?).
