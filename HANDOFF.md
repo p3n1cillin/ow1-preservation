@@ -1863,3 +1863,50 @@ Notes:
   `.local/runs/run-livemode18-best.ps1` (backup .bak414). Verified 416 (`livemode18-416-burst.png`):
   ult-ready -> Q -> ONE throw -> blue explosion on bot 2 with server 350 dmg kill at the same time
   -> meter 0% and stays 0% (late frame), bot respawns. No rollback, no double throw.
+- **pair-e3-415 (real owner turn):** default remote bit, no test motion; ui-pair-game.ps1 now also
+  fires c0 (`-FireC0 1`, 1.2 s mousehold after its shots 2 and 4). c0 turns ~180 deg toward c1:
+  c1 sees the remote Tracer FACING it with both pistols raised (`pair-e3-415-grid.png`,
+  `-c1-zoom.png`); c0 likewise sees c1's front. c0 ammo 40 -> 31. Remote muzzle flashes were
+  not caught in the 6 s screenshots. All 12 cleanup checks pass.
+- **SERVER-AUTHORITATIVE PvP DAMAGE (pair-pvp-417):** private `udp_pair_reply.py --pvp-dps N`
+  (driver `-PvpDps`; patch_pvp-417.py, backup .bak417) ray-tests each player's active volley
+  (command yaw/pitch from the session's newest command, eye = feed +1.5 m) against the other
+  player's proxy as the shooter sees it (last proxy snapshot - dy, body center +1.0 m, r 0.5,
+  half-height 1.0), subtracts dps*dt from the victim's server health, queues 25001 hit
+  confirms on the shooter (target = proxy entity), and gives the victim its health through
+  hero global 0x06c9 (responder hook `HERO_SNAP['hp']`, udp_welcome_reply.py .bak417) plus its
+  own hero comp51 and the proxy's comp51 in the other client. Kill -> 3 s -> respawn teleport.
+  417 (dps 100, c0 turns 180 deg and fires at c1 2.15 m behind): 89 hits / 6 confirms, c1's
+  OWN HUD drops to 58 with the NATIVE low-health red vignette (`pair-pvp-417-grid.png`,
+  `-c1-health.png`). The card read 58/59: `health_component(v)` writes v into BOTH pool floats
+  (current and max); pair layer now sends `pvp_health(hp, max)`. No kill (2nd burst missed).
+  All 12 cleanup checks pass.
+- **First player kill (pair-pvp-418, dps 200):** c0 kills c1 in ~1.0 s (75 hits, 11 confirms),
+  c1 respawns 3 s later (`pvp_kill` / `pvp_respawn`). c0's 2nd burst had 1 round left (fire_hold
+  40 drained 39) -> reload, no hits. c1's card froze at 163/165: dump
+  (`.local/claude-scratch/session/pvp-health-418.py <dump> <pid> 80000345`) shows hero comp51
+  pool 0 = current +0xdc 164.3 / max +0xe0 200 (so pool floats are current, max) while all hero
+  statescript frames applied (cf 19, CmFD 2301 = last sent, queue 0). Cause: the pair wrapper
+  drops the plan when the base body carries creates, but combat() had already marked the own
+  hp as sent. Fixed: own-hp sends commit only in commit(), plus a 1 s refresh. c1 screenshots
+  started after the respawn, so no death view; ui-pair-game.ps1 now fires c0 after its shots
+  4 and 7 and shoots c1 four times right after each burst (`-c1-k<shot>-<n>.png`).
+- **pair-pvp-419 (own-hp commit fix, dps 200):** kill + respawn; victim view right after the kill
+  shows the card **"-1/0"** with empty segments, then **200/200** after the respawn; after a
+  5-round burst it reads 171/172 (`pair-pvp-419-c1-health.png`). Per hud-render-348.md the big
+  number is CurrentHP(0x06c9, 0x06c4; non-integer -> -1) and "/N" is Health.TotalAmount from
+  comp51; "/N" followed the FIRST pool float every time (165, 172, 0), so the pool order is
+  (max, current) and `pvp_health` now packs (1, max, hp, ...). No native death presentation
+  (view/weapons unchanged at 0 HP). 12/12 cleanup checks. c0's 2nd burst had 5 rounds (no reload
+  between bursts); ui-pair-game.ps1 now presses R after each c0 burst.
+- **NATIVE PLAYER DEATH (pair-pvp-420):** `--pvp-dead-flag` (driver `-PvpDeadFlag`) sets the
+  victim's hero GLOBAL **0x01de = true** at the server kill (hero full snapshot via the new
+  responder hook `HERO_SNAP['gvars']`, udp_welcome_reply.py) and clears it at the respawn; with
+  the pool order fixed to (max, current). c0 killed c1 twice (129 hits, 19 confirms, 2 kills,
+  2 respawns). Victim view (`pair-pvp-420-kills.png`, `-death-zoom.png`, `-c1-health.png`):
+  card **0/200** with grey segments and red vignette, **pistols removed, camera detaches from
+  first person** (own head visible, then a low view) = original death presentation; after the
+  3 s respawn the card refills to 200/200 and the pistols return with the equip animation.
+  Second kill identical. So 0x01de is the hero dead flag (hud-render-348: forces CurrentHP 0).
+  Not yet: killer's view of the proxy dying, kill feed, death recap/killcam, respawn timer UI.
+  12/12 cleanup checks, empty UDP stderr. Dumps deleted.
