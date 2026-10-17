@@ -1733,3 +1733,19 @@ Notes:
 - Session end 2026-10-16: usage limit reached; agents stopped. Best recipe
   `.local/runs/run-livemode18-best.ps1` (Tracer HUD incl. portrait/crosshair/name,
   muzzle, Pulse Bomb, Recall via run-341 options, per-hero HUD configs).
+
+## 2026-10-17 (Claude) - party flow already done by Codex; remote player fixed to the floor
+
+- User asked for party -> leader starts Practice. Codex had already verified it overnight
+  (docs/PARTY_PROTOCOL.md: Nearby Players 20815 -> native Invite 22102 -> merge 20703 ->
+  Yes 22110 -> 2-member roster; leader alone starts Practice, both referred to their own
+  endpoints; pair-social-381/382). My redundant static-party edits were reverted.
+- **Remote player height fixed:** dump pair-e3-385 (c1 dumped 10 s after the proxy was
+  placed; `dump_on_log_regex.py` now takes `<owned-pids.json> c0|c1`): proxy render
+  comp1+0x440 = (48.73, 2.93, 38.13) for snapshot (48.71, 2.00, 37.77): remote heroes
+  draw ~0.93 m above the snapshot y. `udp_pair_reply.py --proxy-dy` (default -0.93,
+  backup .bak386). pair-e3-386: from c1 the remote Tracer stands on the floor and runs
+  (stride animation) when c0 walks (`pair-e3-386-move.png`, `-m1-zoom.png`).
+  Remaining: no pistols on the proxy (needs the remote hero's weapon/cosmetic statescript
+  states), yaw not replicated, no PvP, separate bots per session. Helper
+  `.local/claude-scratch/session/entpos-384.py` (comp1 +0x90/+0x440 by entity).
