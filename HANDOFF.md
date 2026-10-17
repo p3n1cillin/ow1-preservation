@@ -1980,3 +1980,10 @@ Notes:
   2 respawns, all alive at bound, 13/13 audit (`pair-trio-428-kills.png`): the dead proxy now
   stays on the floor with its pistols removed (no ceiling float); the third player is visible
   in c0's view. Dumps deleted. Map catalogue/placeables/spawns agent running (other maps).
+- **Teams (pair-team-429, private `--pvp-teams` / driver `-PvpTeams`, patch_teams-429.py):** session i plays
+  on team i%2: odd sessions get team-1 filter bits (0x11040001) for controller/hero and comp74 field 2 = 1
+  via per-session args; proxies carry their owner's team bits (comp26) and proxy controllers comp74 team;
+  same-team hits are ignored. 3 clients bound, kills c0->c1 and c1->c0 (cross-team), 13/13 audit, all alive.
+  NOT yet checked visually: whether enemies now render with enemy (red) outlines/health bars
+  (`pair-team-429-views.png` crops c0/c1/c2 views). Next: verify team visuals, then other maps from the
+  map catalogue agent (`.local/re/map-catalogue-426.md` / `.local/runs/map-catalogue-426.json` if it finished).
