@@ -1780,3 +1780,24 @@ Notes:
 - Per-hero weapon params patch applied (`--hero-weapon-params`,
   `.local/runs/hero-weapon-params-375.json`; Soldier 30 rounds / 1.5 s reload; Tracer
   unchanged 40/1.0); best recipe uses it (not yet live-checked for non-Tracer heroes).
+- **Proxy dump 391 + fix (agent, offline, `.local/re/two-client-e2-364.md` section 8):** proxy
+  statescript instances/cosmetic states run and its two 3P pistol children exist and resolve,
+  but sit near the feet (not attached), pose is static and the model ignores the (correctly
+  replicated) yaw. The proxy lacked comps 69/86/122/136, which bots have natively and the local
+  hero gets from create flag 0x80. Responder now creates proxies with flags 0xC1
+  (`--proxy-create-flags`, default 0x80) and sends movement field 19 velocity (state +0x90,
+  emulator-verified). Next live: `run-live-pair-game.ps1 -Name pair-e3-393 -UI -ProxyHeroes -ProxyWeapons`.
+- **Pulse Bomb investigation (runs 388-400; agent `.local/re/ult-mirror-359.md` §9-11):**
+  the client's volley fire (0xae6df0 -> job 0xae88a0) queues a projectile REQUEST in world
+  context slot 44 (+0x20 list; key hero<<32|inst<<19|node<<8|shot = 0x8000030500180001,
+  definition 0x0400000000000045) whose projectile-entity list stays EMPTY; module-2 update
+  0xb3b1f0 -> 0xb3e490 only simulates linked server entities. So no bomb ever renders
+  until the server creates a 0x45 entity and links it via a module-2 section A record.
+  Runs 389/398 screen bursts: no bomb in any frame ('orb' = HUD ult-ready burst); 398
+  shows a double throw. Patches applied: pulsebomb (server arc/stick/fuse/damage,
+  25001 confirms), mirrorreset (reset frame at Q -> meter stays 0, run 392),
+  pulsebomb2 (stick to bot body), bombentity (+bombentity2 ordering fix:
+  `-BombEntity IDX` creates/destroys a 0x45 entity; 399/400: client survives, model not
+  rendered, bot killed by 350 server damage). Dumps for the section A link design:
+  retail-private-livemode18-{394-u040,395-u100,396-A,400-bomb}.dmp.
+- Soldier weapon params live (run 393): HUD 30/30, auto reload, 3 kills.
