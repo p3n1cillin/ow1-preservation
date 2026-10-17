@@ -29,7 +29,13 @@ the short "where are we, how do I run it, what next".
   livehudtrig233 (0x0bcf with HUD node running),
   liveuiroot226 (0x041a on the controller), livehud222 (HUD baseline), liverepick218 (full working recipe),
   livemccree200 (Codex emulation baseline), livebuttons144 (command/reload
-  emulation), plus `dumps\instance-sending5.dmp`. Delete each new run's dump after
+  emulation); newer references (2026-10-17): assault-448-c0 (game-mode entity + 0f4a instance, PID 11620,
+  next Assault emulation base), livemode18-416 (Assault research base, PID 31520), anubis431-pending
+  (Anubis comp47 census, PID 13732), livemode18-348 (HUD analysis, PID 27396), livemode18-396-A (bomb
+  prediction), livemode18-409-link (bomb link, PID 38228), pair-e3-385-c1-proxy, pair-e3-403-c1-walk,
+  pair-e3-405-c0/c1 (2-client proxy/remote render); plus `dumps\instance-sending5.dmp`. Deleted
+  2026-10-17 as superseded: livemode18-394-u040/395-u100/400-bomb (analysis uses 396-A) and the
+  livemode18-409 exit dump (analysis uses 409-link). Delete each new run's dump after
   analysing it unless you add it to this list.
 - Never publish keys, certificates, dumps, client bytes or captured payloads.
 - One bounded run at a time; wait for the launcher's cleanup audit before the next
