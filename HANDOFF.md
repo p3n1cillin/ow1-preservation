@@ -1925,3 +1925,22 @@ Notes:
   pistols removed; c1's view of c0's proxy drops its pistols; c0 respawns 3 s later at 200/200
   with pistols. Both directions of server-authoritative damage/death/respawn verified on two
   real clients. 12/12 cleanup, empty UDP stderr. Kill-feed trace (25011..25013) running.
+- **Channel-2 25011/25012/25013 (agent, offline, `.local/re/killfeed-25011-422.md`):** 25011
+  (0x6c3940) is NOT the kill feed. It stores ONE "killed by" record in global-root slot 12
+  (vt 0x2611310). The Kill_Cam_Overlay presenter (0xace460) and the killcam replay follow target
+  read it: +0x78 killcam entity, +0x7c killer controller (== local -> attacker hidden),
+  +0x80 AttackerName, +0xb0 killer hero GUID (AttackerHero), +0xd8 kind (5 hides).
+  VERIFIED-EMU on dump 416 (`session/kf-emu-422.py`). The overlay is probably shown only in
+  killcam mode, so 25011 alone probably stores data invisibly. 25012 (0x6c3fe0) / 25013
+  (0x6c29c0) = slot 13 highlight/POTG records plus cosmetic preloads; do not send them for kills.
+  The kill-feed source is still unidentified (not channel-2 UI messages, not HUD statescript
+  entries); next candidates are 25010 (0x7a5740) and the channel-3 world+0x138 consumers.
+- **Map GUIDs in lobby 20505 lists CRASH the client (runs 424..424f, single client, mode 18):**
+  experiment to replace the native header-preload control with the original lobby inputs. 424/424b
+  (list 2 map set = header 0790..0688 + map 0800..0688, list 1 = header) and 424d (list 2 only):
+  client exits 0x1 after 4 instance datagrams; 424c (list 1 header only): exits 0x1 right after
+  the lobby reaches phase 6. Controls: 424e (best recipe, native control) and 424f (best recipe
+  WITHOUT native control, no lists) stay alive to the bound. So map/map-header GUIDs must not be
+  sent in 20505 lists 1/2 in this form; the public probe options were reverted (never committed)
+  and the private driver restored (.bak424). Native header control remains the only map loader;
+  other maps/modes still need the original header-load trigger. All 7 cleanup checks pass x6.
