@@ -999,14 +999,15 @@ std::string load_lobby_modulus(const std::filesystem::path& path) {
 }
 
 // ---- Pair mode -------------------------------------------------------------
-// Two original clients in ONE shared AppContainer profile (same package SID, so
+// Two or three original clients in ONE shared AppContainer profile (same package SID, so
 // the clients share named objects such as the CASC writer-lock mutex, as on a
 // normal machine; see the E0 self-test). One launcher owns both: one ACL
 // capture/grant/restore, one network-isolation probe, a per-client job, bridge,
 // observer threads and dump, and one shared duration bound. No capabilities.
 namespace pair_mode {
 
-constexpr uint16_t container_ports[2] = {1119, 1129};
+constexpr uint16_t container_ports[3] = {1119, 1129, 1139};
+constexpr size_t max_clients = 3;
 constexpr DWORD max_run_ms = 300000;
 constexpr DWORD max_delay_ms = 180000;
 constexpr DWORD min_second_client_ms = 30000;
@@ -1055,7 +1056,7 @@ struct Options {
     DWORD run_ms = INFINITE, delay_ms = 0;
     std::string trust_ca_pem, lobby_public_modulus;
     bool observe_tls = false, trust_socket_ca = false, preload = false, delay_set = false, dump_set = false;
-    unsigned dump_mask = 3;  // bit 0 = c0, bit 1 = c1
+    unsigned dump_mask = 7;  // bit n = client cn
 };
 
 DWORD parse_seconds(const std::wstring& text, unsigned low, unsigned high, const char* message) {
@@ -1066,10 +1067,12 @@ DWORD parse_seconds(const std::wstring& text, unsigned low, unsigned high, const
     return static_cast<DWORD>(value) * 1000;
 }
 
-// PATH --retail-private-pair --run-for S [--client-delay S] [--pair-dump both|c0|c1|none]
+// PATH --retail-private-pair --run-for S [--client-delay S] [--pair-dump all|both|c0|c1|c2|none]
 //   [--trust-ca PEM] [--observe-tls] [--trust-socket-ca] [--trust-lobby-key MODULUS] [--preload-practice-header]
 //   --client-forward 1119:HOST0 [--client-udp-forward 1119:UDPHOST]
 //   --client-forward 1129:HOST1 [--client-udp-forward 1129:UDPHOST]
+//   [--client-forward 1139:HOST2 [--client-udp-forward 1139:UDPHOST]]
+// Client n starts n * client-delay seconds after client 0.
 // Client arguments are fixed: --BNetServer=127.0.0.1:<that client's container port>.
 Options parse(int argc, wchar_t** argv) {
     Options o;
@@ -1086,15 +1089,16 @@ Options parse(int argc, wchar_t** argv) {
         } else if (option == L"--pair-dump" && has_value) {
             if (o.dump_set) throw std::runtime_error("Specify the pair dump selection once");
             const std::wstring value = argv[++n];
-            if (value == L"both") o.dump_mask = 3; else if (value == L"c0") o.dump_mask = 1;
-            else if (value == L"c1") o.dump_mask = 2; else if (value == L"none") o.dump_mask = 0;
-            else throw std::runtime_error("Pair dump selection must be both, c0, c1 or none");
+            if (value == L"all") o.dump_mask = 7; else if (value == L"both") o.dump_mask = 3;
+            else if (value == L"c0") o.dump_mask = 1; else if (value == L"c1") o.dump_mask = 2;
+            else if (value == L"c2") o.dump_mask = 4; else if (value == L"none") o.dump_mask = 0;
+            else throw std::runtime_error("Pair dump selection must be all, both, c0, c1, c2 or none");
             o.dump_set = true;
         } else if (option == L"--client-forward" && has_value) {
-            if (o.clients.size() >= 2) throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+            if (o.clients.size() >= max_clients) throw std::runtime_error("Pair mode requires two or three clients: container ports 1119, 1129, then 1139");
             ClientConfig client; client.tcp = loopback_bridge::parse_forward(argv[++n]);
             if (client.tcp.container_port != container_ports[o.clients.size()])
-                throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+                throw std::runtime_error("Pair mode requires two or three clients: container ports 1119, 1129, then 1139");
             o.clients.push_back(client);
         } else if (option == L"--client-udp-forward" && has_value) {
             auto forward = loopback_bridge::parse_forward(argv[++n]);
@@ -1123,19 +1127,24 @@ Options parse(int argc, wchar_t** argv) {
     }
     if (o.run_ms == INFINITE || o.run_ms > max_run_ms)
         throw std::runtime_error("Pair diagnostic requires --run-for in 1..300 seconds");
-    if (o.clients.size() != 2)
-        throw std::runtime_error("Pair mode requires exactly two clients: container ports 1119 then 1129");
+    if (o.clients.size() < 2 || o.clients.size() > max_clients)
+        throw std::runtime_error("Pair mode requires two or three clients: container ports 1119, 1129, then 1139");
     for (const auto& client : o.clients) {
         for (const auto port : container_ports) {
             if (client.tcp.host_port == port || (client.has_udp && client.udp.host_port == port))
-                throw std::runtime_error("Pair host ports must differ from the container ports 1119/1129");
+                throw std::runtime_error("Pair host ports must differ from the container ports 1119/1129/1139");
         }
     }
-    if (o.clients[0].tcp.host_port == o.clients[1].tcp.host_port)
-        throw std::runtime_error("Pair TCP host ports must differ");
-    if (o.clients[0].has_udp != o.clients[1].has_udp)
-        throw std::runtime_error("Pair UDP forwards must be given for both clients or neither");
-    if (o.delay_ms + min_second_client_ms > o.run_ms)
+    for (size_t a = 0; a < o.clients.size(); ++a) {
+        for (size_t b = a + 1; b < o.clients.size(); ++b) {
+            if (o.clients[a].tcp.host_port == o.clients[b].tcp.host_port)
+                throw std::runtime_error("Pair TCP host ports must differ");
+        }
+        if (o.clients[a].has_udp != o.clients[0].has_udp)
+            throw std::runtime_error("Pair UDP forwards must be given for both clients or neither");
+    }
+    // The last client starts (count - 1) * delay after the first and needs 30 s.
+    if (o.delay_ms * (o.clients.size() - 1) + min_second_client_ms > o.run_ms)
         throw std::runtime_error("Second-client delay must leave at least 30 seconds of the shared bound");
     if (o.trust_socket_ca && (o.trust_ca_pem.empty() || !o.observe_tls))
         throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
@@ -1217,7 +1226,7 @@ int run(const std::wstring& path, Options& o) {
         && std::filesystem::is_regular_file(installation / L".build.info")
         && std::filesystem::is_directory(installation / L"Data"), "Retail installation layout");
     std::vector<std::filesystem::path> dumps;
-    for (unsigned index = 0; index < 2; ++index) {
+    for (unsigned index = 0; index < o.clients.size(); ++index) {
         dumps.push_back(executable_folder / (L"retail-private-pair-c" + std::to_wstring(index) + L".dmp"));
         if ((o.dump_mask >> index & 1) && std::filesystem::exists(dumps.back()))
             throw std::runtime_error("Pair dump file already exists; preserve it before launch");
@@ -1249,10 +1258,10 @@ int run(const std::wstring& path, Options& o) {
             if (code) throw std::runtime_error("Network isolation probe failed: " + std::to_string(code));
         }
         std::cout << "Network isolation verified; no network capabilities granted." << std::endl;
-        std::cout << "Pair mode: both clients share this one AppContainer profile." << std::endl;
+        std::cout << "Pair mode: all " << o.clients.size() << " clients share this one AppContainer profile." << std::endl;
 
         std::vector<std::unique_ptr<Client>> clients;
-        for (unsigned index = 0; index < 2; ++index) {
+        for (unsigned index = 0; index < o.clients.size(); ++index) {
             auto client = std::make_unique<Client>();
             client->tag = "[c" + std::to_string(index) + "] ";
             client->config = o.clients[index];
@@ -1284,7 +1293,7 @@ int run(const std::wstring& path, Options& o) {
             clients.push_back(std::move(client));
         }
 
-        auto start_client = [&](Client& client) {
+        auto start_client = [&](Client& client, unsigned index) {
             TagScope scope(client.tag);
             const auto arguments = L"--BNetServer=127.0.0.1:" + std::to_wstring(client.config.tcp.container_port);
             std::cout << "Private client arguments: --BNetServer=127.0.0.1:" << client.config.tcp.container_port << std::endl;
@@ -1294,7 +1303,7 @@ int run(const std::wstring& path, Options& o) {
             }
             ResumeThread(client.process.hThread);
             client.started = true;
-            std::cout << "Offline client" << "[c" << (&client == clients[0].get() ? 0 : 1) << "] PID="
+            std::cout << "Offline client" << "[c" << index << "] PID="
                       << client.process.dwProcessId << std::endl;
             retail_world_probe::skip_intro(client.process.hProcess, image_base(client.process.hProcess));
             const HANDLE child = client.process.hProcess;
@@ -1336,20 +1345,21 @@ int run(const std::wstring& path, Options& o) {
         // One shared bound measured from the first client's start.
         const auto started = GetTickCount64();
         const auto deadline = started + o.run_ms;
-        std::cout << "Pair diagnostic is bounded to " << o.run_ms / 1000 << " seconds; second client starts after "
-                  << o.delay_ms / 1000 << " seconds. Gameplay remains unverified." << std::endl;
-        start_client(*clients[0]);
-        while (GetTickCount64() < started + o.delay_ms) { poll_exits(); Sleep(250); }
-        start_client(*clients[1]);
+        std::cout << "Pair diagnostic is bounded to " << o.run_ms / 1000 << " seconds; each further client starts "
+                  << o.delay_ms / 1000 << " seconds after the previous one. Gameplay remains unverified." << std::endl;
+        for (unsigned index = 0; index < clients.size(); ++index) {
+            while (GetTickCount64() < started + static_cast<uint64_t>(o.delay_ms) * index) { poll_exits(); Sleep(250); }
+            start_client(*clients[index], index);
+        }
         for (;;) {
             poll_exits();
-            if (clients[0]->exit_logged && clients[1]->exit_logged) break;
+            if (std::all_of(clients.begin(), clients.end(), [](const auto& c) { return c->exit_logged; })) break;
             const auto now = GetTickCount64();
             if (now >= deadline) break;
             Sleep(static_cast<DWORD>(std::min<uint64_t>(250, deadline - now)));
         }
         // Bound reached: dump (selected) then end every still-running client.
-        for (unsigned index = 0; index < 2; ++index) {
+        for (unsigned index = 0; index < clients.size(); ++index) {
             auto& client = *clients[index];
             if (client.exit_logged) continue;
             client.alive_at_bound = true;
@@ -1372,14 +1382,14 @@ int run(const std::wstring& path, Options& o) {
             WaitForSingleObject(client->process.hProcess, 5000);
         }
         std::cout << "Pair summary:";
-        for (unsigned index = 0; index < 2; ++index) {
+        for (unsigned index = 0; index < clients.size(); ++index) {
             const auto& client = *clients[index];
             std::cout << " c" << index << "=";
             if (client.alive_at_bound) std::cout << "alive-at-bound";
             else { std::ostringstream code; code << std::hex << client.exit_code; std::cout << "exited:0x" << code.str(); }
         }
         std::cout << std::endl;
-        result = clients[0]->alive_at_bound && clients[1]->alive_at_bound ? 0 : 1;
+        result = std::all_of(clients.begin(), clients.end(), [](const auto& c) { return c->alive_at_bound; }) ? 0 : 1;
         clients.clear();  // threads joined, jobs ended, bridges stopped
     } catch (const std::exception& error) {
         std::cerr << error.what() << std::endl;

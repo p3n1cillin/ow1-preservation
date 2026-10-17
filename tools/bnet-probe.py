@@ -690,7 +690,7 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
 # Own-key lobby referrals: the container port of the single (or first pair)
 # client on any probe port, as before, and the launcher pair mode's second
 # client container port only for its dedicated host port.
-OWN_KEY_REFERRALS = {'127.0.0.1:1119': (1119, None), '127.0.0.1:1129': (1129, 21129)}
+OWN_KEY_REFERRALS = {'127.0.0.1:1119': (1119, None), '127.0.0.1:1129': (1129, 21129), '127.0.0.1:1139': (1139, 21139)}
 
 
 def own_key_referral_port(referral_host, probe_port):
@@ -851,7 +851,7 @@ def main():
             if any((InitialLobby.schema_of(mid),mid) not in login_messages for mid in initial_ids):
                 ap.error('initial data requires each selected notification schema')
     # The instance referral (20600) names the same owned container port as the
-    # allow-listed lobby referral: 1129 only for the pair's dedicated 21129 probe.
+    # allow-listed lobby referral: 1129/1139 only for the pair's dedicated 21129/21139 probes.
     instance_port = 1119
     if args.lobby_private_key or args.lobby_integrity_key:
         referral_port = own_key_referral_port(args.referral_host, args.port)

@@ -209,7 +209,9 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(pair[0x2c],1129)
         self.assertEqual(bytes(v&255 for v in pair[0x6e]),b'127.0.0.1:1129'+bytes(50))
         self.assertNotEqual((pair[0xae],pair[0xce]),(fresh[0xae],fresh[0xce]))
-        for bad in (1130,0,21129,True,'1129',None):
+        third=local_referral(1139)[0x80]
+        self.assertEqual((third[0x2c],bytes(v&255 for v in third[0x6e])),(1139,b'127.0.0.1:1139'+bytes(50)))
+        for bad in (1130,1149,0,21129,True,'1129',None):
             with self.assertRaises(ValueError):local_referral(bad)
             with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,instance_port=bad)
         second=InitialLobby(hashes,messages,instance_referral=True,instance_port=1129);second.sent=True
@@ -232,14 +234,16 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(probe.own_key_referral_port('127.0.0.1:1119',21119),1119)
         self.assertEqual(probe.own_key_referral_port('127.0.0.1:1119',21129),1119)
         self.assertEqual(probe.own_key_referral_port('127.0.0.1:1129',21129),1129)
+        self.assertEqual(probe.own_key_referral_port('127.0.0.1:1139',21139),1139)
         for host,port in (('127.0.0.1:1129',21119),('127.0.0.1:1130',21129),('127.0.0.2:1119',21119),
-                          ('example.invalid:1119',21119),('',21119),('127.0.0.1:1129 ',21129)):
+                          ('example.invalid:1119',21119),('',21119),('127.0.0.1:1129 ',21129),
+                          ('127.0.0.1:1139',21129),('127.0.0.1:1139',21119),('127.0.0.1:1149',21149)):
             self.assertIsNone(probe.own_key_referral_port(host,port))
         script=Path(__file__).resolve().parents[1]/'tools'/'bnet-probe.py'
         base=[sys.executable,str(script),'--cert','missing.pem','--key','missing.key','--serve',
               '--lobby-private-key','missing-own.pem','--lobby-integrity-key','missing.bin']
         for extra in (['--referral-host','127.0.0.1:1129'],['--port','21119','--referral-host','127.0.0.1:1129'],
-                      ['--port','21129','--referral-host','127.0.0.1:1139']):
+                      ['--port','21129','--referral-host','127.0.0.1:1139'],['--port','21149','--referral-host','127.0.0.1:1149']):
             r=subprocess.run(base+extra,capture_output=True,text=True)
             self.assertNotEqual(r.returncode,0)
             self.assertIn('exact loopback referral',r.stderr)

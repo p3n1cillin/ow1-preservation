@@ -853,3 +853,19 @@ referral allow-list test. All 27 CTest targets pass. No game was launched for
 this change, so it is not yet known whether the client honours a non-default
 `--BNetServer` port. E1 will show it: client 1's bridge on port 1129 either
 receives connections or it does not.
+## 2026-10-17 - Launcher pair mode for two or three clients (no game in tests)
+
+`--retail-private-pair` now accepts two or three clients in the one shared
+AppContainer profile: container ports are fixed at 1119, 1129 and optionally
+1139, and client n starts n x `--client-delay` seconds after client 0 (the last
+client still needs 30 seconds of the shared bound). `--pair-dump` adds `all` and
+`c2`. All TCP host ports must be pairwise distinct and never a container port;
+UDP forwards are given for every client or none. `tools/bnet-probe.py` accepts
+the own-key referral `127.0.0.1:1139` only with `--port 21139`, and the instance
+referral allowlist adds 1139. `scripts/Start-PrivatePair.ps1` takes two or three
+`-HostPorts`. `tests/offline_pair.ps1` covers the accepted three-client shapes and
+rejects a fourth client, a wrong third port, a shared host port, a container host
+port, missing UDP on the third client and a delay that leaves less than 30 seconds
+for the third client; `tests/bnet_probe.py` covers the 1139/21139 referral pair.
+Native build and all 27 CTest targets pass. Live: three original clients reached
+one Practice session and each saw the other two players (private run 426).

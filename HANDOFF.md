@@ -1944,3 +1944,25 @@ Notes:
   sent in 20505 lists 1/2 in this form; the public probe options were reverted (never committed)
   and the private driver restored (.bak424). Native header control remains the only map loader;
   other maps/modes still need the original header-load trigger. All 7 cleanup checks pass x6.
+- **Original map-header trigger (agent 425, offline; `.local/re/map-header-trigger-425.md`):** headers
+  are preloaded at LOGIN from lobby 20505's THIRD array (offset 168, "list 2"): 0x77a000 -> 0x57bba0 ->
+  0x57c700(type 0x9F, provider+0x98 set) -> 0x171a9b0 -> 0x171cca0, priority 4; completion 0x57ce60 ->
+  0x57c2d0 -> 0x57ca70 -> 0x57c540 (state 3, 0x7f0970 registers header) -> 0x57cba0 requests the header's
+  game modes (|0x10000000000). VERIFIED-EMU on dump 416 (`session/map-header-emu-425.py`,
+  `.local/runs/map-header-emu-425.txt`; provider vft 0x260bbe0, `session/provider-sets-425.py`).
+  No queue/20600/20300 code requests a 0x9F header. 424c explained: a header in list 1 completes into
+  0x57c5e0 with no 0x9F-set entry -> NULL at 0x57c54a (emulated). 424/b/d put the type-2 MAP 0x0800..0688
+  in the header set (entry stuck at state 1, header/mode sets never ready); their post-welcome exit is
+  unexplained. Untested original form: list 2 = [0x0790000000000688] ONLY, no native control.
+- **THREE REAL CLIENTS IN ONE SESSION (pair-trio-426; 425 = c2 TLS CA setter timed out under
+  load with a 20 s stagger, other two fine):** launcher pair mode now takes 2 or 3 clients
+  (container 1119/1129/1139, client n starts n x delay; public main.cpp, Start-PrivatePair.ps1,
+  bnet-probe 1139/21139 referral, instance_referral 1139, tests; build + 27/27 CTest).
+  Private: udp_pair_reply.py `--clients 3` (base 0x380), run-live-pair-game.ps1 `-Clients 3
+  -AccountC Reaper -C2Spawn` (patch_trio-425.py; new local account Reaper#1003), ui-pair-game.ps1
+  drives c2. 426 (`-ClientDelay 45`): all three bound (1119/1129/1139), all six proxy creates
+  (each client sees the other two Tracers), c0 kills c1, all alive at the bound, 13/13 audit.
+  c0 saw c1's proxy float near the ceiling while dead: the feed follows the death camera
+  (c1 y up to 3.41). Fixed: proxies freeze at the death position (`dead_pos`) until respawn.
+  RAM: 31 GB machine; three clients fit, 12 local clients will not (6v6 needs multi-machine
+  networking, which requires granting network capabilities: ask the user first).

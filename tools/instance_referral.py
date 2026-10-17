@@ -10,11 +10,11 @@ import secrets
 
 INSTANCE_SCHEMA = 0x074dad18
 # Container loopback UDP ports of the owned launcher's clients: the single
-# (or first pair) client 1119 and the pair mode's second client 1129. Each
+# (or first pair) client 1119 and the pair mode's clients 1129 and 1139. Each
 # client must be referred to its own container bridge; in the shared pair
 # AppContainer a second client referred to 1119 would share the first
 # client's bridge source port.
-INSTANCE_PORTS = (1119, 1129)
+INSTANCE_PORTS = (1119, 1129, 1139)
 
 
 def signed_chars(value, width):

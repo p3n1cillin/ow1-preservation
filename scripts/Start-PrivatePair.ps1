@@ -4,22 +4,23 @@ param(
     [string]$BuildRoot = (Join-Path $env:LOCALAPPDATA 'OW1-preservation-build'),
     [string]$LogRoot,
     [string]$LogName = 'retail-private-pair',
-    # Host-loopback ports of the two private services (one per account/client).
-    # Client 0 uses container port 1119, client 1 container port 1129.
-    [ValidateCount(2,2)][int[]]$HostPorts = @(21119, 21129),
-    # Optional bounded datagram diagnostic: one host UDP port shared by both clients.
+    # Host-loopback ports of the private services (one per account/client).
+    # Client 0 uses container port 1119, client 1 1129 and an optional client 2 1139.
+    [ValidateCount(2,3)][int[]]$HostPorts = @(21119, 21129),
+    # Optional bounded datagram diagnostic: one host UDP port shared by all clients.
     [int]$UdpHostPort = 0,
     [Parameter(Mandatory)][ValidateRange(1,300)][int]$RunForSeconds,
     [ValidateRange(0,180)][int]$ClientDelaySeconds = 60,
-    [ValidateSet('both','c0','c1','none')][string]$Dump = 'both',
+    [ValidateSet('all','both','c0','c1','c2','none')][string]$Dump = 'all',
     [string]$TrustCaCertificate,
     [switch]$ObserveTls,
     [switch]$TrustSocketCa,
     [string]$TrustLobbyKey
 )
-# Two original clients in ONE shared AppContainer profile with no network
-# capability. The launcher refuses to start while another launcher or
-# Overwatch process exists, restores the scoped ACLs after both clients end,
+# Two or three original clients in ONE shared AppContainer profile with no
+# network capability; client n starts n * ClientDelaySeconds after client 0.
+# The launcher refuses to start while another launcher or Overwatch process
+# exists, restores the scoped ACLs after all clients end,
 # and passes each client exactly --BNetServer=127.0.0.1:<its container port>.
 $ErrorActionPreference = 'Stop'
 $launcher = Join-Path $BuildRoot 'relay\tools\offline-launch\Release\ow1-offline-launch.exe'
@@ -35,13 +36,13 @@ if ($TrustCaCertificate) { $arguments += @('--trust-ca', ('"{0}"' -f [IO.Path]::
 if ($ObserveTls) { $arguments += '--observe-tls' }
 if ($TrustSocketCa) { $arguments += '--trust-socket-ca' }
 if ($TrustLobbyKey) { $arguments += @('--trust-lobby-key', ('"{0}"' -f [IO.Path]::GetFullPath($TrustLobbyKey))) }
-$containerPorts = @(1119, 1129)
-for ($i = 0; $i -lt 2; ++$i) {
+$containerPorts = @(1119, 1129, 1139)
+for ($i = 0; $i -lt $HostPorts.Count; ++$i) {
     $arguments += @('--client-forward', "$($containerPorts[$i]):$($HostPorts[$i])")
     if ($UdpHostPort) { $arguments += @('--client-udp-forward', "$($containerPorts[$i]):$UdpHostPort") }
 }
 $process = Start-Process -FilePath $launcher -ArgumentList $arguments -WorkingDirectory $ClientFolder -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput (Join-Path $LogRoot "$LogName.log") `
     -RedirectStandardError (Join-Path $LogRoot "$LogName-errors.log")
-Write-Host "Private pair launcher PID $($process.Id). Logs: $LogRoot\$LogName.log (lines tagged [c0]/[c1])"
-Write-Host "Both clients end after $RunForSeconds seconds from the first client's start; folder permissions are then restored."
+Write-Host "Private pair launcher PID $($process.Id). Logs: $LogRoot\$LogName.log (lines tagged [c0]/[c1]/[c2])"
+Write-Host "All clients end after $RunForSeconds seconds from the first client's start; folder permissions are then restored."
