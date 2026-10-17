@@ -1749,3 +1749,9 @@ Notes:
   Remaining: no pistols on the proxy (needs the remote hero's weapon/cosmetic statescript
   states), yaw not replicated, no PvP, separate bots per session. Helper
   `.local/claude-scratch/session/entpos-384.py` (comp1 +0x90/+0x440 by entity).
+- **Hero change fixed (run 387):** the re-pick kept the first hero's HeroCmfdTicks tick
+  (cmfd_seq/cmfd_tick survived because HERO_SNAP seq resets to the same 0), so the new
+  hero's frames carried a stale CmFD (run 375: one hero_cmfd event; Soldier without
+  weapon/HUD). Re-pick now also pops cmfd_seq/cmfd_tick; 387 logs a fresh hero_cmfd
+  (2311) and Tracer -> H -> Soldier spawns with rifle, portrait, "SOLDIER: 76", health,
+  crosshair, ult, abilities, ammo (`livemode18-387-grid.png`).
