@@ -1974,3 +1974,9 @@ Notes:
   HUD/pistols, 13087 datagrams, 7/7 audit. The 424 crashes came from the type-2 map in list 2
   and the header in list 1 (null deref at 0x57c54a, emulated). Best recipe now uses MapHeader
   instead of NativeHeaderControl (backup .bak427). Other maps: send their 0790 headers.
+- **Integrated 3-client run (pair-trio-428):** best recipe with the ORIGINAL map preload (no native
+  control), 3 clients 45 s apart, mutual fire, dead flag, frozen dead proxies. All three bound
+  (1119/1129/1139), 240 proxy + 240 proxy-controller creates, 125 hits, kills c0->c1 and c1->c0,
+  2 respawns, all alive at bound, 13/13 audit (`pair-trio-428-kills.png`): the dead proxy now
+  stays on the floor with its pistols removed (no ceiling float); the third player is visible
+  in c0's view. Dumps deleted. Map catalogue/placeables/spawns agent running (other maps).
