@@ -1827,3 +1827,18 @@ Notes:
   view unchanged (static pose); c0's view inconclusive (proxy displaced after the owner
   strafed). Dumps retail-private-pair-e3-405-{c0,c1}.dmp with the pair agent; next is
   the native scene/animation registration that links a hero's comp1 (+0x2b8/+0x4c0/+0x850).
+- **Proxy test motion (agent, two-client-e2-364.md section 12):** `--proxy-test-motion
+  VIEWER:circle|strafe|still[:radius,speed,dx,dz,yaw=spin|path|s16,spin,form=remotebit|velocity,fire]`
+  (driver `-ProxyTestMotion '1:circle:fire=1;0:strafe:dz=2.5,form=velocity'`) moves a viewer's
+  proxy on a deterministic path, no owner input needed. Proxy code errors no longer stop a session.
+- **REMOTE PLAYER ANIMATES (pair-e3-410):** server-side `--proxy-test-motion`
+  ('1:circle:radius=1.5,speed=3,fire=1;0:strafe:dz=2.5,form=velocity,yaw=path') with the
+  movement-state slot-1 "remote bit" (+4 = 1, positions q/256, client derives velocity):
+  from c1 the remote Tracer follows the circle, turns, plays running animation and holds
+  a pulse pistol (`pair-e3-410-grid.png`, `-m4-zoom.png`). So the remote-bit form selects
+  the client's remote-character render path (comp1 is irrelevant for remote heroes).
+  Next: real owner motion with `-ProxyRemoteBitViewers 0,1` (407 was invalid: ow-ui
+  keyboard focus failed; ow-ui.ps1 now Alt-taps + verifies foreground, backup .bak407).
+- Bomb link (408/409): section A record links the 0x45 entity (comp50 +0x40 key, +0x76=1,
+  pending list consumed) but aimed +z (backwards into Tracer); patch_bomblink2-359 uses
+  the command aim. Double throw at ~1.2 s may be the 1.2 s UltResend.
