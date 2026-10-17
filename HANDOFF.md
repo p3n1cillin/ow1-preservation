@@ -2101,3 +2101,64 @@ Notes:
   39802 card list (game-type GUIDs 0x0630..., 151 cards in .local/runs/arcade-cards-440.json), 26400
   shop reply. MIT map (boi027-lobby-map.md): 24300/24900 collection, 27100 friends, 35500 group finder,
   55500 features, assemble countdown via game-mode entity 0x04000000000016B2 comp 114 + var 0x0517.
+- **AI NAVIGATION DATA EXISTS IN THE CLIENT (offline agent, 2026-10-17; `.local/re/navigation-data.md`):**
+  map chunk **0x12** (`0dd00012_<map>`, all 132 maps) has two 'DUTS' reflection documents. Doc 1, root
+  `5ae64839`, is an **AI tactical volume set**: AABB tree plus volumes, each with a floor point, s32
+  neighbour list and a walkable-voxel mask (1 x 1.4 x 1 m, bit = z + Sz*(x + Sx*y), fitted 116/116 and 60/63).
+  Neighbours are symmetric and every pair is voxel-adjacent. Doc 0 (`3bc32a6e`, block-keyed blobs,
+  probably the compressed surface/flight graph) is not decoded. Reader `.local/re/nav/navdata.py`;
+  builder `.local/re/nav/nav-graph.py` writes `.local/runs/nav-graph-5b.json` (Anubis: 117 nodes, main
+  component 85, 113 portal edges; objectives A/B with capture boxes; paths attacker_spawn->A 125 m,
+  ->B 206 m, A->B, forward/defender spawns) and `nav-graph-688.json` (Practice: 67 nodes, spawn->landmark
+  paths). Node y = floor rounded up to 0.35 m, so feed y is about node y + 0.8. Not used live yet.
+- **Assault/Anubis match-flow analysis (agent, offline, `.local/re/assault-anubis-flow.md`):** mode graph
+  0f4a runs on a server-created **game-mode entity = definition 04000000000016b2** (only definition with
+  serialized STU_F00E5A06 = runtime component 114). Config var A3DEF368 ("game-mode entity", read by 288b
+  MATCH TIME = `A3DEF368.v0517`, 0c90, 0d73, 0e8e) resolves natively (0xcdd340 -> 0xd0a0a0, type getter
+  0xbcb240 = 0x72) to the first world entity with component 114; emulated on dump 416 it returns 0 -> our
+  "MATCH TIME 0.0". Phase var v003b: 0 waiting / 1 assemble (30 s, later 25) / 2 setup (45 s, first point
+  only) / 3 round (+240 s A, +180 s B) / 4 round end (11.6 s) / 5 match end (R13 S20 msg 0695 winner).
+  Phase messages 0700/0692/0701/0694/0695 drive 1feb (client-run objective HUD), 288b (S32 chain ->
+  S35/S36 opens hero select; 0701 -> "SETUP:"), 0c90, 0cbb; client-only S79 sends 071d ATTACK/DEFEND.
+  Anubis A idx698/B idx723 (def 1c22, 0e8e+0f4c), doors 0d32, spawn rooms by tag 0x341/0x3cc/0x310;
+  anubis431 census: no map entity has comp 47 client-side. Replication plan + new responder options
+  (mode entity/graph/states/vars) in the doc; state tables `.local/runs/assault-graph-state-types.json`.
+
+## 2026-10-17 (Claude) - AI navigation live, vs-AI tactics, reply cap, game-mode entity (runs 445-448)
+
+- **AI navigation works live (ainav-445):** six roster AIs walk the client-derived nav graph
+  (`-AiNav .local/runs/nav-graph-5b.json -AiGoal capture_point_A`) from the attacker spawn to point A
+  (18 waypoints) and fight. Problems seen: all six stopped within 0.4 m of each other, and the damage was
+  far above Easy.
+- **Tactics patch (`.local/re/patch_aitactics-446.py`, `patch_aispread-447.py`, private responder):**
+  `--ai-difficulty easy|medium|hard` = 0.25/0.5/1.0 damage (OW1 vs-AI rule). Per-hero base DPS table
+  `AI_BASE_DPS` (approximate published OW1 primary-fire values, public reference, NOT client data) when
+  `--ai-dps 0` (new default), x accuracy x range falloff. Each bot gets its own nav cell around the goal
+  (`--ai-spread 6`), departures 1.5 s apart (`--ai-stagger`), hold range +0/+3/+6 m, and a lateral slot
+  while holding (`--ai-lateral 2`) clamped to walkable voxel columns (`NavGraph.walkable/clamp`).
+  Driver: `-AiDifficulty/-AiSpread/-AiStagger`. **aispread-447b verified:** bots spread across the A
+  courtyard; player kills Lucio/Roadhog, both respawn and route back (6 player kills, 19 AI kills).
+  447 = known TLS CA-setter startup failure (retried as 447b).
+- **Reply cap fixed:** run 446 dropped back to the vs-AI menu after ~13 min because
+  `udp_welcome_reply.py` stopped at 20000 replies (`reply_bound`). Bound is now `1 << 31` (u32 GCM nonce
+  sequence; never wraps/reuses). 447b passed 21810 replies still live.
+- **Game-mode entity (modehost-448, `.local/re/patch_modehost-448.py`):** new responder options
+  `--mode-host IDX --mode-graphs 0xf4a --mode-delay S --mode-graph-types FILE --mode-timeline JSON`
+  (driver `-ModeHost/-ModeGraphs/-ModeDelay/-ModeGraphTypes/-ModeTimeline`): creates the mode graph on the
+  game-mode entity, then one full-snapshot frame per timeline phase (base 2+phase; states active earlier
+  are sent inactive; vars per scope; per-phase state_data; sub-graph creates). NOT yet emulated/encoded
+  with real phase states. Recipe `.local/runs/run-assault448.ps1` = 445 recipe + mode `0230000000000014`
+  (Assault) + definition `04000000000016b2` at index 14 (replaces the last unused 14d2; its skin/filter
+  entries removed) + preload 16b2 and graphs 0f4a/0cbb/1feb/0c35/1b47/0c8f + `mode-timeline-448.json`
+  (one empty phase). Pair-responder definition bound = 15 entries in this recipe.
+- **assault-448 result (single client, vs AI Easy, Soldier):** with only the 16b2 entity + 0f4a instance,
+  the client's own mode logic runs: hero-select header becomes **ATTACK** (client S79: team == v2a2b,
+  default 0) and the top-centre mode HUD appears in hero select and in game (**"0.0 | UNSPECIFIED"**,
+  objective name var unset). Cleanup 12/12. **Dump kept:**
+  `%LOCALAPPDATA%\OW1-preservation-build\clients\1.74.0.0.104319-original\Overwatch\_retail_\retail-private-assault-448-c0.dmp`
+  (client PID 11620; mode entity = definition index 14, entity index = create base + 29 placeables + 14).
+- **Next:** on dump 448, find the mode entity's comp47 manager and run
+  `.local/claude-scratch/emu/ssfull2.py` (needs an `SS_HERO_CONFIG` wrapper `{"graphs": <assault types>}`)
+  for the phase frames in assault-anubis-flow.md section 6 (always-on S52/S58/S12+0cbb/S178; g:2a2b=1,
+  2a2c=0, 1ddb name, 0517 clock; phase 1 S43/S7/S10/S8/S9). Settle the ChaseVar/Wait/GME/team/string
+  value forms there before any live phase test. Then the timeline: assemble 30 s -> setup 45 s -> round.
