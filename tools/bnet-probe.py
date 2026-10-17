@@ -740,6 +740,8 @@ def main():
                     help="opt-in entity definition GUID (hex, type 3) added to the same 20505 list 1")
     ap.add_argument("--lobby-preload-progression", action="append", default=[], type=lambda v: int(v,16),
                     help="opt-in hero progression GUID (hex, raw 0x0ea0) added to the same 20505 list 1")
+    ap.add_argument("--lobby-map-header", action="append", default=[], type=lambda v: int(v,16),
+                    help="opt-in map header GUID (hex, raw 0x0790 / type 0x9F) for 20505 list 2; the original map preload input; max 64")
     ap.add_argument("--lobby-preload-stack-item", action="append", default=[], type=lambda v: int(v,16),
                     help="opt-in statescript state-stack item GUID (hex, raw 0x0d60) added to the same 20505 list 1")
     ap.add_argument("--lobby-unlock-schema", help="opt-in numeric 24900 unlock-state schema (protocol/unlocks-104319.json)")
@@ -793,6 +795,10 @@ def main():
             or len(set(args.lobby_preload_stack_item))!=len(args.lobby_preload_stack_item)
             or any(g>>48!=0x0d60 or not g&0xffffffffffff for g in args.lobby_preload_stack_item)):
         ap.error('stack-item preload needs 20505 initial data and unique raw-0x0d60 GUIDs (64 total)')
+    if args.lobby_map_header and (args.lobby_initial_data in (None,'keys') or len(args.lobby_map_header)>64
+            or len(set(args.lobby_map_header))!=len(args.lobby_map_header)
+            or any(g>>48!=0x0790 or not g&0xffffffffffff for g in args.lobby_map_header)):
+        ap.error('map header list needs 20505 initial data and unique raw-0x0790 map header GUIDs (max 64)')
     if args.lobby_queue_reply is not None and (not args.lobby_login_schema or not args.lobby_queue_schema):
         ap.error('queue-reply experiments require initial login and queue schemas')
     if args.lobby_queue_schema and args.lobby_queue_reply is None:
@@ -904,7 +910,7 @@ def main():
                         lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
                                                      args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression+args.lobby_preload_stack_item,
-                                                     unlock_list,instance_port=instance_port) if login_messages is not None else None
+                                                     unlock_list,instance_port=instance_port,map_headers=args.lobby_map_header) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

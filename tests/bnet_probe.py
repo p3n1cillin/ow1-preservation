@@ -483,6 +483,14 @@ class ProbeTests(unittest.TestCase):
         service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
         hotfix=dict(service.initial_notifications())[20505]
         self.assertEqual(hotfix,bytes((83,5))+struct.pack('<IIQQ',0,2,*mixed)+bytes(8))
+        # Opt-in 20505 list 2: map-header GUIDs only (the original map preload input).
+        header=0x0790000000000688
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix',map_headers=(header,))
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        self.assertEqual(dict(service.initial_notifications())[20505],bytes((83,5))+struct.pack('<IIIQI',0,0,1,header,0))
+        for bad in ((0x0800000000000688,),(0x0580000000000c8e,),(0x0790000000000000,),(header,header),('0790000000000688',)):
+            with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',map_headers=bad)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys',map_headers=(header,))
         # Opt-in 24900 unlock state: one zero-keyed group of 24-byte records.
         from lobby_service import UNLOCK_SCHEMA
         unlock_messages=dict(messages);unlock_messages.update(load_messages(root/'protocol/unlocks-104319.json'))

@@ -1966,3 +1966,11 @@ Notes:
   (c1 y up to 3.41). Fixed: proxies freeze at the death position (`dead_pos`) until respawn.
   RAM: 31 GB machine; three clients fit, 12 local clients will not (6v6 needs multi-machine
   networking, which requires granting network capabilities: ask the user first).
+- **ORIGINAL MAP PRELOAD WORKS (livemode18-427):** agent trace (`.local/re/map-header-trigger-425.md`):
+  20505 list 2 (+0xa8) is the content provider's map-HEADER set; 0x57c700 requests each header
+  (priority 4) and the mode list follows. Public `--lobby-map-header 0790...` (header GUIDs only;
+  driver `-MapHeader`). 427 = best recipe WITHOUT NativeHeaderControl + list 2 = [0790..0688]:
+  no exit, hero select shows the Practice panorama (previously absent), Tracer spawns with full
+  HUD/pistols, 13087 datagrams, 7/7 audit. The 424 crashes came from the type-2 map in list 2
+  and the header in list 1 (null deref at 0x57c54a, emulated). Best recipe now uses MapHeader
+  instead of NativeHeaderControl (backup .bak427). Other maps: send their 0790 headers.

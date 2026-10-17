@@ -23,13 +23,14 @@ DEFINITION_GUID_HIGH = 0x0400  # raw GUID type bits of OWLib type 3 (entity defi
 PROGRESSION_GUID_HIGH = 0x0ea0  # raw GUID type bits of hero progression records (STUProgressionUnlocks)
 STACK_ITEM_GUID_HIGH = 0x0d60  # raw GUID type bits of statescript state-stack item records
 RESOURCE_LIST_HIGHS = (STATESCRIPT_GUID_HIGH, DEFINITION_GUID_HIGH, PROGRESSION_GUID_HIGH, STACK_ITEM_GUID_HIGH)
+MAP_HEADER_GUID_HIGH = 0x0790  # raw GUID type bits of map headers (type 0x9F)
 UNLOCK_SCHEMA = 0x70e5a247  # server unlock state (24900-24908)
 UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119, map_headers=()):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -84,6 +85,17 @@ class InitialLobby:
             raise ValueError('resource list accepts only graph, definition, hero progression and stack-item GUIDs')
         if resource_list and 20505 not in self.initial_ids:raise ValueError('resource list requires the 20505 notification')
         self.resource_list=resource_list
+        # Optional 20505 list 2: map-header GUIDs only (type 0x9F, raw 0x0790).
+        # 0x57c700 checks the catalogue, inserts each into the content provider's
+        # header set and requests it (priority 4); the world's WAITING state then
+        # finds the header loaded. Other types crash or stall the client
+        # (private runs 424..424d), so they are refused.
+        map_headers=tuple(map_headers)
+        if len(map_headers)>64 or len(set(map_headers))!=len(map_headers):raise ValueError('map header list bound/duplicate')
+        if any(type(g) is not int or g>>48!=MAP_HEADER_GUID_HIGH or not g&0xffffffffffff for g in map_headers):
+            raise ValueError('map header list accepts only type-0x9F map header GUIDs')
+        if map_headers and 20505 not in self.initial_ids:raise ValueError('map header list requires the 20505 notification')
+        self.map_headers=map_headers
         # Optional 24900 unlock state. Native handler 0x8113d0 passes +0x98
         # (groups of 24-byte records {GUID, u64, i32, u16, u8, bool} plus a
         # u64 group key) to the unlock manager (0xe23500), which files each
@@ -137,8 +149,8 @@ class InitialLobby:
             # list empty and every flag/byte at its zero default.
             player={0:self.identity,0x10:{0:self.account_id,8:1<<56},0x40:self.name}
             values={0x78:player} if mid==20502 else {}
-            if mid==20505 and (self.hero_list or self.resource_list):
-                values={0x78:list(self.hero_list),0x90:list(self.resource_list)}
+            if mid==20505 and (self.hero_list or self.resource_list or self.map_headers):
+                values={0x78:list(self.hero_list),0x90:list(self.resource_list),0xa8:list(self.map_headers)}
             if mid==20700:
                 # A party of one: our player as the only member (status 5 =
                 # "Member", +0xe2 Leader true; field meanings from the client's

@@ -869,3 +869,17 @@ port, missing UDP on the third client and a delay that leaves less than 30 secon
 for the third client; `tests/bnet_probe.py` covers the 1139/21139 referral pair.
 Native build and all 27 CTest targets pass. Live: three original clients reached
 one Practice session and each saw the other two players (private run 426).
+
+## 2026-10-17 - Original map-header preload input (20505 list 2)
+
+`tools/bnet-probe.py --lobby-map-header <0790...>` (needs 20505 initial data; at
+most 64 unique raw-0x0790 / type-0x9F GUIDs) fills the third 20505 array. Static
+trace: handler 0x77a000 -> 0x57bba0 -> 0x57c700 inserts each catalogue-present
+header into the content provider's header set and requests it at priority 4, so
+the world's WAITING state later finds the header loaded. `tests/bnet_probe.py`
+checks the encoding and rejects maps (raw 0x0800), graphs, an empty index,
+duplicates and missing 20505. Map, map-header-in-list-1 and mixed list-2 forms
+crashed or stalled the client in private runs 424..424d and are refused. Live:
+private run 427 sent only the Practice header in list 2 with the native
+`--preload-practice-header` control OFF; the original client loaded Practice,
+showed the hero-select panorama and spawned the picked hero with its HUD.
