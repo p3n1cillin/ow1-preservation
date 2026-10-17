@@ -1910,3 +1910,12 @@ Notes:
   Second kill identical. So 0x01de is the hero dead flag (hud-render-348: forces CurrentHP 0).
   Not yet: killer's view of the proxy dying, kill feed, death recap/killcam, respawn timer UI.
   12/12 cleanup checks, empty UDP stderr. Dumps deleted.
+- **Killer view of the death (pair-pvp-421):** with `-PvpDeadFlag` the pair layer also mirrors the
+  owner's dead flag (global 0x01de) into the proxy's full statescript frame (proxy svars[0]).
+  c0's view of c1's proxy (`pair-pvp-421-c0-proxy.png`): pistols aimed before the kill; while dead
+  the proxy's PISTOLS VANISH and the hands drop; after the respawn the pistols return. No body
+  collapse/ragdoll/kill feed. `-PvpCombatLog` sent 19 victim 25000 records (98 B each, gateway
+  codec + instance-combat-families-344.json) without errors; no distinct damage-direction arc
+  visible in the screenshots. 2 kills / 2 respawns, 12/12 cleanup, empty UDP stderr.
+  ui-pair-game.ps1: alternating c0/c1 kill shots; new `-UiFireC1` (driver) makes c1 fire back
+  after its shot 6.
