@@ -1919,3 +1919,9 @@ Notes:
   visible in the screenshots. 2 kills / 2 respawns, 12/12 cleanup, empty UDP stderr.
   ui-pair-game.ps1: alternating c0/c1 kill shots; new `-UiFireC1` (driver) makes c1 fire back
   after its shot 6.
+- **MUTUAL PvP (pair-pvp-423; 422 = intermittent c1 startup exit 0x1 before login, cleanup ok):**
+  `-UiFireC1` makes c1 return fire. 189 hits, 28 confirms, 3 kills (c0->c1 x2, c1->c0 x1), 3
+  respawns. `pair-pvp-423-return.png`: c0 killed by c1 -> c0's own view 0/200, red vignette,
+  pistols removed; c1's view of c0's proxy drops its pistols; c0 respawns 3 s later at 200/200
+  with pistols. Both directions of server-authoritative damage/death/respawn verified on two
+  real clients. 12/12 cleanup, empty UDP stderr. Kill-feed trace (25011..25013) running.
