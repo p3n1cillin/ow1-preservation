@@ -1850,3 +1850,16 @@ Notes:
   1.24 s. Open: visual detonation precedes the server damage by ~0.45 s (align fuse with
   the client's impact/fuse), and the throw animation still plays twice without
   UltResend (second volley from the phase-2 timeline?).
+- **Proxy facing/pistols (agent, two-client-e2-364.md section 13):** audit of pair-e3-412 shows
+  the owner's yaw reaches every proxy snapshot (field 13, +4 form); the 44-deg stationary look
+  did not visibly turn the body. Proxy weapon script now activates the cosmetic BooleanSwitch
+  (Tracer 0x16 state 2) like the local hero (aligned on dump 385). Remote bit is now default.
+  Decisive next test: `-ProxyTestMotion '1:still:yaw=spin'` (stationary spin, idle pistols).
+- **pair-e3-414 (still spin):** `-ProxyTestMotion '1:still:yaw=spin'`: from c1 the stationary
+  remote Tracer turns in place and holds both pistols (idle pose). Body yaw from snapshot field
+  13 renders; the 412 non-turn was the small (44 deg) look. Next: real owner 180 deg look (415).
+- **Pulse Bomb promoted (run 416, best recipe):** patch_mirrorreset2-359 (reset ack frame's CmFD
+  never goes backwards) + MirrorOnRelease + PulseBombAt 0.8 + BombEntityAuto/BombLink 3 are now in
+  `.local/runs/run-livemode18-best.ps1` (backup .bak414). Verified 416 (`livemode18-416-burst.png`):
+  ult-ready -> Q -> ONE throw -> blue explosion on bot 2 with server 350 dmg kill at the same time
+  -> meter 0% and stays 0% (late frame), bot respawns. No rollback, no double throw.
