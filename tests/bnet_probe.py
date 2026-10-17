@@ -208,9 +208,19 @@ class ProbeTests(unittest.TestCase):
         from lobby_service import VS_AI_SCHEMA
         vs=dict(messages);vs.update(load_messages(root/'protocol/vs-ai-queue-104319.json'))
         service=InitialLobby(hashes,vs,instance_referral=True,vs_ai_referral=True);service.sent=True
-        join=bytes((hashes.index(VS_AI_SCHEMA)+1,0))+bytes(44)
+        from lobby_service import QUEUE_STATE_SCHEMA
+        from gateway_codec import encode
+        key={0:{0:0x0630000000000070,8:0,16:0,24:0},0x20:0,0x24:0xf38640,0x28:0xf47266}
+        join=bytes((hashes.index(VS_AI_SCHEMA)+1,0))+encode(vs[VS_AI_SCHEMA,44100],{0x78:key})
+        # 44201 queue entry echoing the exact 48-byte key, then 44202 (popped) and the referral.
         mid,packet=service.answer(join)
-        self.assertEqual((mid,packet[:2],len(packet)),(20600,bytes((hashes.index(INSTANCE_SCHEMA)+1,0)),242))
+        self.assertEqual((mid,packet[:2],len(packet)),(44201,bytes((hashes.index(QUEUE_STATE_SCHEMA)+1,1)),84))
+        self.assertEqual(decode(vs[QUEUE_STATE_SCHEMA,44201],packet[2:])[0x78][0],key)
+        (m2,p2),(m3,p3)=service.followups()
+        self.assertEqual(decode(vs[QUEUE_STATE_SCHEMA,44202],p2[2:]),{0x78:key,0xa8:1})
+        self.assertEqual((m2,p2[:2],m3,p3[:2],len(p3)),(44202,bytes((hashes.index(QUEUE_STATE_SCHEMA)+1,2)),20600,bytes((hashes.index(INSTANCE_SCHEMA)+1,0)),242))
+        self.assertEqual(service.followups(),())
+        join=bytes((hashes.index(VS_AI_SCHEMA)+1,0))+bytes(44)
         self.assertIsNone(service.answer(bytes((hashes.index(VS_AI_SCHEMA)+1,2))+bytes(44)))
         with self.assertRaises(ValueError):service.answer(join[:-1])
         plain=InitialLobby(hashes,vs,instance_referral=True);plain.sent=True
@@ -505,6 +515,13 @@ class ProbeTests(unittest.TestCase):
         for bad in ((0x0800000000000688,),(0x0580000000000c8e,),(0x0790000000000000,),(header,header),('0790000000000688',)):
             with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys-hotfix',map_headers=bad)
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,initial_data='keys',map_headers=(header,))
+        # Opt-in 20813 after 20802: retail leaver thresholds (hide the leaver XP-penalty label).
+        service=InitialLobby(hashes,messages,initial_data='keys-hotfix-player-settings',leaver_thresholds=True)
+        service.receive(bytes((entry,0))+encode(messages[HELLO_SCHEMA,21800],hello))
+        sent=service.initial_notifications()
+        self.assertEqual([m for m,_ in sent],[20504,20505,20502,20802,20813])
+        self.assertEqual(decode(messages[PROFILE_SCHEMA,20813],sent[-1][1][2:]),{0x78:0,0x80:20,0x88:0.3,0x90:0.2})
+        with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(PROFILE_SCHEMA,20813)},leaver_thresholds=True)
         # Opt-in 24900 unlock state: one zero-keyed group of 24-byte records.
         from lobby_service import UNLOCK_SCHEMA
         unlock_messages=dict(messages);unlock_messages.update(load_messages(root/'protocol/unlocks-104319.json'))

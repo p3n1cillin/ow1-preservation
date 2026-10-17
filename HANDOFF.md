@@ -2057,3 +2057,47 @@ Notes:
   derived data/). Plasmawatch (beta 0.8), OW1 Emulator Workshop mode (OW2 workshop). Agents running:
   OW1 reference (ow1-reference-2019.md), Assault/Anubis flow (assault-anubis-flow.md), navigation
   (navigation-data.md), MIT lobby map (boi027-lobby-map.md), Arcade/queue (arcade-queue-440.md).
+- **boi027/ow174 comparison (agent, read-only, `.local/re/boi027-lobby-map.md`):** MIT project for the same
+  build (relay DLL instead of native crypto). Maps their lobby/game-server messages to ours with file:line
+  refs. Top adoptable: 20813 leave policy {0,20,0.3,0.2} (likely removes "-75% XP / 0 MATCHES REMAINING";
+  matches aq440 leaver trace), 44201 queue-joined + 44202 reason 1 before 20600 (QUEUE 0xB4F8BC62), Arcade
+  push 39802 (QP card 0x06300000000000ED at +0x78+0x18; vs-AI cards 0x0630000000000070..72), 24300 account
+  record + 24900 +0x80 hero records (gallery 0/0), retail 20505 list 1 = 2457 skin themes (0x0a50; our
+  validator refuses them), 55500 features (chat), 27100 friends, 35500 empty data centers, 20704 invite popup.
+  Game side: game-mode entity def 0x04000000000016B2 + comp114 mode GUID, countdown var 0x0517 (1303) via
+  H=0 full frame ("Assemble your team"), team-list graph 0x288D under 288A state 1, 20304 {0,F} send home,
+  CmFD-only owner acks. Caution: they call comp74 field 2 "slot" (ours: team). Do not copy their data/
+  files, descriptors.pb, handshake BLOB_KEY or the 36600 template (production endpoints); MIT attribution
+  required for any adapted code.
+- **Arcade list / queue / leaver indicator (agent 440, offline; `.local/re/arcade-queue-440.md`):**
+  - **Arcade list = 39802** (schema 0x00A8654E). Handler 0xba84b0 fills root slot 74; 0xba8ad0
+    resolves menu cards through catalogue 0x046000000000010b. VERIFIED-EMU: entries DM 0x0630..3b,
+    TDM 0x0630..34 and Elim 0x0630..1e resolve to the DM/TDM/Elimination cards. Entry +0 is the
+    0x0630 game type; the +0x18 single entry is Quick Play (REF 0x0630..ED); the +0xD0 list is
+    Competitive.
+  - **Queue (STATIC + MIT reference boi027-ow174):** 44100 key = {card GUID,0,0,0 | flags |
+    platform 0xF38640 | pool 0xF48644}. The server replies 44201 {key echoed verbatim} (queued),
+    then 44202 {key, reason 1} (popped), then 20600. 44203-44207 are ignored by the client.
+  - **Leaver indicator:** "-75% XP / 0 MATCHES" shows because 20813 was never sent (leave rate 0/0 =
+    NaN). Sending 20813 {mask 0, window 20, 0.3, 0.2} hides it (VERIFIED-EMU).
+  - **Shop:** 26500 is answered with 26400 (result +0x9C = 0).
+  - Descriptors: `.local/runs/arcade-queue-440.json`. Card names: `.local/runs/arcade-cards-440.json`.
+- **Retail queue sequence + leaver fix live (vsai-443):** public lobby_service/bnet-probe (values from
+  the MIT Boi-027 project, layouts exported from the client via private .local/re/msgdesc-json.py):
+  `--lobby-vs-ai-referral` now answers 44100 with 44201 (queue entry echoing the 48-byte key) and
+  sends follow-ups 44202 {key, reason 1 popped} + 20600 at once (new InitialLobby.followups());
+  `--lobby-leaver-thresholds` sends 20813 {0, 20, 0.3, 0.2} after 20802 (agent emulation: no 20813 ->
+  NaN leave rate -> "-75% XP / 0 MATCHES REMAINING"). Live: label gone; Training -> Practice vs. AI ->
+  Easy loads Temple of Anubis via 44201/44202/20600; six AI from the OW1 bot roster (`-AiTeam
+  roadhog,zarya,mccree,soldier,ana,lucio`) render with weapons and fight. Loading screen no longer
+  says "VERSUS AI EASY" (that label came from the still-open queue entry; retail would supply the game
+  type via the game server). 28 probe tests, 27/27 CTest. Descriptors: vs-ai-queue (+44201/44202),
+  lobby-login (+20813).
+- **OW1 reference (agent, .local/re/ow1-reference-2019.md):** build 1.74 = final 2022 client. vs AI:
+  6 humans vs 6 AI, Easy/Medium/Hard = 25/50/100% AI damage, AI roster (12): Roadhog, Zarya, Bastion,
+  McCree, Mei, Reaper, Soldier: 76, Sombra, Torbjorn, Ana, Lucio, Zenyatta; random Assault/Control/
+  Escort/Hybrid map; bots named after heroes. Assemble 30 s, setup 45 s, respawn 10 s, Assault 4:00
+  (+3:00 after A). Leaver: last-20-games leave rate, -75% XP. Arcade/queue (agent, arcade-queue-440.md):
+  39802 card list (game-type GUIDs 0x0630..., 151 cards in .local/runs/arcade-cards-440.json), 26400
+  shop reply. MIT map (boi027-lobby-map.md): 24300/24900 collection, 27100 friends, 35500 group finder,
+  55500 features, assemble countdown via game-mode entity 0x04000000000016B2 comp 114 + var 0x0517.

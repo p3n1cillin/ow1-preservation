@@ -687,6 +687,9 @@ def serve_lobby(raw, addr, number, log, difficulty=0, credential=None, credentia
                     mid,reply = answer
                     raw.sendall(outbound.apply(gateway_frame(reply)))
                     emit(f'lobby request answered with {mid} ({len(reply)} B; contents omitted)')
+                    for mid,reply in (lobby_service.followups() if hasattr(lobby_service,'followups') else ()):
+                        raw.sendall(outbound.apply(gateway_frame(reply)))
+                        emit(f'lobby follow-up {mid} sent ({len(reply)} B; contents omitted)')
                 elif lobby_service is not None and (summary := lobby_service.describe(payload)) is not None:
                     emit(f'lobby request (not answered): {summary}')
                 if (lobby_service is not None and lobby_service.sent and not lobby_service.updates_sent
@@ -775,6 +778,8 @@ def main():
     ap.add_argument("--lobby-instance-referral", action='store_true',
                     help="experimental plain 20600 loopback referral for Training; game transport remains unverified")
     ap.add_argument("--lobby-vs-ai-schema", help="numeric 44100/44102 layouts (protocol/vs-ai-queue-104319.json) for the vs-AI referral experiment")
+    ap.add_argument("--lobby-leaver-thresholds", action="store_true",
+                    help="opt-in: send 20813 (leaver thresholds 0/20/0.3/0.2, retail values) after 20802; hides the leaver XP-penalty label")
     ap.add_argument("--lobby-vs-ai-referral", action="store_true",
                     help="opt-in: answer the vs-AI queue join 44100 with the local instance referral (needs --lobby-instance-referral)")
     ap.add_argument("--lobby-instance-schema", help="numeric 20600 layout for the instance-referral experiment")
@@ -823,6 +828,8 @@ def main():
             or len(set(args.lobby_map_header))!=len(args.lobby_map_header)
             or any(g>>48!=0x0790 or not g&0xffffffffffff for g in args.lobby_map_header)):
         ap.error('map header list needs 20505 initial data and unique raw-0x0790 map header GUIDs (max 64)')
+    if args.lobby_leaver_thresholds and args.lobby_initial_data not in ('keys-hotfix-player-settings','full'):
+        ap.error('leaver thresholds need initial data that includes 20802')
     if args.lobby_capture_message and (not args.lobby_packet_capture or not args.gateway_catalogue
             or len(args.lobby_capture_message) > 8 or len(set(args.lobby_capture_message)) != len(args.lobby_capture_message)
             or any(not 0 < m < 65536 for m in args.lobby_capture_message)):
@@ -953,7 +960,8 @@ def main():
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
                                                      args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression+args.lobby_preload_stack_item,
                                                      unlock_list,instance_port=instance_port,map_headers=args.lobby_map_header,
-                                                     vs_ai_referral=args.lobby_vs_ai_referral) if login_messages is not None else None
+                                                     vs_ai_referral=args.lobby_vs_ai_referral,
+                                                     leaver_thresholds=args.lobby_leaver_thresholds) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

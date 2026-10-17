@@ -14,7 +14,9 @@ PARTY_SCHEMA = 0x2411de56  # 20700 party state (handler 0x008529a0 -> component 
 QUEUE_SCHEMA = 0xa6e53896   # client game-queue requests (24000-24028)
 QUEUE_REPLY_SCHEMA = 0x21286b49  # server game-queue messages (23300-23333)
 SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
-VS_AI_SCHEMA = 0x1c6ec712  # client vs-AI game-queue requests: 44100 join, 44102 leave
+VS_AI_SCHEMA = 0x1c6ec712  # client game-queue requests: 44100 join, 44102 leave
+QUEUE_STATE_SCHEMA = 0xb4f8bc62  # server game-queue replies: 44201 queue entry, 44202 queue end
+QUEUE_POPPED = 1  # 44202 reason: the queue popped (a match was found)
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
@@ -31,7 +33,8 @@ UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119, map_headers=(), vs_ai_referral=False):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119, map_headers=(), vs_ai_referral=False,
+                 leaver_thresholds=False):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -57,6 +60,13 @@ class InitialLobby:
                 or (VS_AI_SCHEMA,44100) not in messages):
             raise ValueError('vs-AI referral requires the instance referral and its registered 44100 schema')
         self.vs_ai_referral=vs_ai_referral
+        self.pending=[]
+        # Opt-in 20813 at login: the matchmaking leaver thresholds (u64 0, u64 20, f64 0.3, f64 0.2)
+        # as retail sent them; with nothing sent the menu shows a leaver XP penalty.
+        if type(leaver_thresholds) is not bool:raise ValueError('leaver thresholds must be boolean')
+        if leaver_thresholds and ((PROFILE_SCHEMA,20813) not in messages or PROFILE_SCHEMA not in hashes):
+            raise ValueError('leaver thresholds need the registered 20813 schema')
+        self.leaver_thresholds=leaver_thresholds
         if type(instance_port) is not int or instance_port not in INSTANCE_PORTS:
             raise ValueError('instance referral port must be an owned container port')
         self.instance_port=instance_port
@@ -138,6 +148,11 @@ class InitialLobby:
         self.identity=identity
         return bytes((self.welcome_entry,0))+body
 
+    def followups(self):
+        """Messages that follow the last answered request at once (e.g. 44202 then 20600)."""
+        packets, self.pending = tuple(self.pending), []
+        return packets
+
     def initial_notifications(self):
         """Server has no additional content keys or hotfix overrides to supply.
 
@@ -148,7 +163,11 @@ class InitialLobby:
         """
         if not self.sent or self.updates_sent or self.initial_data is None:return ()
         packets=[]
-        for mid in self.initial_ids:
+        ids=self.initial_ids
+        if self.leaver_thresholds and 20802 in ids:
+            # 20813 after 20802 (retail login order): leave mask 0, window 20, thresholds 0.3/0.2.
+            ids=ids[:ids.index(20802)+1]+(20813,)+ids[ids.index(20802)+1:]
+        for mid in ids:
             # 20502 runs the native player-record initialization handler.
             # The two identities are the same local experiments as 20500;
             # unverified counters/flags stay zero and the name is our own tag.
@@ -156,6 +175,8 @@ class InitialLobby:
             # list empty and every flag/byte at its zero default.
             player={0:self.identity,0x10:{0:self.account_id,8:1<<56},0x40:self.name}
             values={0x78:player} if mid==20502 else {}
+            if mid==20813:
+                values={0x78:0,0x80:20,0x88:0.3,0x90:0.2}
             if mid==20505 and (self.hero_list or self.resource_list or self.map_headers):
                 values={0x78:list(self.hero_list),0x90:list(self.resource_list),0xa8:list(self.map_headers)}
             if mid==20700:
@@ -207,9 +228,18 @@ class InitialLobby:
             # then refer this client to its own loopback instance. The private
             # instance server decides the map, mode and AI; no matchmaking result
             # or queue state is invented here.
-            decode(self.messages[VS_AI_SCHEMA,44100],packet[2:])
+            key=decode(self.messages[VS_AI_SCHEMA,44100],packet[2:])[0x78]
             body=encode(self.messages[INSTANCE_SCHEMA,20600],local_referral(self.instance_port))
-            return 20600,bytes((self.hashes.index(INSTANCE_SCHEMA)+1,0))+body
+            referral=(20600,bytes((self.hashes.index(INSTANCE_SCHEMA)+1,0))+body)
+            if (QUEUE_STATE_SCHEMA,44201) not in self.messages or QUEUE_STATE_SCHEMA not in self.hashes:
+                return referral
+            # Retail order: 44201 queue entry (the client only counts as queued with it), then
+            # 44202 queue end with reason popped, then the referral.
+            entry=self.hashes.index(QUEUE_STATE_SCHEMA)+1
+            joined=encode(self.messages[QUEUE_STATE_SCHEMA,44201],{0x78:{0x0:key}})
+            popped=encode(self.messages[QUEUE_STATE_SCHEMA,44202],{0x78:key,0xa8:QUEUE_POPPED})
+            self.pending=[(44202,bytes((entry,44202-44200))+popped),referral]
+            return 44201,bytes((entry,44201-44200))+joined
         if SOCIAL_SCHEMA not in self.hashes:
             return None
         if packet[:2] != bytes((self.hashes.index(SOCIAL_SCHEMA)+1, 22206-22200)):

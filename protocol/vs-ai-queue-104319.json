@@ -1,6 +1,6 @@
 {
  "build": 104319,
- "note": "Numeric layouts of the client's vs-AI game-queue requests (schema 0x1c6ec712): 44100 join, 44102 leave. Field meanings unverified; no payloads.",
+ "note": "Numeric layouts of the client's game-queue requests (schema 0x1c6ec712: 44100 join, 44102 leave) and the server queue replies (schema 0xb4f8bc62: 44201 queue entry, 44202 queue end). No payloads.",
  "messages": [
   {
    "schema_hash": 477021970,
@@ -127,6 +127,204 @@
        "count": 0
       }
      ]
+    }
+   ]
+  },
+  {
+   "schema_hash": 3036200034,
+   "message_id": 44201,
+   "fields": [
+    {
+     "kind": 14,
+     "offset": 120,
+     "width": 88,
+     "count": 0,
+     "fields": [
+      {
+       "kind": 14,
+       "offset": 0,
+       "width": 48,
+       "count": 0,
+       "fields": [
+        {
+         "kind": 14,
+         "offset": 0,
+         "width": 32,
+         "count": 0,
+         "fields": [
+          {
+           "kind": 8,
+           "offset": 0,
+           "width": 8,
+           "count": 0
+          },
+          {
+           "kind": 8,
+           "offset": 8,
+           "width": 8,
+           "count": 0
+          },
+          {
+           "kind": 8,
+           "offset": 16,
+           "width": 8,
+           "count": 0
+          },
+          {
+           "kind": 8,
+           "offset": 24,
+           "width": 8,
+           "count": 0
+          }
+         ]
+        },
+        {
+         "kind": 6,
+         "offset": 32,
+         "width": 4,
+         "count": 0
+        },
+        {
+         "kind": 6,
+         "offset": 36,
+         "width": 4,
+         "count": 0
+        },
+        {
+         "kind": 6,
+         "offset": 40,
+         "width": 4,
+         "count": 0
+        }
+       ]
+      },
+      {
+       "kind": 14,
+       "offset": 48,
+       "width": 24,
+       "count": 0,
+       "fields": [
+        {
+         "kind": 8,
+         "offset": 0,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 8,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 16,
+         "width": 8,
+         "count": 0
+        }
+       ]
+      },
+      {
+       "kind": 8,
+       "offset": 72,
+       "width": 8,
+       "count": 0
+      },
+      {
+       "kind": 10,
+       "offset": 80,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 2,
+       "offset": 84,
+       "width": 1,
+       "count": 0
+      },
+      {
+       "kind": 0,
+       "offset": 85,
+       "width": 1,
+       "count": 0
+      },
+      {
+       "kind": 0,
+       "offset": 86,
+       "width": 1,
+       "count": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "schema_hash": 3036200034,
+   "message_id": 44202,
+   "fields": [
+    {
+     "kind": 14,
+     "offset": 120,
+     "width": 48,
+     "count": 0,
+     "fields": [
+      {
+       "kind": 14,
+       "offset": 0,
+       "width": 32,
+       "count": 0,
+       "fields": [
+        {
+         "kind": 8,
+         "offset": 0,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 8,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 16,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 24,
+         "width": 8,
+         "count": 0
+        }
+       ]
+      },
+      {
+       "kind": 6,
+       "offset": 32,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 36,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 40,
+       "width": 4,
+       "count": 0
+      }
+     ]
+    },
+    {
+     "kind": 2,
+     "offset": 168,
+     "width": 1,
+     "count": 0
     }
    ]
   }
