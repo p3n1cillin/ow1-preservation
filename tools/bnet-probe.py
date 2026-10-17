@@ -754,6 +754,9 @@ def main():
     ap.add_argument("--lobby-queue-schema", help="numeric 23300-family layouts for an explicit queue-reply experiment")
     ap.add_argument("--lobby-instance-referral", action='store_true',
                     help="experimental plain 20600 loopback referral for Training; game transport remains unverified")
+    ap.add_argument("--lobby-vs-ai-schema", help="numeric 44100/44102 layouts (protocol/vs-ai-queue-104319.json) for the vs-AI referral experiment")
+    ap.add_argument("--lobby-vs-ai-referral", action="store_true",
+                    help="opt-in: answer the vs-AI queue join 44100 with the local instance referral (needs --lobby-instance-referral)")
     ap.add_argument("--lobby-instance-schema", help="numeric 20600 layout for the instance-referral experiment")
     ap.add_argument("--lobby-initial-delay", type=int, choices=range(0, 31), default=0,
                     help="seconds to wait after the 20500 identity reply before sending the initial data")
@@ -841,6 +844,16 @@ def main():
             if ((INSTANCE_SCHEMA,20600) not in login_messages or (QUEUE_SCHEMA,24000) not in login_messages
                     or INSTANCE_SCHEMA not in gateway_hashes):
                 ap.error('instance experiment requires registered request/referral schemas')
+        if args.lobby_vs_ai_referral or args.lobby_vs_ai_schema:
+            if not (args.lobby_vs_ai_referral and args.lobby_vs_ai_schema and args.lobby_instance_referral):
+                ap.error('vs-AI referral needs --lobby-vs-ai-schema, --lobby-vs-ai-referral and the instance referral')
+            vs_messages=load_messages(args.lobby_vs_ai_schema)
+            if login_messages.keys() & vs_messages.keys():
+                ap.error('vs-AI schemas duplicate other schemas')
+            login_messages.update(vs_messages)
+            from lobby_service import VS_AI_SCHEMA
+            if (VS_AI_SCHEMA,44100) not in login_messages or VS_AI_SCHEMA not in gateway_hashes:
+                ap.error('vs-AI referral requires the registered 44100 schema')
         if args.lobby_unlocks:
             if not args.lobby_unlock_schema or not args.lobby_initial_data:
                 ap.error('unlock state requires its schema and initial data')
@@ -910,7 +923,8 @@ def main():
                         lobby_service = InitialLobby(gateway_hashes,login_messages,args.battle_tag,args.lobby_initial_data,args.account_id,
                                                      args.lobby_queue_reply,args.lobby_instance_referral,
                                                      args.lobby_hero_list,args.lobby_preload_graph+args.lobby_preload_definition+args.lobby_preload_progression+args.lobby_preload_stack_item,
-                                                     unlock_list,instance_port=instance_port,map_headers=args.lobby_map_header) if login_messages is not None else None
+                                                     unlock_list,instance_port=instance_port,map_headers=args.lobby_map_header,
+                                                     vs_ai_referral=args.lobby_vs_ai_referral) if login_messages is not None else None
                         threading.Thread(target=serve_lobby,
                             args=(raw, addr, accepted, log, 0, credential, args.lobby_credential_delay, args.lobby_packet_capture,
                                   args.lobby_peer_group, gateway_hashes, args.gateway_capture_count,

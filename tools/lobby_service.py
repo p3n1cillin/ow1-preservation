@@ -14,6 +14,7 @@ PARTY_SCHEMA = 0x2411de56  # 20700 party state (handler 0x008529a0 -> component 
 QUEUE_SCHEMA = 0xa6e53896   # client game-queue requests (24000-24028)
 QUEUE_REPLY_SCHEMA = 0x21286b49  # server game-queue messages (23300-23333)
 SOCIAL_SCHEMA = 0x75d32ae2  # client requests; 22206 = view a player's profile
+VS_AI_SCHEMA = 0x1c6ec712  # client vs-AI game-queue requests: 44100 join, 44102 leave
 GAME_ACCOUNT_HIGH = (2<<56)|(1<<32)|0x0050726f
 
 
@@ -30,7 +31,7 @@ UNLOCK_GUID_HIGH = 0x0250  # raw GUID type bits of OWLib type 0xA5 (STUUnlock)
 
 class InitialLobby:
     def __init__(self, hashes, messages, battle_tag='Preservation#1001', initial_data=None, account_id=1001,
-                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119, map_headers=()):
+                 queue_reply=None, instance_referral=False, hero_list=(), resource_list=(), unlocks=(), instance_port=1119, map_headers=(), vs_ai_referral=False):
         self.hashes, self.messages = hashes, messages
         self.name = battle_tag.encode('utf-8')
         if not self.name or len(self.name)>128 or b'\0' in self.name:
@@ -50,6 +51,12 @@ class InitialLobby:
                 or (QUEUE_SCHEMA,24000) not in messages):
             raise ValueError('instance experiment requires its registered schemas and no queue-reply experiment')
         self.instance_referral=instance_referral
+        # Opt-in: answer the vs-AI queue join (44100) with the same local referral.
+        if type(vs_ai_referral) is not bool:raise ValueError('vs-AI experiment must be boolean')
+        if vs_ai_referral and (not instance_referral or VS_AI_SCHEMA not in hashes
+                or (VS_AI_SCHEMA,44100) not in messages):
+            raise ValueError('vs-AI referral requires the instance referral and its registered 44100 schema')
+        self.vs_ai_referral=vs_ai_referral
         if type(instance_port) is not int or instance_port not in INSTANCE_PORTS:
             raise ValueError('instance referral port must be an owned container port')
         self.instance_port=instance_port
@@ -195,6 +202,14 @@ class InitialLobby:
             mid = self.queue_reply
             body = encode(self.messages[QUEUE_REPLY_SCHEMA, mid], {})
             return mid, bytes((self.hashes.index(QUEUE_REPLY_SCHEMA)+1, mid-23300))+body
+        if self.vs_ai_referral and packet[:2] == bytes((self.hashes.index(VS_AI_SCHEMA)+1, 0)):
+            # 44100 joins the vs-AI queue: decode the whole request (length check),
+            # then refer this client to its own loopback instance. The private
+            # instance server decides the map, mode and AI; no matchmaking result
+            # or queue state is invented here.
+            decode(self.messages[VS_AI_SCHEMA,44100],packet[2:])
+            body=encode(self.messages[INSTANCE_SCHEMA,20600],local_referral(self.instance_port))
+            return 20600,bytes((self.hashes.index(INSTANCE_SCHEMA)+1,0))+body
         if SOCIAL_SCHEMA not in self.hashes:
             return None
         if packet[:2] != bytes((self.hashes.index(SOCIAL_SCHEMA)+1, 22206-22200)):

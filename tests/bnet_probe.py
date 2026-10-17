@@ -203,6 +203,20 @@ class ProbeTests(unittest.TestCase):
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=1)
         with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,queue_reply=23332)
         with self.assertRaises(ValueError):InitialLobby(hashes,{k:v for k,v in messages.items() if k!=(INSTANCE_SCHEMA,20600)},instance_referral=True)
+        # Opt-in vs-AI queue join (44100) -> the same local referral; leave (44102) and other
+        # requests are not answered; the experiment needs the instance referral and its schema.
+        from lobby_service import VS_AI_SCHEMA
+        vs=dict(messages);vs.update(load_messages(root/'protocol/vs-ai-queue-104319.json'))
+        service=InitialLobby(hashes,vs,instance_referral=True,vs_ai_referral=True);service.sent=True
+        join=bytes((hashes.index(VS_AI_SCHEMA)+1,0))+bytes(44)
+        mid,packet=service.answer(join)
+        self.assertEqual((mid,packet[:2],len(packet)),(20600,bytes((hashes.index(INSTANCE_SCHEMA)+1,0)),242))
+        self.assertIsNone(service.answer(bytes((hashes.index(VS_AI_SCHEMA)+1,2))+bytes(44)))
+        with self.assertRaises(ValueError):service.answer(join[:-1])
+        plain=InitialLobby(hashes,vs,instance_referral=True);plain.sent=True
+        self.assertIsNone(plain.answer(join))
+        with self.assertRaises(ValueError):InitialLobby(hashes,vs,vs_ai_referral=True)
+        with self.assertRaises(ValueError):InitialLobby(hashes,messages,instance_referral=True,vs_ai_referral=True)
         self.assertIsNone(InitialLobby(hashes,messages).answer(request))
         # Pair mode: the second client is referred to its own container port 1129.
         pair=local_referral(1129)[0x80]

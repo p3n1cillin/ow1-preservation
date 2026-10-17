@@ -26,6 +26,7 @@ $pairUdp = @('--client-forward','1119:21119','--client-udp-forward','1119:21120'
 # Accepted shapes reach the fingerprint guard (exit 1), never a launch.
 foreach ($arguments in @(
     (@('--run-for','300') + $pair),
+    (@('--run-for','14400') + $pair),
     (@('--run-for','30') + $pair),
     (@('--run-for','300','--client-delay','180') + $pair),
     (@('--run-for','240','--client-delay','60','--pair-dump','c1') + $pairUdp),
@@ -34,11 +35,11 @@ foreach ($arguments in @(
     (@('--run-for','300','--client-delay','60','--pair-dump','all') + $trioUdp))) {
     Assert-Rejected $arguments $fingerprint 1
 }
-# Duration: mandatory, 1..300, once.
-foreach ($duration in @('0','301','3600','-1','NaN','99999')) {
+# Duration: mandatory, 1..14400 (four hours), once.
+foreach ($duration in @('0','14401','99999','-1','NaN','999999')) {
     Assert-Rejected (@('--run-for',$duration) + $pair) 'Pair diagnostic duration'
 }
-Assert-Rejected $pair 'Pair diagnostic requires --run-for in 1..300 seconds'
+Assert-Rejected $pair 'Pair diagnostic requires --run-for in 1..14400 seconds'
 Assert-Rejected (@('--run-for','100','--run-for','100') + $pair) 'Pair diagnostic duration'
 # Two or three clients, fixed container ports 1119, 1129 then 1139.
 Assert-Rejected @('--run-for','100','--client-forward','1119:21119') 'two or three clients'

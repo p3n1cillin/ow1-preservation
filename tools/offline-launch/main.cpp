@@ -1008,7 +1008,7 @@ namespace pair_mode {
 
 constexpr uint16_t container_ports[3] = {1119, 1129, 1139};
 constexpr size_t max_clients = 3;
-constexpr DWORD max_run_ms = 300000;
+constexpr DWORD max_run_ms = 14400000;
 constexpr DWORD max_delay_ms = 180000;
 constexpr DWORD min_second_client_ms = 30000;
 
@@ -1060,7 +1060,7 @@ struct Options {
 };
 
 DWORD parse_seconds(const std::wstring& text, unsigned low, unsigned high, const char* message) {
-    if (text.empty() || text.size() > 4 || text.find_first_not_of(L"0123456789") != std::wstring::npos)
+    if (text.empty() || text.size() > 5 || text.find_first_not_of(L"0123456789") != std::wstring::npos)
         throw std::runtime_error(message);
     const auto value = std::stoul(text);
     if (value < low || value > high) throw std::runtime_error(message);
@@ -1080,8 +1080,8 @@ Options parse(int argc, wchar_t** argv) {
         const std::wstring option = argv[n];
         const bool has_value = n + 1 < argc;
         if (option == L"--run-for" && has_value) {
-            if (o.run_ms != INFINITE) throw std::runtime_error("Pair diagnostic duration must be specified once, in 1..300 seconds");
-            o.run_ms = parse_seconds(argv[++n], 1, 300, "Pair diagnostic duration must be specified once, in 1..300 seconds");
+            if (o.run_ms != INFINITE) throw std::runtime_error("Pair diagnostic duration must be specified once, in 1..14400 seconds");
+            o.run_ms = parse_seconds(argv[++n], 1, 14400, "Pair diagnostic duration must be specified once, in 1..14400 seconds");
         } else if (option == L"--client-delay" && has_value) {
             if (o.delay_set) throw std::runtime_error("Specify the second-client delay once");
             o.delay_ms = parse_seconds(argv[++n], 0, max_delay_ms / 1000, "Second-client delay must be 0..180 seconds");
@@ -1126,7 +1126,7 @@ Options parse(int argc, wchar_t** argv) {
         }
     }
     if (o.run_ms == INFINITE || o.run_ms > max_run_ms)
-        throw std::runtime_error("Pair diagnostic requires --run-for in 1..300 seconds");
+        throw std::runtime_error("Pair diagnostic requires --run-for in 1..14400 seconds");
     if (o.clients.size() < 2 || o.clients.size() > max_clients)
         throw std::runtime_error("Pair mode requires two or three clients: container ports 1119, 1129, then 1139");
     for (const auto& client : o.clients) {
@@ -1453,11 +1453,11 @@ int wmain(int argc, wchar_t** argv) {
                 }
                 if (std::wstring(argv[n]) == L"--run-for" && n + 1 < argc) {
                     const std::wstring seconds = argv[++n];
-                    if (seconds.empty() || seconds.size() > 4 || seconds.find_first_not_of(L"0123456789") != std::wstring::npos)
-                        throw std::runtime_error("Private diagnostic duration must be 1..3600 seconds");
+                    if (seconds.empty() || seconds.size() > 5 || seconds.find_first_not_of(L"0123456789") != std::wstring::npos)
+                        throw std::runtime_error("Private diagnostic duration must be 1..14400 seconds");
                     const auto value = std::stoul(seconds);
-                    if (!value || value > 3600 || private_run_ms != INFINITE)
-                        throw std::runtime_error("Private diagnostic duration must be specified once, in 1..3600 seconds");
+                    if (!value || value > 14400 || private_run_ms != INFINITE)
+                        throw std::runtime_error("Private diagnostic duration must be specified once, in 1..14400 seconds");
                     private_run_ms = value * 1000;
                     continue;
                 }
@@ -1478,19 +1478,19 @@ int wmain(int argc, wchar_t** argv) {
                 client_arguments += argument.find(L' ') == std::wstring::npos ? argument : L"\"" + argument + L"\"";
             }
             const bool exact_loopback = client_arguments == L"--BNetServer=127.0.0.1:1119";
-            // Allow loading plus interactive gameplay checks within a fixed five-minute bound.
-            constexpr DWORD max_private_probe_ms = 300000;
+            // Interactive play sessions: a fixed four-hour bound; the run also ends when the client exits.
+            constexpr DWORD max_private_probe_ms = 14400000;
             if (!datagram_forwards.empty() && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119 || !exact_loopback))
-                throw std::runtime_error("UDP diagnostic requires a 1..300-second run and the existing port-1119 TCP loopback forward");
+                throw std::runtime_error("UDP diagnostic requires a 1..14400-second run and the existing port-1119 TCP loopback forward");
             if (!trust_ca_pem.empty() && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || !exact_loopback))
-                throw std::runtime_error("CA probe requires a 1..300-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
+                throw std::runtime_error("CA probe requires a 1..14400-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
             if (observe_tls && (private_run_ms == INFINITE || private_run_ms > max_private_probe_ms
                 || forwards.size() != 1 || forwards[0].container_port != 1119
                 || !exact_loopback))
-                throw std::runtime_error("TLS observer requires a 1..300-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
+                throw std::runtime_error("TLS observer requires a 1..14400-second run, one port-1119 loopback forward and the exact loopback BNetServer argument");
             if (trust_socket_ca && (trust_ca_pem.empty() || !observe_tls))
                 throw std::runtime_error("Native socket CA installation requires --trust-ca and --observe-tls");
             if (!lobby_public_modulus.empty() && !trust_socket_ca)

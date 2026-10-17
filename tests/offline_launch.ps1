@@ -69,7 +69,7 @@ foreach ($mode in @('--wmi-workaround', '--run-offline', '--map-probe', '--map-p
         throw "Mode $mode did not reach its executable fingerprint guard: $rejection"
     }
 }
-foreach ($duration in @('0','3601','-1','NaN','99999')) {
+foreach ($duration in @('0','14401','-1','NaN','99999','999999')) {
     $rejection = & $Launcher $Launcher --retail-private --run-for $duration 2>&1
     if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Private diagnostic duration*') {
         throw "Invalid private diagnostic duration accepted: $duration"
@@ -78,21 +78,21 @@ foreach ($duration in @('0','3601','-1','NaN','99999')) {
 foreach ($arguments in @(
     @('--udp-forward','1119:21120'),
     @('--udp-forward','1120:21120','--run-for','1'),
-    @('--udp-forward','1119:21120','--run-for','301'),
     @('--udp-forward','1119:21120','--udp-forward','1119:21121','--run-for','1'))) {
     $rejection = & $Launcher $Launcher --retail-private @arguments 2>&1
     if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*UDP diagnostic requires*') { throw 'Invalid UDP diagnostic accepted' }
 }
-$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --udp-forward 1119:21120 --run-for 301 -- --BNetServer=127.0.0.1:1119 2>&1
-if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*UDP diagnostic requires*') { throw 'UDP lifetime bound exceeded' }
-$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --observe-tls --run-for 301 -- --BNetServer=127.0.0.1:1119 2>&1
-if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires*') { throw 'TLS lifetime bound exceeded' }
+# The UDP/CA/TLS bound equals the general private bound (four hours): 14401 fails the duration parser first.
+$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --udp-forward 1119:21120 --run-for 14401 -- --BNetServer=127.0.0.1:1119 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Private diagnostic duration*') { throw 'UDP lifetime bound exceeded' }
+$rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --observe-tls --run-for 14401 -- --BNetServer=127.0.0.1:1119 2>&1
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Private diagnostic duration*') { throw 'TLS lifetime bound exceeded' }
 $rejection = & $Launcher $Launcher --retail-private --observe-tls 2>&1
-if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..300-second run*') { throw 'Unbounded TLS observation accepted' }
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..14400-second run*') { throw 'Unbounded TLS observation accepted' }
 $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=127.0.0.1:1119 2>&1
 if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Retail launch only supports the fingerprinted final OW1 executable*') { throw 'TLS observation did not reject an unrelated executable' }
 $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --observe-tls -- --BNetServer=example.invalid:1119 2>&1
-if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..300-second run*') { throw 'TLS observation accepted a different endpoint' }
+if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*TLS observer requires a 1..14400-second run*') { throw 'TLS observation accepted a different endpoint' }
 foreach ($arguments in @(
     @('--preload-practice-header'),
     @('--preload-practice-header','--forward','1119:21119','--udp-forward','1119:21120','--run-for','1','--','--BNetServer=127.0.0.1:1119'))) {
@@ -115,16 +115,16 @@ try {
         throw 'CA probe did not reject an unrelated executable before mutation'
     }
     $rejection = & $Launcher $Launcher --retail-private --trust-ca $certificateFixture 2>&1
-    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*CA probe requires a 1..300-second run*') { throw 'Unbounded CA probe accepted' }
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*CA probe requires a 1..14400-second run*') { throw 'Unbounded CA probe accepted' }
     foreach ($server in @('--BNetServer=example.invalid:1119', '--BNetServer=127.0.0.1:1120')) {
         $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 1 --trust-ca $certificateFixture -- $server 2>&1
         if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*exact loopback BNetServer argument*') { throw 'CA probe accepted a different service endpoint' }
     }
-    $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 301 --trust-ca $certificateFixture -- --BNetServer=127.0.0.1:1119 2>&1
-    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*CA probe requires a 1..300-second run*') { throw 'CA lifetime bound exceeded' }
+    $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --run-for 14401 --trust-ca $certificateFixture -- --BNetServer=127.0.0.1:1119 2>&1
+    if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Private diagnostic duration*') { throw 'CA lifetime bound exceeded' }
     # The combined boundary case must pass UDP, CA and TLS duration checks, then
     # reject this unrelated executable before any client launch or mutation.
-    foreach ($duration in @(180,181,300)) {
+    foreach ($duration in @(180,301,14400)) {
         $rejection = & $Launcher $Launcher --retail-private --forward 1119:21119 --udp-forward 1119:21120 --run-for $duration --trust-ca $certificateFixture --observe-tls -- --BNetServer=127.0.0.1:1119 2>&1
         if ($LASTEXITCODE -eq 0 -or ($rejection | Out-String) -notlike '*Retail launch only supports the fingerprinted final OW1 executable*') {
             throw "Bounded combined diagnostic did not reach the fingerprint guard: $duration"

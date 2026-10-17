@@ -2018,3 +2018,25 @@ Notes:
   13/13 audit. Practice-vs-AI v0 works on Practice Range. Next: AI on Anubis (spawn clusters above),
   AI navigation (no navmesh: bots strafe around spawn points and do not path), more heroes for AI,
   the Skirmish/vs-AI mode flow (lobby "Practice vs. AI" card: client queue request shape unknown).
+- **Interactive session bound 4 h (public):** launcher private UDP/CA/TLS and pair bounds raised 300 s ->
+  14400 s at the user's request (cleanup still at the bound or when the client exits); tests updated;
+  responder/pair responder/drivers accept up to 14400. Build + 27/27 CTest.
+- **AI heroes per bot (439b):** `-AiBots 'x,y,z@DEF:RECORD;..'` + `-AiPreload` (weapon children): Soldier
+  (03cf/006e), 0022/0002 and 0141/0005 render as different heroes with their own skins on Anubis; AI
+  weapon instance/volley from the hero configs. Anubis floor feed y ~1.75: AI y and the recipe's pick
+  spawn must use it (run-anubis438.ps1); the pair driver now counts the recipe's placeables for hero ids.
+  Player HUD/pistols missing in 434/436/438 but present in 433/435/437/439b: unresolved, server counters
+  identical; not caused by AI timing alone (gate kept).
+- **User exploration session (user-explore-440, user clicked through every menu; watcher
+  `.local/re/watch-lobby-calls.py <probe.log>` maps entry/delta to message ids):** 24000 Training
+  (Tutorial and Practice Range, mode field differs) -> answered (only one instance per session: a second
+  entry hangs); **44100/44102 = matchmaking queue join/leave for Quick Play role queue, Competitive and
+  Practice vs. AI** (queue type/difficulty inside the 32-byte struct + 3 u32; layout
+  protocol/vs-ai-queue-104319.json); 26500 = Shop request; 38201 = settings blobs (x9 at once); 22200 sent
+  when leaving Options; 22206 profile -> answered 20807 (Career Profile); 39200/39201 periodic
+  stats-like uploads; 21801 leave game; 44100/44102 unanswered (search spins). No request at all for
+  Arcade (empty: server push missing), Loot Box (0 boxes), Patch Notes (web content, no Internet),
+  Options, Statistics, Achievements, Player Icon browsing, Social (Friends = Battle.net service),
+  Highlights, role toggles. New opt-in public `--lobby-vs-ai-schema protocol/vs-ai-queue-104319.json
+  --lobby-vs-ai-referral` (needs instance referral; driver `-VsAi`) answers 44100 with the local 20600
+  referral (test added). Agent tracing the Arcade push + full queue reply sequence (arcade-queue-440.md).

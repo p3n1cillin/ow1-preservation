@@ -1,0 +1,134 @@
+{
+ "build": 104319,
+ "note": "Numeric layouts of the client's vs-AI game-queue requests (schema 0x1c6ec712): 44100 join, 44102 leave. Field meanings unverified; no payloads.",
+ "messages": [
+  {
+   "schema_hash": 477021970,
+   "message_id": 44100,
+   "fields": [
+    {
+     "kind": 14,
+     "offset": 120,
+     "width": 48,
+     "count": 0,
+     "fields": [
+      {
+       "kind": 14,
+       "offset": 0,
+       "width": 32,
+       "count": 0,
+       "fields": [
+        {
+         "kind": 8,
+         "offset": 0,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 8,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 16,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 24,
+         "width": 8,
+         "count": 0
+        }
+       ]
+      },
+      {
+       "kind": 6,
+       "offset": 32,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 36,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 40,
+       "width": 4,
+       "count": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "schema_hash": 477021970,
+   "message_id": 44102,
+   "fields": [
+    {
+     "kind": 14,
+     "offset": 120,
+     "width": 48,
+     "count": 0,
+     "fields": [
+      {
+       "kind": 14,
+       "offset": 0,
+       "width": 32,
+       "count": 0,
+       "fields": [
+        {
+         "kind": 8,
+         "offset": 0,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 8,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 16,
+         "width": 8,
+         "count": 0
+        },
+        {
+         "kind": 8,
+         "offset": 24,
+         "width": 8,
+         "count": 0
+        }
+       ]
+      },
+      {
+       "kind": 6,
+       "offset": 32,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 36,
+       "width": 4,
+       "count": 0
+      },
+      {
+       "kind": 6,
+       "offset": 40,
+       "width": 4,
+       "count": 0
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
