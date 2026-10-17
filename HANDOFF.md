@@ -1987,3 +1987,34 @@ Notes:
   NOT yet checked visually: whether enemies now render with enemy (red) outlines/health bars
   (`pair-team-429-views.png` crops c0/c1/c2 views). Next: verify team visuals, then other maps from the
   map catalogue agent (`.local/re/map-catalogue-426.md` / `.local/runs/map-catalogue-426.json` if it finished).
+- **SECOND MAP: Temple of Anubis (anubis430..432, single client, Skirmish 0x0230000000000010):** map
+  catalogue `.local/runs/map-catalogue-426.json` (agent, 132 headers / 25 modes; headers carry name,
+  canonical map, modes, pending placeables). Recipe `.local/runs/run-anubis432.ps1`: MapHeader
+  079000000000005b, MapCanonical 080000000000005b (new driver params `-MapCanonical`, `-PlaceableIds`;
+  responder placeable cap 8 -> 64; single-driver feed id follows the placeable count). Pending keys
+  read live from a no-placeable run (431 dump retail-private-anubis431-pending.dmp,
+  replication-pending-keys-55.py): 29 zero-dependency keys = the catalogue keys exactly (Practice's
+  catalogue keys were 5 low; use live keys). 430b with keys+5 aborted to Training after ~4.5 s of
+  commands; 432 with the true keys: original "DEFEND - TEMPLE OF ANUBIS" hero select, Tracer spawns
+  in the Anubis spawn room (14.04,0.9,-28.94; spawns.py clusters (14,0.8,-30), (-13,4.3,139),
+  (-68,2.5,19)) with HUD/pistols. The Practice close step leaves the hero-select overlay/CHANGE HERO
+  visible (Practice-specific controller graphs 13c1/20e4); Skirmish mode graph 0d76 not driven yet.
+- **PRACTICE VS AI v0 (ai-practice-433/434):** "Practice vs. AI" is not a mode (catalogue): vs-AI uses
+  normal modes with server-side bots. New private `udp_pair_reply.py --ai-bots 'x,y,z;..'`
+  (patch_ai-431.py; driver `-AiBots -AiDps -AiAccuracy -AiRange -AiStrafe`, `-Clients 1` now uses
+  the launcher's single-client mode): each AI is a virtual session (AiSession, team 1, Tracer +
+  controller, entity base 0x3c0+0x10k) only in World.sessions; existing proxy code creates its hero,
+  controller and pistols in every client; ai_tick strafes it around its spawn, aims at the nearest live
+  enemy player, fires bursts (weapon 10:8 mirrored) and deals dps x accuracy; players kill it through
+  the PvP hit test (dead flag, frozen body, 3 s respawn). 433: two AI Tracers render in front of the
+  player, aim, strafe, fire; the player's HUD drops and the native death view plays (15 AI kills).
+  434 (accuracy 0.15, bot ahead): player kills an AI (86 hits) and it respawns; BUT the player's hero
+  had NO HUD/pistols (red no-entry) from the start: damage bumped the hero snapshot sequence before the
+  hero's first full frames had created its HUD/weapon subgraphs. Fix (ai-435): AI targeting and PvP
+  damage wait for the victim's counts['pick_full'] >= 40, HUD-hp sequence bumps for >= 20.
+- **ai-practice-435 (setup gate):** same matchup as 434 with the ai-435 gate: the player's HUD and pistols
+  persist the whole match (`ai-practice-435-grid.png`: health 70/12/193/133/98/33/death/158), two enemy
+  AI Tracers aim, strafe and fire, 7 AI kills / 6 player respawns, the player kills an AI (63 hits),
+  13/13 audit. Practice-vs-AI v0 works on Practice Range. Next: AI on Anubis (spawn clusters above),
+  AI navigation (no navmesh: bots strafe around spawn points and do not path), more heroes for AI,
+  the Skirmish/vs-AI mode flow (lobby "Practice vs. AI" card: client queue request shape unknown).
