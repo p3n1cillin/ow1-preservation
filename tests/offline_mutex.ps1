@@ -8,6 +8,19 @@ $beforeFolder = (Get-Acl -LiteralPath $folder).Sddl
 $output = & $Launcher $Launcher --self-test-mutex 2>&1 | Out-String
 $code = $LASTEXITCODE
 Write-Output $output
+# GitHub's hosted Windows runners refuse every named-object create from an
+# AppContainer (ERR:5 for both the client-SD and default attempts in all
+# no-precreate cases), so the probe cannot run there at all. Report that as a
+# skip (CTest SKIP_RETURN_CODE 77), never as a pass; anywhere else, and on a
+# runner where even one create succeeds, the full checks below apply.
+$noPrecreate = @([regex]::Matches($output, 'E0 case=no-precreate-[a-z-]+ (first|second): [^\r\n]*'))
+if ($env:GITHUB_ACTIONS -eq 'true' -and $code -ne 0 -and $noPrecreate.Count -eq 4 -and
+    @($noPrecreate | Where-Object { $_.Value -notmatch 'client_sd_create=ERR:5 default_create=ERR:5 ' }).Count -eq 0) {
+    if ((Get-Acl -LiteralPath $Launcher).Sddl -ne $beforeFile -or
+        (Get-Acl -LiteralPath $folder).Sddl -ne $beforeFolder) { throw 'Scoped ACL was not restored' }
+    Write-Output 'SKIP: this runner denies AppContainer named-object creation (ERR:5); the E0 probe needs a desktop session.'
+    exit 77
+}
 if ($code -ne 0) { throw "Mutex namespace self-test failed (exit $code)" }
 if ((Get-Acl -LiteralPath $Launcher).Sddl -ne $beforeFile -or
     (Get-Acl -LiteralPath $folder).Sddl -ne $beforeFolder) { throw 'Scoped ACL was not restored' }

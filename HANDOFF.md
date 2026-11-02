@@ -11,6 +11,10 @@ the short "where are we, how do I run it, what next".
 - Public, reviewed code/docs: `tools/`, `tests/`, `protocol/`, `docs/`, root `*.md`.
   Commit and push to `main` (`git push origin main`; "Permission denied" repack
   warnings are harmless).
+- CI (2026-11-02): GitHub's hosted Windows runner denies every AppContainer named-object
+  create (ERR:5), so `offline-launch-mutex-namespace` reports **skipped** there (CTest
+  `SKIP_RETURN_CODE 77`) when, and only when, all four no-precreate probes show
+  `client_sd_create=ERR:5 default_create=ERR:5`. Locally the full E0 checks still run.
 - Private research (ignored by Git): `.local/`.
   - `.local/re/` — responder, driver, generators, graph dumps, RE notes.
   - `.local/runs/` — per-run logs, screenshots, datagram logs, JSON reports.
