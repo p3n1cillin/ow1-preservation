@@ -2167,3 +2167,14 @@ Notes:
   for the phase frames in assault-anubis-flow.md section 6 (always-on S52/S58/S12+0cbb/S178; g:2a2b=1,
   2a2c=0, 1ddb name, 0517 clock; phase 1 S43/S7/S10/S8/S9). Settle the ChaseVar/Wait/GME/team/string
   value forms there before any live phase test. Then the timeline: assemble 30 s -> setup 45 s -> round.
+
+## 2026-11-12 (Codex) - external package-source lookup
+
+- Completed the user's external preload-source search; the source references,
+  HTTP availability checks and limitations are saved privately in
+  `.local/codex-scratch/preload-search-2026-11-12.md`, with the URL list and JSON
+  report named there. No game packages were downloaded, run or published.
+- No OW1 implementation, recipes, native builds or live client sessions changed.
+  Existing gameplay checkpoints and open problems above remain the OW1 frontier.
+- Next: consult the private note if package-source revalidation is requested;
+  otherwise resume the existing OW1 work from its latest verified checkpoint.
