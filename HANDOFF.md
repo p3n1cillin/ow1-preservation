@@ -2215,3 +2215,23 @@ Notes:
 - Next: consult the private report's input prerequisites before repeating any
   extraction/runtime work. No background research or download monitoring remains
   active. OW1 implementation and its existing gameplay frontier are unchanged.
+
+## 2026-11-13 (Codex) - external research moved beside its source files
+
+- The user explicitly requested a project directory alongside the downloaded
+  packages. The active external research project is now
+  `D:\GTA-VI-Preload\GTA-VI-Research`, with its own README.md and HANDOFF.md.
+  This user instruction overrides the earlier OW1-only location rule for that
+  external research. Continue it there; the OW1 private copy is archival.
+- Copied and SHA-256 verified 182 research/tool/script/provenance files before
+  adapting active script paths. The D: project preserves original scripts,
+  historical reports, command logs, source references and migration records.
+  Original package files were not moved, modified or duplicated.
+- Targeted follow-up recovered additional readable filesystem metadata and ran
+  bounded public-default cryptographic checks. No working key, decrypted game
+  executable, asset tree or successful boot resulted. Detailed findings and
+  corrections to the initial assumptions are in the D: project's continuation
+  report; do not repeat the old loader diagnostics as if they were new progress.
+- All 26 current consistency checks passed, copied tools launch from D:, and
+  project/report manifests were refreshed. No OW1 implementation changed and
+  no background download, emulator or brute-force job remains running.
