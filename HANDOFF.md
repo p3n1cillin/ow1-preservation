@@ -2235,3 +2235,8 @@ Notes:
 - All 26 current consistency checks passed, copied tools launch from D:, and
   project/report manifests were refreshed. No OW1 implementation changed and
   no background download, emulator or brute-force job remains running.
+- Subsequent D: follow-up verified an internal metadata digest and completed a
+  bounded metadata-tail scan, with a per-block inventory and raw command logs.
+  No additional readable filesystem, executable or key-recovery route resulted.
+  The D: project's handoff/findings contain the evidence and limits; all 30
+  updated consistency checks pass. Continue only from that active project.
