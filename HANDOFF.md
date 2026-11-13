@@ -2178,3 +2178,14 @@ Notes:
   Existing gameplay checkpoints and open problems above remain the OW1 frontier.
 - Next: consult the private note if package-source revalidation is requested;
   otherwise resume the existing OW1 work from its latest verified checkpoint.
+
+## 2026-11-13 (Codex) - background download handoff
+
+- The user's external package download continues independently in the destination
+  recorded in `.local/codex-scratch/preload-search-2026-11-12.md`. That private note
+  names the runner, progress file, destination and storage-error recovery history.
+- The user requested no further agent polling to avoid spending usage. Do not
+  restart monitoring or launch another downloader unless asked. The runner saves
+  its final report itself. Completion has not yet been verified by an agent.
+- No OW1 code or live gameplay work changed. Private research and package bytes
+  remain excluded from Git.
