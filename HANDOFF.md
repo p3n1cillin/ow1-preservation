@@ -2240,3 +2240,9 @@ Notes:
   No additional readable filesystem, executable or key-recovery route resulted.
   The D: project's handoff/findings contain the evidence and limits; all 30
   updated consistency checks pass. Continue only from that active project.
+- The next D: continuation acquired and verified the formerly missing metadata,
+  completed the split-package inventory and recovered system metadata/assets.
+  The verified transport setup, source provenance, integrity samples and the
+  remaining wrapped-key blocker are documented privately in the D: project's
+  `reports/official-metadata/README.md`. No application executable was recovered
+  or booted. All 42 current checkpoint checks pass; no OW1 code changed.
