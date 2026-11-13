@@ -2186,6 +2186,8 @@ Notes:
   names the runner, progress file, destination and storage-error recovery history.
 - The user requested no further agent polling to avoid spending usage. Do not
   restart monitoring or launch another downloader unless asked. The runner saves
-  its final report itself. Completion has not yet been verified by an agent.
+  its final report itself. After the user reported completion, one verification
+  confirmed all requested package filenames and sizes, no failed or partial files,
+  and recorded hashes. Detailed results and limits remain in the private note.
 - No OW1 code or live gameplay work changed. Private research and package bytes
   remain excluded from Git.
