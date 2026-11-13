@@ -2191,3 +2191,27 @@ Notes:
   and recorded hashes. Detailed results and limits remain in the private note.
 - No OW1 code or live gameplay work changed. Private research and package bytes
   remain excluded from Git.
+
+## 2026-11-13 (Codex) - private package inspection and loader diagnostics
+
+- Completed the user's follow-up inspection and bounded loader investigation.
+  The detailed report, source references, tool versions/hashes, exact command
+  records, raw output and continuation requirements are private in
+  `.local/re/gta6-preload/emulation/README.md`; initial format/range inspection
+  is in its parent folder. `SESSION_LOG.md` records the investigation sequence.
+- No decrypted application executable was recovered, converted or launched.
+  The current inputs remain blocked by the retail encryption/key prerequisite
+  and missing extracted application layout. Do not interpret metadata labels,
+  tool startup or expected input rejections as a successful game boot.
+- Existing sibling tool checkouts and pending changes were preserved. New tools
+  and all private outputs stayed inside this project's ignored `.local/` tree.
+  A scoped execute-permission fix for newly downloaded tool binaries is logged
+  there; no global security settings or original package bytes were changed.
+- Consistency validation passed: source filenames/sizes, recorded loader results,
+  release digests, range coverage, exact header-copy provenance, JSON parsing and
+  script compilation. Full original-file hashes remain download-time records;
+  the large source image was not rehashed. See private `validation.json` and
+  `artifact-manifest.json` for scope and evidence.
+- Next: consult the private report's input prerequisites before repeating any
+  extraction/runtime work. No background research or download monitoring remains
+  active. OW1 implementation and its existing gameplay frontier are unchanged.
